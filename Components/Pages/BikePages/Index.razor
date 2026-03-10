@@ -1,0 +1,40 @@
+@page "/bikes"
+@using Microsoft.AspNetCore.Components.QuickGrid
+@using Microsoft.EntityFrameworkCore
+@using webmcp.Models
+@implements IAsyncDisposable
+@inject IDbContextFactory<webmcpContext> DbFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Index</PageTitle>
+
+<h1>Index</h1>
+
+<p>
+    <a href="bikes/create">Create New</a>
+</p>
+
+<QuickGrid Class="table" Items="context.Bike">
+    <PropertyColumn Property="bike => bike.Name" />
+    <PropertyColumn Property="bike => bike.Sku" />
+    <PropertyColumn Property="bike => bike.Color" />
+    <PropertyColumn Property="bike => bike.Brand" />
+    <PropertyColumn Property="bike => bike.Price" />
+
+    <TemplateColumn Context="bike">
+        <a href="@($"bikes/edit?id={bike.Id}")">Edit</a> |
+        <a href="@($"bikes/details?id={bike.Id}")">Details</a> |
+        <a href="@($"bikes/delete?id={bike.Id}")">Delete</a>
+    </TemplateColumn>
+</QuickGrid>
+
+@code {
+    private webmcpContext context = default!;
+
+    protected override void OnInitialized()
+    {
+        context = DbFactory.CreateDbContext();
+    }
+
+    public async ValueTask DisposeAsync() => await context.DisposeAsync();
+}

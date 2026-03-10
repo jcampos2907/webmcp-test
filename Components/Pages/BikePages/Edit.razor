@@ -1,0 +1,109 @@
+@page "/bikes/edit"
+@using Microsoft.EntityFrameworkCore
+@using webmcp.Models
+@inject IDbContextFactory<webmcpContext> DbFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Edit</PageTitle>
+
+<h1>Edit</h1>
+
+<h2>Bike</h2>
+<hr />
+@if (Bike is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-4">
+            <EditForm method="post" Model="Bike" OnValidSubmit="UpdateBike" FormName="edit" Enhance>
+                <DataAnnotationsValidator />
+                <ValidationSummary role="alert"/>
+                <input type="hidden" name="Bike.Id" value="@Bike.Id" />
+                <div class="mb-3">
+                    <label for="name" class="form-label">Name:</label>
+                    <InputText id="name" @bind-Value="Bike.Name" class="form-control" />
+                    <ValidationMessage For="() => Bike.Name" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="sku" class="form-label">Sku:</label>
+                    <InputText id="sku" @bind-Value="Bike.Sku" class="form-control" />
+                    <ValidationMessage For="() => Bike.Sku" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="color" class="form-label">Color:</label>
+                    <InputText id="color" @bind-Value="Bike.Color" class="form-control" />
+                    <ValidationMessage For="() => Bike.Color" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="brand" class="form-label">Brand:</label>
+                    <InputText id="brand" @bind-Value="Bike.Brand" class="form-control" />
+                    <ValidationMessage For="() => Bike.Brand" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="price" class="form-label">Price:</label>
+                    <InputNumber id="price" @bind-Value="Bike.Price" class="form-control" />
+                    <ValidationMessage For="() => Bike.Price" class="text-danger" />
+                </div>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </EditForm>
+        </div>
+    </div>
+}
+
+<div>
+    <a href="/bikes">Back to List</a>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    [SupplyParameterFromForm]
+    private Bike? Bike { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        using var context = DbFactory.CreateDbContext();
+        Bike ??= await context.Bike.FirstOrDefaultAsync(m => m.Id == Id);
+
+        if (Bike is null)
+        {
+            NavigationManager.NotFound();
+        }
+    }
+
+    // To protect from overposting attacks, enable the specific properties you want to bind to.
+    // For more information, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task UpdateBike()
+    {
+        using var context = DbFactory.CreateDbContext();
+        context.Attach(Bike!).State = EntityState.Modified;
+
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!BikeExists(Bike!.Id))
+            {
+                NavigationManager.NotFound();
+            }
+            else
+            {
+                throw;
+            }
+        }
+
+        NavigationManager.NavigateTo("/bikes");
+    }
+
+    private bool BikeExists(int id)
+    {
+        using var context = DbFactory.CreateDbContext();
+        return context.Bike.Any(e => e.Id == id);
+    }
+}
