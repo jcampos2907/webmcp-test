@@ -41,4 +41,35 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
+// Minimal API endpoints for WebMCP tools
+var bikeApi = app.MapGroup("/api/bikes");
+
+bikeApi.MapGet("/", async (IDbContextFactory<webmcpContext> dbFactory) =>
+{
+    using var context = dbFactory.CreateDbContext();
+    return Results.Ok(await context.Bike.ToListAsync());
+});
+
+bikeApi.MapGet("/{id:int}", async (int id, IDbContextFactory<webmcpContext> dbFactory) =>
+{
+    using var context = dbFactory.CreateDbContext();
+    var bike = await context.Bike.FindAsync(id);
+    return bike is not null ? Results.Ok(bike) : Results.NotFound();
+});
+
+bikeApi.MapGet("/search", async (string? query, IDbContextFactory<webmcpContext> dbFactory) =>
+{
+    using var context = dbFactory.CreateDbContext();
+    var bikes = context.Bike.AsQueryable();
+    if (!string.IsNullOrWhiteSpace(query))
+    {
+        bikes = bikes.Where(b =>
+            (b.Name != null && b.Name.Contains(query)) ||
+            b.Brand.Contains(query) ||
+            b.Color.Contains(query) ||
+            b.Sku.Contains(query));
+    }
+    return Results.Ok(await bikes.ToListAsync());
+});
+
 app.Run();
