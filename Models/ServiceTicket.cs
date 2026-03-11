@@ -30,14 +30,13 @@ public class ServiceTicket
     [DataType(DataType.MultilineText)]
     public string? Description { get; set; }
 
-    // Placeholder: will reference a Mechanic model in the future
     public int? MechanicId { get; set; }
+    public Mechanic? Mechanic { get; set; }
 
-    // Placeholder: will reference a Service model in the future
     public int? BaseServiceId { get; set; }
+    public Service? BaseService { get; set; }
 
-    // Placeholder: will reference Product model(s) in the future (additional parts)
-    // public ICollection<Product> AdditionalParts { get; set; }
+    public ICollection<TicketProduct> TicketProducts { get; set; } = new List<TicketProduct>();
 
     [Required]
     [DataType(DataType.Currency)]
