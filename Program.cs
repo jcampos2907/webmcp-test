@@ -15,6 +15,8 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.AddOpenApi();
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -33,6 +35,11 @@ if (!app.Environment.IsDevelopment())
     app.UseMigrationsEndPoint();
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+};
 app.UseHttpsRedirection();
 
 app.UseAntiforgery();
@@ -115,6 +122,18 @@ ticketApi.MapGet("/search", async (string? status, int? bikeId, int? mechanicId,
     return Results.Ok(await tickets.ToListAsync());
 });
 
+ticketApi.MapGet("/open", async (IDbContextFactory<BikePosContext> dbFactory) =>
+{
+    using var context = dbFactory.CreateDbContext();
+    var openStatuses = new[] { BikePOS.Models.TicketStatus.Open, BikePOS.Models.TicketStatus.InProgress, BikePOS.Models.TicketStatus.WaitingForParts };
+    return Results.Ok(await context.ServiceTicket
+        .Include(t => t.Bike)
+        .Include(t => t.Mechanic)
+        .Where(t => openStatuses.Contains(t.Status))
+        .OrderByDescending(t => t.CreatedAt)
+        .ToListAsync());
+});
+
 // Mechanic API endpoints
 var mechanicApi = app.MapGroup("/api/mechanics");
 
@@ -155,5 +174,7 @@ productApi.MapGet("/search", async (string? query, IDbContextFactory<BikePosCont
     }
     return Results.Ok(await products.ToListAsync());
 });
+
+app.MapChargeEndpoints();
 
 app.Run();
