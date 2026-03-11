@@ -2,7 +2,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "webmcp", "webmcp.csproj", "{4CF35A2E-B4C0-23E7-90A1-D7DB0B271741}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BikePOS", "BikePOS.csproj", "{4CF35A2E-B4C0-23E7-90A1-D7DB0B271741}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -2,9 +2,9 @@
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Components.QuickGrid
 @using Microsoft.EntityFrameworkCore
-@using webmcp.Models
+@using BikePOS.Models
 @implements IAsyncDisposable
-@inject IDbContextFactory<webmcpContext> DbFactory
+@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
 
 <PageTitle>Index</PageTitle>
@@ -46,7 +46,7 @@
         context.Bike.Where(m => m.Name!.Contains(NameFilter));
 
 
-    private webmcpContext context = default!;
+    private BikePOS.Data.BikePosContext context = default!;
 
     protected override void OnInitialized()
     {

@@ -141,4 +141,4 @@ mcp.registerPrompt(
     }
 );
 
-console.log("[WebMCP] Bike inventory tools, resources, and prompts registered.");
+console.log("[BikePOS] WebMCP tools, resources, and prompts registered.");

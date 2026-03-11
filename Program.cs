@@ -1,11 +1,11 @@
-using webmcp.Components;
-using webmcp.Data;
+using BikePOS.Components;
+using BikePOS.Data;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
-var connectionString = builder.Configuration.GetConnectionString("webmcpContext") ?? throw new InvalidOperationException("Connection string 'webmcpContext' not found.");
+var connectionString = builder.Configuration.GetConnectionString("BikePosContext") ?? throw new InvalidOperationException("Connection string 'BikePosContext' not found.");
 
-builder.Services.AddDbContextFactory<webmcpContext>(options => options.UseSqlite(connectionString));
+builder.Services.AddDbContextFactory<BikePosContext>(options => options.UseSqlite(connectionString));
 
 builder.Services.AddQuickGridEntityFrameworkAdapter();
 
@@ -44,20 +44,20 @@ app.MapRazorComponents<App>()
 // Minimal API endpoints for WebMCP tools
 var bikeApi = app.MapGroup("/api/bikes");
 
-bikeApi.MapGet("/", async (IDbContextFactory<webmcpContext> dbFactory) =>
+bikeApi.MapGet("/", async (IDbContextFactory<BikePosContext> dbFactory) =>
 {
     using var context = dbFactory.CreateDbContext();
     return Results.Ok(await context.Bike.ToListAsync());
 });
 
-bikeApi.MapGet("/{id:int}", async (int id, IDbContextFactory<webmcpContext> dbFactory) =>
+bikeApi.MapGet("/{id:int}", async (int id, IDbContextFactory<BikePosContext> dbFactory) =>
 {
     using var context = dbFactory.CreateDbContext();
     var bike = await context.Bike.FindAsync(id);
     return bike is not null ? Results.Ok(bike) : Results.NotFound();
 });
 
-bikeApi.MapGet("/search", async (string? query, IDbContextFactory<webmcpContext> dbFactory) =>
+bikeApi.MapGet("/search", async (string? query, IDbContextFactory<BikePosContext> dbFactory) =>
 {
     using var context = dbFactory.CreateDbContext();
     var bikes = context.Bike.AsQueryable();

@@ -1,20 +1,20 @@
 using Microsoft.EntityFrameworkCore;
-using webmcp.Models;
+using BikePOS.Models;
 
-namespace webmcp.Data;
+namespace BikePOS.Data;
 
 public class SeedData
 {
     public static void Initialize(IServiceProvider serviceProvider)
     {
-        using var context = new webmcpContext(
+        using var context = new BikePosContext(
             serviceProvider.GetRequiredService<
-                DbContextOptions<webmcpContext>>());
+                DbContextOptions<BikePosContext>>());
 
         if (context == null || context.Bike == null)
         {
             throw new NullReferenceException(
-                "Null webmcpContext or Bike DbSet");
+                "Null BikePosContext or Bike DbSet");
         }
 
         if (context.Bike.Any())

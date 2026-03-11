@@ -1,9 +1,8 @@
-﻿using System;
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace webmcp.Migrations
+namespace BikePOS.Migrations
 {
     /// <inheritdoc />
     public partial class InitialCreate : Migration
@@ -12,19 +11,20 @@ namespace webmcp.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "Movie",
+                name: "Bike",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "INTEGER", nullable: false)
                         .Annotation("Sqlite:Autoincrement", true),
-                    Title = table.Column<string>(type: "TEXT", nullable: true),
-                    ReleaseDate = table.Column<DateOnly>(type: "TEXT", nullable: false),
-                    Genre = table.Column<string>(type: "TEXT", nullable: true),
+                    Name = table.Column<string>(type: "TEXT", nullable: false),
+                    Sku = table.Column<string>(type: "TEXT", nullable: false),
+                    Color = table.Column<string>(type: "TEXT", nullable: false),
+                    Brand = table.Column<string>(type: "TEXT", nullable: false),
                     Price = table.Column<decimal>(type: "decimal(18, 2)", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Movie", x => x.Id);
+                    table.PrimaryKey("PK_Bike", x => x.Id);
                 });
         }
 
@@ -32,7 +32,7 @@ namespace webmcp.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "Movie");
+                name: "Bike");
         }
     }
 }

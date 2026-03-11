@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Drawing;
 
-namespace webmcp.Models;
+namespace BikePOS.Models;
 
 public class Bike
 {

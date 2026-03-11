@@ -1,10 +1,10 @@
-# WebMCP
+# BikePOS
 
-A .NET Blazor application showcasing WebMCP (Model Context Protocol) integration.
+A bike shop point-of-sale and service ticket management system built with .NET Blazor and WebMCP integration.
 
 ## Overview
 
-This project demonstrates how to build a Blazor web application with [WebMCP](https://webmcp.dev/) integration, using Entity Framework Core for data access.
+BikePOS is a Blazor web application for managing bike shop operations: inventory, service tickets, and point-of-sale charging. It integrates [WebMCP](https://webmcp.dev/) to expose shop functionality to AI agents via the Model Context Protocol.
 
 ## What is WebMCP?
 
@@ -20,14 +20,13 @@ A small widget appears on your site as the connection point. Users connect via a
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- A supported database (configured via `appsettings.json`)
 
 ## Getting Started
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/webmcp.git
-   cd webmcp
+   git clone https://github.com/your-username/bikepos.git
+   cd bikepos
    ```
 
 2. Apply database migrations:
@@ -40,11 +39,14 @@ A small widget appears on your site as the connection point. Users connect via a
    dotnet run
    ```
 
-## Project Structure
+The app runs at http://localhost:5141 (or https://localhost:7245).
 
-- `Components/` - Blazor components and pages
-- `Models/` - Data models (e.g., `Bike`)
-- `Migrations/` - EF Core database migrations
+## Features
+
+- **Inventory Management** - CRUD for bikes (name, SKU, color, brand, price)
+- **POS Terminal** - Charge customers, set cashier, track terminal connectivity (JS interop demo)
+- **Service Tickets** - (Planned) Create, edit, and charge service tickets for bike repairs
+- **WebMCP Integration** - AI agents can list, search, and navigate bike inventory
 
 ## License
 
