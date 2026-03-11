@@ -11,6 +11,7 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
     public DbSet<Service> Service { get; set; } = default!;
     public DbSet<Product> Product { get; set; } = default!;
     public DbSet<TicketProduct> TicketProduct { get; set; } = default!;
+    public DbSet<Charge> Charge { get; set; } = default!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -47,6 +48,14 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasIndex(tp => new { tp.ServiceTicketId, tp.ProductId });
+        });
+
+        modelBuilder.Entity<Charge>(entity =>
+        {
+            entity.HasOne(c => c.ServiceTicket)
+                .WithMany(t => t.Charges)
+                .HasForeignKey(c => c.ServiceTicketId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

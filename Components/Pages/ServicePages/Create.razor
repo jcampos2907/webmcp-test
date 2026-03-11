@@ -1,0 +1,62 @@
+@page "/services/create"
+@using Microsoft.EntityFrameworkCore
+@using BikePOS.Models
+@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Create</PageTitle>
+
+<h1>Create</h1>
+
+<h2>Service</h2>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <EditForm method="post" Model="Service" OnValidSubmit="AddService" FormName="create" Enhance>
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" role="alert"/>
+            <div class="mb-3">
+                <span class="text-danger">*</span>
+                <label for="name" class="form-label">Name:</label> 
+                <InputText id="name" @bind-Value="Service.Name" class="form-control" aria-required="true"/> 
+                <ValidationMessage For="() => Service.Name" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="description" class="form-label">Description:</label> 
+                <InputText id="description" @bind-Value="Service.Description" class="form-control" /> 
+                <ValidationMessage For="() => Service.Description" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="defaultprice" class="form-label">DefaultPrice:</label> 
+                <InputNumber id="defaultprice" @bind-Value="Service.DefaultPrice" class="form-control" /> 
+                <ValidationMessage For="() => Service.DefaultPrice" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="estimatedminutes" class="form-label">EstimatedMinutes:</label> 
+                <InputNumber id="estimatedminutes" @bind-Value="Service.EstimatedMinutes" class="form-control" /> 
+                <ValidationMessage For="() => Service.EstimatedMinutes" class="text-danger" /> 
+            </div>        
+            <button type="submit" class="btn btn-primary">Create</button>
+        </EditForm>
+    </div>
+</div>
+
+<div>
+    <a href="/services">Back to List</a>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    private Service Service { get; set; } = default!;
+
+    protected override void OnInitialized() => Service ??= new();
+
+    // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task AddService()
+    {
+        using var context = DbFactory.CreateDbContext();
+        context.Service.Add(Service);
+        await context.SaveChangesAsync();
+        NavigationManager.NavigateTo("/services");
+    }
+}

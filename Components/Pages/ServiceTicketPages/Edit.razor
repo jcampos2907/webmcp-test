@@ -1,0 +1,177 @@
+@page "/tickets/edit"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using BikePOS.Models
+@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Edit Service Ticket</PageTitle>
+
+<h1>Edit</h1>
+
+<h2>Service Ticket</h2>
+<hr />
+@if (ServiceTicket is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-4">
+            <EditForm method="post" Model="ServiceTicket" OnValidSubmit="UpdateServiceTicket" FormName="edit" Enhance>
+                <DataAnnotationsValidator />
+                <ValidationSummary role="alert"/>
+                <input type="hidden" name="ServiceTicket.Id" value="@ServiceTicket.Id" />
+                <div class="mb-3">
+                    <span class="text-danger">*</span>
+                    <label for="status" class="form-label">Status:</label>
+                    <InputSelect id="status" @bind-Value="ServiceTicket.Status" class="form-control" aria-required="true">
+                        @foreach (var status in Enum.GetValues<TicketStatus>())
+                        {
+                            <option value="@status">@status</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="mb-3">
+                    <span class="text-danger">*</span>
+                    <label for="bikeid" class="form-label">Bike:</label>
+                    <InputSelect id="bikeid" @bind-Value="ServiceTicket.BikeId" class="form-control" aria-required="true">
+                        <option value="">-- Select Bike --</option>
+                        @foreach (var bike in Bikes)
+                        {
+                            <option value="@bike.Id">@bike.Name (@bike.Sku)</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="mb-3">
+                    <label for="mechanicid" class="form-label">Mechanic:</label>
+                    <InputSelect id="mechanicid" @bind-Value="ServiceTicket.MechanicId" class="form-control">
+                        <option value="">-- None --</option>
+                        @foreach (var mechanic in Mechanics)
+                        {
+                            <option value="@mechanic.Id">@mechanic.Name</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="mb-3">
+                    <label for="baseserviceid" class="form-label">Service:</label>
+                    <InputSelect id="baseserviceid" @bind-Value="ServiceTicket.BaseServiceId" class="form-control">
+                        <option value="">-- None --</option>
+                        @foreach (var service in Services)
+                        {
+                            <option value="@service.Id">@service.Name (@service.DefaultPrice.ToString("C"))</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description:</label>
+                    <InputTextArea id="description" @bind-Value="ServiceTicket.Description" class="form-control" rows="3" />
+                </div>
+                <div class="mb-3">
+                    <span class="text-danger">*</span>
+                    <label for="price" class="form-label">Price:</label>
+                    <InputNumber id="price" @bind-Value="ServiceTicket.Price" class="form-control" aria-required="true"/>
+                </div>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </EditForm>
+        </div>
+    </div>
+
+    @if (TicketProducts.Any())
+    {
+        <h3 class="mt-4">Products</h3>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Qty</th>
+                    <th>Unit Price</th>
+                    <th>Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var tp in TicketProducts)
+                {
+                    <tr>
+                        <td>@tp.Product?.Name</td>
+                        <td>@tp.Quantity</td>
+                        <td>@tp.UnitPrice.ToString("C")</td>
+                        <td>@((tp.Quantity * tp.UnitPrice).ToString("C"))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+<div>
+    <a href="/tickets">Back to List</a>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    [SupplyParameterFromForm]
+    private ServiceTicket? ServiceTicket { get; set; }
+
+    private List<Bike> Bikes { get; set; } = new();
+    private List<Mechanic> Mechanics { get; set; } = new();
+    private List<Service> Services { get; set; } = new();
+    private List<TicketProduct> TicketProducts { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        using var context = DbFactory.CreateDbContext();
+
+        if (ServiceTicket is null)
+        {
+            ServiceTicket = await context.ServiceTicket.FirstOrDefaultAsync(m => m.Id == Id);
+            if (ServiceTicket is null)
+            {
+                NavigationManager.NotFound();
+                return;
+            }
+        }
+
+        Bikes = await context.Bike.OrderBy(b => b.Name).ToListAsync();
+        Mechanics = await context.Mechanic.Where(m => m.IsActive).OrderBy(m => m.Name).ToListAsync();
+        Services = await context.Service.OrderBy(s => s.Name).ToListAsync();
+        TicketProducts = await context.TicketProduct
+            .Include(tp => tp.Product)
+            .Where(tp => tp.ServiceTicketId == Id)
+            .ToListAsync();
+    }
+
+    private async Task UpdateServiceTicket()
+    {
+        using var context = DbFactory.CreateDbContext();
+        ServiceTicket!.UpdatedAt = DateTime.UtcNow;
+        context.Attach(ServiceTicket!).State = EntityState.Modified;
+
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!ServiceTicketExists(ServiceTicket!.Id))
+            {
+                NavigationManager.NotFound();
+            }
+            else
+            {
+                throw;
+            }
+        }
+
+        NavigationManager.NavigateTo("/tickets");
+    }
+
+    private bool ServiceTicketExists(int id)
+    {
+        using var context = DbFactory.CreateDbContext();
+        return context.ServiceTicket.Any(e => e.Id == id);
+    }
+}

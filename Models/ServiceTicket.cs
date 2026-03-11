@@ -9,6 +9,7 @@ public enum TicketStatus
     InProgress,
     WaitingForParts,
     Completed,
+    Charged,
     Cancelled
 }
 
@@ -37,6 +38,8 @@ public class ServiceTicket
     public Service? BaseService { get; set; }
 
     public ICollection<TicketProduct> TicketProducts { get; set; } = new List<TicketProduct>();
+
+    public ICollection<Charge> Charges { get; set; } = new List<Charge>();
 
     [Required]
     [DataType(DataType.Currency)]

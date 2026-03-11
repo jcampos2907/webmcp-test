@@ -1,0 +1,52 @@
+@page "/services/details"
+@using Microsoft.EntityFrameworkCore
+@using BikePOS.Models
+@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Details</PageTitle>
+
+<h1>Details</h1>
+
+<div>
+    <h2>Service</h2>
+    <hr />
+    @if (service is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else {
+        <dl class="row">
+            <dt class="col-sm-2">Name</dt>
+            <dd class="col-sm-10">@service.Name</dd>
+            <dt class="col-sm-2">Description</dt>
+            <dd class="col-sm-10">@service.Description</dd>
+            <dt class="col-sm-2">DefaultPrice</dt>
+            <dd class="col-sm-10">@service.DefaultPrice</dd>
+            <dt class="col-sm-2">EstimatedMinutes</dt>
+            <dd class="col-sm-10">@service.EstimatedMinutes</dd>
+        </dl>
+        <div>
+            <a href="@($"/services/edit?id={service.Id}")">Edit</a> |
+            <a href="@($"/services")">Back to List</a>
+        </div>
+    }
+</div>
+
+@code {
+    private Service? service;
+
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        using var context = DbFactory.CreateDbContext();
+        service = await context.Service.FirstOrDefaultAsync(m => m.Id == Id);
+
+        if (service is null)
+        {
+            NavigationManager.NotFound();
+        }
+    }
+}

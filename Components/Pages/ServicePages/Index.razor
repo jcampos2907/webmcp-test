@@ -1,0 +1,40 @@
+@page "/services"
+@using Microsoft.AspNetCore.Components.QuickGrid
+@using Microsoft.EntityFrameworkCore
+@using BikePOS.Models
+@using BikePOS.Data
+@implements IAsyncDisposable
+@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Index</PageTitle>
+
+<h1>Index</h1>
+
+<p>
+    <a href="services/create">Create New</a>
+</p>
+
+<QuickGrid Class="table" Items="context.Service">
+    <PropertyColumn Property="service => service.Name" />
+    <PropertyColumn Property="service => service.Description" />
+    <PropertyColumn Property="service => service.DefaultPrice" />
+    <PropertyColumn Property="service => service.EstimatedMinutes" />
+
+    <TemplateColumn Context="service">
+        <a href="@($"services/edit?id={service.Id}")">Edit</a> |
+        <a href="@($"services/details?id={service.Id}")">Details</a> |
+        <a href="@($"services/delete?id={service.Id}")">Delete</a>
+    </TemplateColumn>
+</QuickGrid>
+
+@code {
+    private BikePosContext context = default!;
+
+    protected override void OnInitialized()
+    {
+        context = DbFactory.CreateDbContext();
+    }
+
+    public async ValueTask DisposeAsync() => await context.DisposeAsync();
+}
