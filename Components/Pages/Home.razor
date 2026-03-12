@@ -69,25 +69,25 @@
             }
         </div>
 
-        @* Customer / Bike Lookup *@
+        @* Customer Lookup *@
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">Consultar Cliente</h3>
             <div class="mb-3">
                 <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                       placeholder="Search by bike name or SKU..."
-                       @bind="bikeSearch" @bind:event="oninput" @onkeyup="SearchBikes" />
+                       placeholder="Buscar por nombre, teléfono o email..."
+                       @bind="customerSearch" @bind:event="oninput" @onkeyup="SearchCustomers" />
             </div>
-            @if (bikeResults.Any())
+            @if (customerResults.Any())
             {
                 <div class="space-y-2 max-h-48 overflow-y-auto">
-                    @foreach (var bike in bikeResults)
+                    @foreach (var customer in customerResults)
                     {
                         <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                             <div>
-                                <span class="text-sm font-medium text-gray-800">@bike.Name</span>
-                                <span class="text-xs text-gray-400 ml-2">@bike.Sku</span>
+                                <span class="text-sm font-medium text-gray-800">@customer.FullName</span>
+                                <span class="text-xs text-gray-400 ml-2">@customer.Phone</span>
                             </div>
-                            <span class="text-xs text-gray-500">@bike.Brand — @bike.Color</span>
+                            <span class="text-xs text-gray-500">@customer.Email</span>
                         </div>
                     }
                 </div>
@@ -208,9 +208,9 @@
     private List<ServiceTicket> searchResults = new();
     private ServiceTicket? selectedTicket;
 
-    // Bike search
-    private string bikeSearch = "";
-    private List<Bike> bikeResults = new();
+    // Customer search
+    private string customerSearch = "";
+    private List<Customer> customerResults = new();
 
     // Charge
     private decimal chargeAmount;
@@ -266,17 +266,19 @@
         searchResults = await query.OrderByDescending(t => t.CreatedAt).Take(10).ToListAsync();
     }
 
-    private async Task SearchBikes()
+    private async Task SearchCustomers()
     {
-        if (string.IsNullOrWhiteSpace(bikeSearch))
+        if (string.IsNullOrWhiteSpace(customerSearch))
         {
-            bikeResults.Clear();
+            customerResults.Clear();
             return;
         }
 
         using var context = DbFactory.CreateDbContext();
-        bikeResults = await context.Bike
-            .Where(b => b.Name!.Contains(bikeSearch) || b.Sku.Contains(bikeSearch))
+        customerResults = await context.Customer
+            .Where(c => c.FirstName.Contains(customerSearch) || c.LastName.Contains(customerSearch) ||
+                   (c.Phone != null && c.Phone.Contains(customerSearch)) ||
+                   (c.Email != null && c.Email.Contains(customerSearch)))
             .Take(10)
             .ToListAsync();
     }

@@ -1,0 +1,316 @@
+@using Microsoft.EntityFrameworkCore
+@using BikePOS.Models
+@using System.Text.RegularExpressions
+@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+
+<div class="space-y-4">
+    <h3 class="text-lg font-semibold text-gray-800">@(IsEditMode ? "Editar Cliente" : "Nuevo Cliente")</h3>
+
+    @* Name *@
+    <div class="grid grid-cols-2 gap-3">
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">Nombre <span class="text-red-500">*</span></label>
+            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                   @bind="firstName" placeholder="Nombre" />
+        </div>
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">Apellido <span class="text-red-500">*</span></label>
+            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                   @bind="lastName" placeholder="Apellido" />
+        </div>
+    </div>
+
+    @* Contact *@
+    <div class="grid grid-cols-2 gap-3">
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">Teléfono</label>
+            <input type="tel" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                   @bind="phone" placeholder="Teléfono" />
+        </div>
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">Email</label>
+            <input type="email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                   @bind="email" placeholder="Email" />
+        </div>
+    </div>
+
+    @* Address *@
+    <div>
+        <label class="block text-sm text-gray-600 mb-1">Dirección</label>
+        <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+               @bind="street" placeholder="Calle y número" />
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">Ciudad</label>
+            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                   @bind="city" placeholder="Ciudad" />
+        </div>
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">Región / Estado</label>
+            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                   @bind="state" placeholder="Región" />
+        </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">Código Postal</label>
+            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                   @bind="zipCode" placeholder="Código Postal" />
+        </div>
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">País</label>
+            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                   @bind="country" placeholder="País" />
+        </div>
+    </div>
+
+    @* Dynamic Meta Fields *@
+    @if (metaFields.Any())
+    {
+        <hr class="border-gray-200" />
+        <p class="text-xs text-gray-400 uppercase tracking-wide">Campos adicionales</p>
+        <div class="grid grid-cols-2 gap-3">
+            @foreach (var field in metaFields)
+            {
+                @if (IsFieldVisible(field))
+                {
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">
+                            @field.Label
+                            @if (field.IsRequired) { <span class="text-red-500">*</span> }
+                        </label>
+
+                        @if (field.FieldType == "select" && !string.IsNullOrEmpty(field.Options))
+                        {
+                            <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                    value="@GetMetaValue(field.Id)"
+                                    @onchange="e => SetMetaValue(field.Id, e.Value?.ToString())">
+                                <option value="">— Seleccionar —</option>
+                                @foreach (var opt in field.Options.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                                {
+                                    <option value="@opt">@opt</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <input type="@field.FieldType"
+                                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                   value="@GetMetaValue(field.Id)"
+                                   placeholder="@(field.FormatMask ?? "")"
+                                   @oninput="e => SetMetaValue(field.Id, e.Value?.ToString())" />
+                        }
+
+                        @if (fieldErrors.TryGetValue(field.Id, out var err))
+                        {
+                            <p class="text-xs text-red-500 mt-1">@err</p>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    }
+
+    @* Validation *@
+    @if (!string.IsNullOrEmpty(validationError))
+    {
+        <div class="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">@validationError</div>
+    }
+
+    @* Actions *@
+    <div class="flex gap-3 pt-2">
+        <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
+                @onclick="Save">Guardar</button>
+        @if (ShowCancelButton)
+        {
+            <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm px-5 py-2 rounded-lg transition-colors"
+                    @onclick="Cancel">Cancelar</button>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public Customer? ExistingCustomer { get; set; }
+    [Parameter] public EventCallback<Customer> OnSaved { get; set; }
+    [Parameter] public EventCallback OnCancelled { get; set; }
+    [Parameter] public bool ShowCancelButton { get; set; } = true;
+
+    private bool IsEditMode => ExistingCustomer is not null;
+
+    private string firstName = "";
+    private string lastName = "";
+    private string phone = "";
+    private string email = "";
+    private string street = "";
+    private string city = "";
+    private string state = "";
+    private string zipCode = "";
+    private string country = "";
+    private string? validationError;
+
+    private List<MetaFieldDefinition> metaFields = new();
+    private Dictionary<int, string> metaValues = new();
+    private Dictionary<int, string> fieldErrors = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        using var context = DbFactory.CreateDbContext();
+        metaFields = await context.MetaFieldDefinition
+            .Where(f => f.IsActive)
+            .OrderBy(f => f.SortOrder)
+            .ToListAsync();
+
+        if (ExistingCustomer is not null)
+        {
+            firstName = ExistingCustomer.FirstName;
+            lastName = ExistingCustomer.LastName;
+            phone = ExistingCustomer.Phone ?? "";
+            email = ExistingCustomer.Email ?? "";
+            street = ExistingCustomer.Street ?? "";
+            city = ExistingCustomer.City ?? "";
+            state = ExistingCustomer.State ?? "";
+            zipCode = ExistingCustomer.ZipCode ?? "";
+            country = ExistingCustomer.Country ?? "";
+
+            var existingMeta = await context.CustomerMetaValue
+                .Where(mv => mv.CustomerId == ExistingCustomer.Id)
+                .ToListAsync();
+            foreach (var mv in existingMeta)
+            {
+                metaValues[mv.MetaFieldDefinitionId] = mv.Value ?? "";
+            }
+        }
+    }
+
+    private string GetMetaValue(int fieldId) =>
+        metaValues.TryGetValue(fieldId, out var val) ? val : "";
+
+    private void SetMetaValue(int fieldId, string? value)
+    {
+        metaValues[fieldId] = value ?? "";
+        // Clear field-level error on change
+        fieldErrors.Remove(fieldId);
+    }
+
+    private bool IsFieldVisible(MetaFieldDefinition field)
+    {
+        if (!field.ConditionalOnFieldId.HasValue)
+            return true;
+
+        var parentValue = GetMetaValue(field.ConditionalOnFieldId.Value);
+        return string.Equals(parentValue, field.ConditionalOnValue, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task Save()
+    {
+        validationError = null;
+        fieldErrors.Clear();
+
+        if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
+        {
+            validationError = "Nombre y apellido son obligatorios.";
+            return;
+        }
+
+        // Validate visible meta fields
+        foreach (var field in metaFields.Where(IsFieldVisible))
+        {
+            var val = GetMetaValue(field.Id);
+
+            if (field.IsRequired && string.IsNullOrWhiteSpace(val))
+            {
+                fieldErrors[field.Id] = $"\"{field.Label}\" es obligatorio.";
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(val) && !string.IsNullOrWhiteSpace(field.RegexPattern))
+            {
+                try
+                {
+                    if (!Regex.IsMatch(val, field.RegexPattern))
+                    {
+                        fieldErrors[field.Id] = field.RegexMessage ?? $"Formato inválido para \"{field.Label}\".";
+                    }
+                }
+                catch
+                {
+                    // Invalid regex pattern — skip validation
+                }
+            }
+        }
+
+        if (fieldErrors.Any())
+        {
+            validationError = "Corrige los errores en los campos marcados.";
+            return;
+        }
+
+        using var context = DbFactory.CreateDbContext();
+
+        Customer customer;
+        if (IsEditMode)
+        {
+            customer = await context.Customer.FindAsync(ExistingCustomer!.Id)
+                ?? throw new InvalidOperationException("Customer not found");
+        }
+        else
+        {
+            customer = new Customer();
+            context.Customer.Add(customer);
+        }
+
+        customer.FirstName = firstName.Trim();
+        customer.LastName = lastName.Trim();
+        customer.Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim();
+        customer.Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+        customer.Street = string.IsNullOrWhiteSpace(street) ? null : street.Trim();
+        customer.City = string.IsNullOrWhiteSpace(city) ? null : city.Trim();
+        customer.State = string.IsNullOrWhiteSpace(state) ? null : state.Trim();
+        customer.ZipCode = string.IsNullOrWhiteSpace(zipCode) ? null : zipCode.Trim();
+        customer.Country = string.IsNullOrWhiteSpace(country) ? null : country.Trim();
+
+        await context.SaveChangesAsync();
+
+        // Upsert meta values (only for visible fields)
+        var existingMeta = await context.CustomerMetaValue
+            .Where(mv => mv.CustomerId == customer.Id)
+            .ToListAsync();
+
+        foreach (var field in metaFields)
+        {
+            var isVisible = IsFieldVisible(field);
+            var val = metaValues.TryGetValue(field.Id, out var v) ? v : null;
+            var existing = existingMeta.FirstOrDefault(mv => mv.MetaFieldDefinitionId == field.Id);
+
+            if (!isVisible)
+            {
+                // Clear hidden conditional field values
+                if (existing is not null)
+                {
+                    existing.Value = null;
+                }
+                continue;
+            }
+
+            if (existing is not null)
+            {
+                existing.Value = val;
+            }
+            else if (!string.IsNullOrWhiteSpace(val))
+            {
+                context.CustomerMetaValue.Add(new CustomerMetaValue
+                {
+                    CustomerId = customer.Id,
+                    MetaFieldDefinitionId = field.Id,
+                    Value = val
+                });
+            }
+        }
+
+        await context.SaveChangesAsync();
+        await OnSaved.InvokeAsync(customer);
+    }
+
+    private async Task Cancel() => await OnCancelled.InvokeAsync();
+}

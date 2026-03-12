@@ -1,0 +1,23 @@
+@page "/customers/create"
+@rendermode InteractiveServer
+@inject NavigationManager NavigationManager
+
+<PageTitle>Crear Cliente</PageTitle>
+
+<div class="p-6 max-w-2xl mx-auto">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <CustomerForm OnSaved="HandleSaved" OnCancelled="HandleCancelled" />
+    </div>
+</div>
+
+@code {
+    private void HandleSaved(BikePOS.Models.Customer customer)
+    {
+        NavigationManager.NavigateTo("/customers");
+    }
+
+    private void HandleCancelled()
+    {
+        NavigationManager.NavigateTo("/customers");
+    }
+}

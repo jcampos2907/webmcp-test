@@ -1,0 +1,86 @@
+@page "/customers"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using BikePOS.Models
+@implements IAsyncDisposable
+@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+
+<PageTitle>Clientes</PageTitle>
+
+<div class="p-6">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">Clientes</h1>
+        <a href="/customers/create" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+            Crear Cliente
+        </a>
+    </div>
+
+    <div class="mb-4">
+        <input type="text" class="w-full max-w-md border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+               placeholder="Buscar por nombre, teléfono o email..."
+               @bind="searchFilter" @bind:event="oninput" />
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-gray-200 bg-gray-50 text-left text-gray-500">
+                    <th class="px-4 py-3 font-medium">Nombre</th>
+                    <th class="px-4 py-3 font-medium">Teléfono</th>
+                    <th class="px-4 py-3 font-medium">Email</th>
+                    <th class="px-4 py-3 font-medium">Ciudad</th>
+                    <th class="px-4 py-3"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var customer in FilteredCustomers)
+                {
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="px-4 py-3 text-gray-800 font-medium">@customer.FullName</td>
+                        <td class="px-4 py-3 text-gray-500">@customer.Phone</td>
+                        <td class="px-4 py-3 text-gray-500">@customer.Email</td>
+                        <td class="px-4 py-3 text-gray-500">@customer.City</td>
+                        <td class="px-4 py-3 text-right space-x-2">
+                            <a href="@($"/customers/edit?id={customer.Id}")" class="text-indigo-600 hover:underline text-xs">Editar</a>
+                            <a href="@($"/customers/delete?id={customer.Id}")" class="text-red-500 hover:underline text-xs">Eliminar</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @if (!FilteredCustomers.Any())
+        {
+            <p class="text-sm text-gray-400 text-center py-8">No se encontraron clientes</p>
+        }
+    </div>
+</div>
+
+@code {
+    private BikePOS.Data.BikePosContext context = default!;
+    private string searchFilter = "";
+
+    private IEnumerable<Customer> FilteredCustomers
+    {
+        get
+        {
+            var query = context.Customer.AsQueryable();
+            if (!string.IsNullOrWhiteSpace(searchFilter))
+            {
+                query = query.Where(c =>
+                    c.FirstName.Contains(searchFilter) ||
+                    c.LastName.Contains(searchFilter) ||
+                    (c.Phone != null && c.Phone.Contains(searchFilter)) ||
+                    (c.Email != null && c.Email.Contains(searchFilter)));
+            }
+            return query.OrderBy(c => c.LastName).ThenBy(c => c.FirstName);
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        context = DbFactory.CreateDbContext();
+    }
+
+    public async ValueTask DisposeAsync() => await context.DisposeAsync();
+}

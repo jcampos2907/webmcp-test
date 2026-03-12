@@ -3,6 +3,7 @@ using System;
 using BikePOS.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BikePOS.Migrations
 {
     [DbContext(typeof(BikePosContext))]
-    partial class BikePosContextModelSnapshot : ModelSnapshot
+    [Migration("20260312005227_ExpandCustomerModel")]
+    partial class ExpandCustomerModel
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.4");
@@ -189,20 +192,9 @@ namespace BikePOS.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("ConditionalOnFieldId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("ConditionalOnValue")
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("FieldType")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("FormatMask")
-                        .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsActive")
@@ -221,24 +213,10 @@ namespace BikePOS.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Options")
-                        .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RegexMessage")
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RegexPattern")
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT");
-
                     b.Property<int>("SortOrder")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("ConditionalOnFieldId");
 
                     b.ToTable("MetaFieldDefinition");
                 });
@@ -335,30 +313,6 @@ namespace BikePOS.Migrations
                     b.ToTable("ServiceTicket");
                 });
 
-            modelBuilder.Entity("BikePOS.Models.ShopSetting", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Key")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Value")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Key")
-                        .IsUnique();
-
-                    b.ToTable("ShopSetting");
-                });
-
             modelBuilder.Entity("BikePOS.Models.TicketProduct", b =>
                 {
                     b.Property<int>("Id")
@@ -424,16 +378,6 @@ namespace BikePOS.Migrations
                     b.Navigation("Customer");
 
                     b.Navigation("MetaFieldDefinition");
-                });
-
-            modelBuilder.Entity("BikePOS.Models.MetaFieldDefinition", b =>
-                {
-                    b.HasOne("BikePOS.Models.MetaFieldDefinition", "ConditionalOnField")
-                        .WithMany()
-                        .HasForeignKey("ConditionalOnFieldId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("ConditionalOnField");
                 });
 
             modelBuilder.Entity("BikePOS.Models.ServiceTicket", b =>

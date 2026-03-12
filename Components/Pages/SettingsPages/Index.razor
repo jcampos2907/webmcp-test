@@ -1,0 +1,657 @@
+@page "/settings"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using BikePOS.Models
+@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+
+<PageTitle>Configuración</PageTitle>
+
+<div class="flex h-full">
+    @* Vertical nav *@
+    <nav class="w-56 bg-white border-r border-gray-200 p-4 flex-shrink-0">
+        <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Configuración</h2>
+        <ul class="space-y-1">
+            <li>
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "profile" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
+                        @onclick='() => activeSection = "profile"'>
+                    <i class="fa-solid fa-user w-5 text-center mr-2"></i>Mi Perfil
+                </button>
+            </li>
+            <li>
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "meta" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
+                        @onclick='() => activeSection = "meta"'>
+                    <i class="fa-solid fa-sliders w-5 text-center mr-2"></i>Campos de Cliente
+                </button>
+            </li>
+            <li>
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "shop" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
+                        @onclick='() => activeSection = "shop"'>
+                    <i class="fa-solid fa-store w-5 text-center mr-2"></i>Datos del Negocio
+                </button>
+            </li>
+            <li>
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "billing" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
+                        @onclick='() => activeSection = "billing"'>
+                    <i class="fa-solid fa-file-invoice w-5 text-center mr-2"></i>Facturación
+                </button>
+            </li>
+            <li>
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "notifications" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
+                        @onclick='() => activeSection = "notifications"'>
+                    <i class="fa-solid fa-bell w-5 text-center mr-2"></i>Notificaciones
+                </button>
+            </li>
+        </ul>
+    </nav>
+
+    @* Content *@
+    <div class="flex-1 p-6 overflow-y-auto">
+        <div class="max-w-3xl">
+
+            @* ==================== Profile ==================== *@
+            @if (activeSection == "profile")
+            {
+                <h1 class="text-xl font-bold text-gray-800 mb-1">Mi Perfil</h1>
+                <p class="text-sm text-gray-500 mb-6">Tu información de usuario.</p>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center">
+                            <i class="fa-solid fa-user text-indigo-400 text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-gray-800 font-semibold">@(string.IsNullOrEmpty(profileName) ? "Sin nombre" : profileName)</p>
+                            <p class="text-sm text-gray-500">@(string.IsNullOrEmpty(profileEmail) ? "Sin email" : profileEmail)</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">Nombre completo</label>
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                   @bind="profileName" placeholder="Tu nombre" />
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">Email</label>
+                            <input type="email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                   @bind="profileEmail" placeholder="tu@email.com" />
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">Teléfono</label>
+                            <input type="tel" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                   @bind="profilePhone" placeholder="+506 8888 8888" />
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">Rol</label>
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500" value="Administrador" disabled />
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(profileSaveMessage))
+                    {
+                        <div class="text-sm text-green-600 bg-green-50 rounded-lg px-3 py-2 mt-4">@profileSaveMessage</div>
+                    }
+
+                    <div class="mt-4">
+                        <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
+                                @onclick="SaveProfile">Guardar</button>
+                    </div>
+                </div>
+            }
+
+            @* ==================== Meta Field Definitions ==================== *@
+            @if (activeSection == "meta")
+            {
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-800 mb-1">Campos de Cliente</h1>
+                        <p class="text-sm text-gray-500">Campos personalizados que se muestran al crear o editar clientes. Soportan validación por regex, formato, y visibilidad condicional.</p>
+                    </div>
+                    <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex-shrink-0"
+                            @onclick="ShowAddField">
+                        Agregar campo
+                    </button>
+                </div>
+
+                @* Add / Edit form *@
+                @if (showFieldForm)
+                {
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
+                        <h4 class="text-sm font-semibold text-gray-800 mb-4">@(editingFieldId.HasValue ? "Editar campo" : "Nuevo campo")</h4>
+
+                        @* Basic info *@
+                        <div class="grid grid-cols-3 gap-3 mb-4">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Etiqueta <span class="text-red-500">*</span></label>
+                                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                       placeholder="Ej: Cédula, RUT" @bind="fieldLabel" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Clave <span class="text-red-500">*</span></label>
+                                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                       placeholder="Ej: cedula, rut" @bind="fieldKey" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Orden</label>
+                                <input type="number" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                       @bind="fieldSortOrder" />
+                            </div>
+                        </div>
+
+                        @* Type + Options *@
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Tipo de campo</label>
+                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" @bind="fieldType">
+                                    <option value="text">Texto</option>
+                                    <option value="number">Número</option>
+                                    <option value="email">Email</option>
+                                    <option value="tel">Teléfono</option>
+                                    <option value="date">Fecha</option>
+                                    <option value="url">URL</option>
+                                    <option value="select">Lista desplegable</option>
+                                </select>
+                            </div>
+                            @if (fieldType == "select")
+                            {
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Opciones (separadas por coma)</label>
+                                    <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                           placeholder="Persona Física, Persona Jurídica" @bind="fieldOptions" />
+                                </div>
+                            }
+                        </div>
+
+                        @* Validation *@
+                        <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">Validación</p>
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Regex de validación</label>
+                                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                       placeholder="Ej: ^\d \d{4} \d{4}$" @bind="fieldRegex" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Mensaje de error regex</label>
+                                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                       placeholder="Ej: Formato debe ser 0 0000 0000" @bind="fieldRegexMessage" />
+                            </div>
+                        </div>
+
+                        @* Format mask *@
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Máscara de formato (placeholder)</label>
+                                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                       placeholder="Ej: 0 0000 0000" @bind="fieldFormatMask" />
+                            </div>
+                            <div class="flex items-end pb-1">
+                                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                    <input type="checkbox" class="rounded border-gray-300" @bind="fieldIsRequired" />
+                                    Campo obligatorio
+                                </label>
+                            </div>
+                        </div>
+
+                        @* Conditional visibility *@
+                        <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">Visibilidad condicional</p>
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Mostrar solo cuando este campo...</label>
+                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                        @bind="fieldConditionalOnId">
+                                    <option value="">— Siempre visible —</option>
+                                    @foreach (var f in metaFields.Where(f => f.Id != editingFieldId && f.FieldType == "select"))
+                                    {
+                                        <option value="@f.Id">@f.Label</option>
+                                    }
+                                </select>
+                            </div>
+                            @if (!string.IsNullOrEmpty(fieldConditionalOnId))
+                            {
+                                var parentField = metaFields.FirstOrDefault(f => f.Id.ToString() == fieldConditionalOnId);
+                                @if (parentField is not null && !string.IsNullOrEmpty(parentField.Options))
+                                {
+                                    <div>
+                                        <label class="block text-xs text-gray-500 mb-1">...tenga el valor</label>
+                                        <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                                @bind="fieldConditionalOnValue">
+                                            <option value="">— Seleccionar —</option>
+                                            @foreach (var opt in parentField.Options.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                                            {
+                                                <option value="@opt">@opt</option>
+                                            }
+                                        </select>
+                                    </div>
+                                }
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(fieldError))
+                        {
+                            <div class="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">@fieldError</div>
+                        }
+
+                        <div class="flex gap-2">
+                            <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg" @onclick="SaveField">Guardar campo</button>
+                            <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm px-4 py-2 rounded-lg" @onclick="CancelFieldForm">Cancelar</button>
+                        </div>
+                    </div>
+                }
+
+                @* Field list *@
+                @if (metaFields.Any())
+                {
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50">
+                                <tr class="text-left text-gray-500 text-xs uppercase tracking-wide">
+                                    <th class="py-3 px-4 font-medium">#</th>
+                                    <th class="py-3 px-4 font-medium">Etiqueta</th>
+                                    <th class="py-3 px-4 font-medium">Tipo</th>
+                                    <th class="py-3 px-4 font-medium">Validación</th>
+                                    <th class="py-3 px-4 font-medium">Condición</th>
+                                    <th class="py-3 px-4 font-medium">Estado</th>
+                                    <th class="py-3 px-4"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var field in metaFields)
+                                {
+                                    <tr class="border-t border-gray-100 hover:bg-gray-50">
+                                        <td class="py-3 px-4 text-gray-400">@field.SortOrder</td>
+                                        <td class="py-3 px-4">
+                                            <span class="text-gray-800 font-medium">@field.Label</span>
+                                            <span class="text-gray-400 text-xs font-mono ml-1">@field.Key</span>
+                                            @if (field.IsRequired)
+                                            {
+                                                <span class="text-red-500 ml-1">*</span>
+                                            }
+                                        </td>
+                                        <td class="py-3 px-4 text-gray-500">
+                                            @field.FieldType
+                                            @if (field.FieldType == "select" && !string.IsNullOrEmpty(field.Options))
+                                            {
+                                                <span class="text-gray-400 text-xs block">@field.Options</span>
+                                            }
+                                        </td>
+                                        <td class="py-3 px-4">
+                                            @if (!string.IsNullOrEmpty(field.RegexPattern))
+                                            {
+                                                <span class="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded" title="@field.RegexPattern">regex</span>
+                                            }
+                                            @if (!string.IsNullOrEmpty(field.FormatMask))
+                                            {
+                                                <span class="text-xs text-gray-400 block">@field.FormatMask</span>
+                                            }
+                                        </td>
+                                        <td class="py-3 px-4 text-xs text-gray-500">
+                                            @if (field.ConditionalOnFieldId.HasValue)
+                                            {
+                                                var parent = metaFields.FirstOrDefault(f => f.Id == field.ConditionalOnFieldId);
+                                                <span>@(parent?.Label ?? "?") = @field.ConditionalOnValue</span>
+                                            }
+                                        </td>
+                                        <td class="py-3 px-4">
+                                            @if (field.IsActive)
+                                            {
+                                                <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Activo</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Inactivo</span>
+                                            }
+                                        </td>
+                                        <td class="py-3 px-4 text-right">
+                                            <button class="text-indigo-600 hover:text-indigo-800 text-xs mr-2" @onclick="() => EditField(field)">editar</button>
+                                            <button class="text-gray-400 hover:text-gray-600 text-xs" @onclick="() => ToggleFieldActive(field)">
+                                                @(field.IsActive ? "desactivar" : "activar")
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else if (!showFieldForm)
+                {
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+                        <i class="fa-solid fa-sliders text-gray-300 text-3xl mb-3"></i>
+                        <p class="text-sm text-gray-400">No hay campos adicionales configurados.</p>
+                        <p class="text-xs text-gray-400 mt-1">Crea campos personalizados como Cédula, Tipo de persona, RUT, etc.</p>
+                    </div>
+                }
+            }
+
+            @* ==================== Shop Info ==================== *@
+            @if (activeSection == "shop")
+            {
+                <h1 class="text-xl font-bold text-gray-800 mb-1">Datos del Negocio</h1>
+                <p class="text-sm text-gray-500 mb-6">Información que aparece en boletas y documentos.</p>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="col-span-2">
+                            <label class="block text-sm text-gray-600 mb-1">Nombre del negocio</label>
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                   @bind="shopName" placeholder="Mi Taller de Bicicletas" />
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">Cédula jurídica / RUT</label>
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                   @bind="shopTaxId" placeholder="3-101-123456" />
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">Giro / Actividad</label>
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                   @bind="shopBusinessType" placeholder="Reparación de bicicletas" />
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">Teléfono</label>
+                            <input type="tel" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                   @bind="shopPhone" placeholder="+506 2222 2222" />
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">Email</label>
+                            <input type="email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                   @bind="shopEmail" placeholder="contacto@mitaller.com" />
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-sm text-gray-600 mb-1">Dirección</label>
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                   @bind="shopAddress" placeholder="San José, Costa Rica" />
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(shopSaveMessage))
+                    {
+                        <div class="text-sm text-green-600 bg-green-50 rounded-lg px-3 py-2 mt-4">@shopSaveMessage</div>
+                    }
+
+                    <div class="mt-4">
+                        <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
+                                @onclick="SaveShopSettings">Guardar</button>
+                    </div>
+                </div>
+            }
+
+            @* ==================== Placeholder sections ==================== *@
+            @if (activeSection == "billing")
+            {
+                <h1 class="text-xl font-bold text-gray-800 mb-1">Facturación</h1>
+                <p class="text-sm text-gray-500 mb-6">Configuración de facturación electrónica.</p>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+                    <i class="fa-solid fa-file-invoice text-gray-300 text-3xl mb-3"></i>
+                    <p class="text-sm text-gray-400">Próximamente — configuración de facturación electrónica y formatos de impresión.</p>
+                </div>
+            }
+
+            @if (activeSection == "notifications")
+            {
+                <h1 class="text-xl font-bold text-gray-800 mb-1">Notificaciones</h1>
+                <p class="text-sm text-gray-500 mb-6">Alertas y notificaciones del sistema.</p>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+                    <i class="fa-solid fa-bell text-gray-300 text-3xl mb-3"></i>
+                    <p class="text-sm text-gray-400">Próximamente — notificaciones por email / WhatsApp cuando un servicio está listo.</p>
+                </div>
+            }
+
+        </div>
+    </div>
+</div>
+
+@code {
+    private string activeSection = "profile";
+
+    // --- Profile ---
+    private string profileName = "";
+    private string profileEmail = "";
+    private string profilePhone = "";
+    private string? profileSaveMessage;
+
+    // --- Meta Fields ---
+    private List<MetaFieldDefinition> metaFields = new();
+    private bool showFieldForm = false;
+    private int? editingFieldId;
+    private string fieldLabel = "";
+    private string fieldKey = "";
+    private string fieldType = "text";
+    private bool fieldIsRequired = false;
+    private int fieldSortOrder = 0;
+    private string fieldRegex = "";
+    private string fieldRegexMessage = "";
+    private string fieldFormatMask = "";
+    private string fieldOptions = "";
+    private string fieldConditionalOnId = "";
+    private string fieldConditionalOnValue = "";
+    private string? fieldError;
+
+    // --- Shop Settings ---
+    private string shopName = "";
+    private string shopTaxId = "";
+    private string shopBusinessType = "";
+    private string shopPhone = "";
+    private string shopEmail = "";
+    private string shopAddress = "";
+    private string? shopSaveMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMetaFields();
+        await LoadShopSettings();
+        await LoadProfile();
+    }
+
+    // ===== Profile =====
+
+    private async Task LoadProfile()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var settings = await context.ShopSetting.ToListAsync();
+        profileName = settings.FirstOrDefault(s => s.Key == "user_name")?.Value ?? "";
+        profileEmail = settings.FirstOrDefault(s => s.Key == "user_email")?.Value ?? "";
+        profilePhone = settings.FirstOrDefault(s => s.Key == "user_phone")?.Value ?? "";
+    }
+
+    private async Task SaveProfile()
+    {
+        profileSaveMessage = null;
+        using var context = DbFactory.CreateDbContext();
+        var settings = await context.ShopSetting.ToListAsync();
+        UpsertSetting(context, settings, "user_name", profileName);
+        UpsertSetting(context, settings, "user_email", profileEmail);
+        UpsertSetting(context, settings, "user_phone", profilePhone);
+        await context.SaveChangesAsync();
+        profileSaveMessage = "Perfil guardado.";
+    }
+
+    // ===== Meta Fields =====
+
+    private async Task LoadMetaFields()
+    {
+        using var context = DbFactory.CreateDbContext();
+        metaFields = await context.MetaFieldDefinition.OrderBy(f => f.SortOrder).ThenBy(f => f.Label).ToListAsync();
+    }
+
+    private void ShowAddField()
+    {
+        editingFieldId = null;
+        fieldLabel = "";
+        fieldKey = "";
+        fieldType = "text";
+        fieldIsRequired = false;
+        fieldSortOrder = metaFields.Any() ? metaFields.Max(f => f.SortOrder) + 1 : 0;
+        fieldRegex = "";
+        fieldRegexMessage = "";
+        fieldFormatMask = "";
+        fieldOptions = "";
+        fieldConditionalOnId = "";
+        fieldConditionalOnValue = "";
+        fieldError = null;
+        showFieldForm = true;
+    }
+
+    private void EditField(MetaFieldDefinition field)
+    {
+        editingFieldId = field.Id;
+        fieldLabel = field.Label;
+        fieldKey = field.Key;
+        fieldType = field.FieldType;
+        fieldIsRequired = field.IsRequired;
+        fieldSortOrder = field.SortOrder;
+        fieldRegex = field.RegexPattern ?? "";
+        fieldRegexMessage = field.RegexMessage ?? "";
+        fieldFormatMask = field.FormatMask ?? "";
+        fieldOptions = field.Options ?? "";
+        fieldConditionalOnId = field.ConditionalOnFieldId?.ToString() ?? "";
+        fieldConditionalOnValue = field.ConditionalOnValue ?? "";
+        fieldError = null;
+        showFieldForm = true;
+    }
+
+    private void CancelFieldForm()
+    {
+        showFieldForm = false;
+        fieldError = null;
+    }
+
+    private async Task SaveField()
+    {
+        fieldError = null;
+
+        if (string.IsNullOrWhiteSpace(fieldLabel) || string.IsNullOrWhiteSpace(fieldKey))
+        {
+            fieldError = "La etiqueta y la clave son obligatorias.";
+            return;
+        }
+
+        if (fieldType == "select" && string.IsNullOrWhiteSpace(fieldOptions))
+        {
+            fieldError = "Las listas desplegables requieren al menos una opción.";
+            return;
+        }
+
+        // Validate regex if provided
+        if (!string.IsNullOrWhiteSpace(fieldRegex))
+        {
+            try { System.Text.RegularExpressions.Regex.Match("", fieldRegex); }
+            catch
+            {
+                fieldError = "El patrón regex no es válido.";
+                return;
+            }
+        }
+
+        using var context = DbFactory.CreateDbContext();
+
+        var duplicate = await context.MetaFieldDefinition
+            .AnyAsync(f => f.Key == fieldKey.Trim() && f.Id != (editingFieldId ?? 0));
+        if (duplicate)
+        {
+            fieldError = $"Ya existe un campo con la clave \"{fieldKey.Trim()}\".";
+            return;
+        }
+
+        int? conditionalId = int.TryParse(fieldConditionalOnId, out var cid) ? cid : null;
+
+        if (editingFieldId.HasValue)
+        {
+            var field = await context.MetaFieldDefinition.FindAsync(editingFieldId.Value);
+            if (field is not null)
+            {
+                field.Label = fieldLabel.Trim();
+                field.Key = fieldKey.Trim();
+                field.FieldType = fieldType;
+                field.IsRequired = fieldIsRequired;
+                field.SortOrder = fieldSortOrder;
+                field.RegexPattern = NullIfEmpty(fieldRegex);
+                field.RegexMessage = NullIfEmpty(fieldRegexMessage);
+                field.FormatMask = NullIfEmpty(fieldFormatMask);
+                field.Options = NullIfEmpty(fieldOptions);
+                field.ConditionalOnFieldId = conditionalId;
+                field.ConditionalOnValue = NullIfEmpty(fieldConditionalOnValue);
+            }
+        }
+        else
+        {
+            context.MetaFieldDefinition.Add(new MetaFieldDefinition
+            {
+                Label = fieldLabel.Trim(),
+                Key = fieldKey.Trim(),
+                FieldType = fieldType,
+                IsRequired = fieldIsRequired,
+                SortOrder = fieldSortOrder,
+                IsActive = true,
+                RegexPattern = NullIfEmpty(fieldRegex),
+                RegexMessage = NullIfEmpty(fieldRegexMessage),
+                FormatMask = NullIfEmpty(fieldFormatMask),
+                Options = NullIfEmpty(fieldOptions),
+                ConditionalOnFieldId = conditionalId,
+                ConditionalOnValue = NullIfEmpty(fieldConditionalOnValue),
+            });
+        }
+
+        await context.SaveChangesAsync();
+        showFieldForm = false;
+        await LoadMetaFields();
+    }
+
+    private async Task ToggleFieldActive(MetaFieldDefinition field)
+    {
+        using var context = DbFactory.CreateDbContext();
+        var entity = await context.MetaFieldDefinition.FindAsync(field.Id);
+        if (entity is not null)
+        {
+            entity.IsActive = !entity.IsActive;
+            await context.SaveChangesAsync();
+            await LoadMetaFields();
+        }
+    }
+
+    // ===== Shop Settings =====
+
+    private async Task LoadShopSettings()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var settings = await context.ShopSetting.ToListAsync();
+        shopName = settings.FirstOrDefault(s => s.Key == "shop_name")?.Value ?? "";
+        shopTaxId = settings.FirstOrDefault(s => s.Key == "shop_tax_id")?.Value ?? "";
+        shopBusinessType = settings.FirstOrDefault(s => s.Key == "shop_business_type")?.Value ?? "";
+        shopPhone = settings.FirstOrDefault(s => s.Key == "shop_phone")?.Value ?? "";
+        shopEmail = settings.FirstOrDefault(s => s.Key == "shop_email")?.Value ?? "";
+        shopAddress = settings.FirstOrDefault(s => s.Key == "shop_address")?.Value ?? "";
+    }
+
+    private async Task SaveShopSettings()
+    {
+        shopSaveMessage = null;
+        using var context = DbFactory.CreateDbContext();
+        var settings = await context.ShopSetting.ToListAsync();
+        UpsertSetting(context, settings, "shop_name", shopName);
+        UpsertSetting(context, settings, "shop_tax_id", shopTaxId);
+        UpsertSetting(context, settings, "shop_business_type", shopBusinessType);
+        UpsertSetting(context, settings, "shop_phone", shopPhone);
+        UpsertSetting(context, settings, "shop_email", shopEmail);
+        UpsertSetting(context, settings, "shop_address", shopAddress);
+        await context.SaveChangesAsync();
+        shopSaveMessage = "Configuración guardada.";
+    }
+
+    // ===== Helpers =====
+
+    private void UpsertSetting(BikePOS.Data.BikePosContext context, List<ShopSetting> settings, string key, string value)
+    {
+        var existing = settings.FirstOrDefault(s => s.Key == key);
+        if (existing is not null)
+        {
+            existing.Value = value?.Trim() ?? "";
+        }
+        else
+        {
+            context.ShopSetting.Add(new ShopSetting { Key = key, Value = value?.Trim() ?? "" });
+        }
+    }
+
+    private static string? NullIfEmpty(string? s) =>
+        string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+}

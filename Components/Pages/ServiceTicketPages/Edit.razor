@@ -1,177 +1,323 @@
 @page "/tickets/edit"
+@page "/tickets/details"
 @rendermode InteractiveServer
 @using Microsoft.EntityFrameworkCore
 @using BikePOS.Models
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
 
-<PageTitle>Edit Service Ticket</PageTitle>
+<PageTitle>@(isPaid ? "Boleta de Servicio" : "Editar Boleta de Servicio")</PageTitle>
 
-<h1>Edit</h1>
-
-<h2>Service Ticket</h2>
-<hr />
-@if (ServiceTicket is null)
-{
-    <p><em>Loading...</em></p>
-}
-else
-{
-    <div class="row">
-        <div class="col-md-4">
-            <EditForm method="post" Model="ServiceTicket" OnValidSubmit="UpdateServiceTicket" FormName="edit" Enhance>
-                <DataAnnotationsValidator />
-                <ValidationSummary role="alert"/>
-                <input type="hidden" name="ServiceTicket.Id" value="@ServiceTicket.Id" />
-                <div class="mb-3">
-                    <span class="text-danger">*</span>
-                    <label for="status" class="form-label">Status:</label>
-                    <InputSelect id="status" @bind-Value="ServiceTicket.Status" class="form-control" aria-required="true">
-                        @foreach (var status in Enum.GetValues<TicketStatus>())
-                        {
-                            <option value="@status">@status</option>
-                        }
-                    </InputSelect>
-                </div>
-                <div class="mb-3">
-                    <span class="text-danger">*</span>
-                    <label for="bikeid" class="form-label">Bike:</label>
-                    <InputSelect id="bikeid" @bind-Value="ServiceTicket.BikeId" class="form-control" aria-required="true">
-                        <option value="">-- Select Bike --</option>
-                        @foreach (var bike in Bikes)
-                        {
-                            <option value="@bike.Id">@bike.Name (@bike.Sku)</option>
-                        }
-                    </InputSelect>
-                </div>
-                <div class="mb-3">
-                    <label for="mechanicid" class="form-label">Mechanic:</label>
-                    <InputSelect id="mechanicid" @bind-Value="ServiceTicket.MechanicId" class="form-control">
-                        <option value="">-- None --</option>
-                        @foreach (var mechanic in Mechanics)
-                        {
-                            <option value="@mechanic.Id">@mechanic.Name</option>
-                        }
-                    </InputSelect>
-                </div>
-                <div class="mb-3">
-                    <label for="baseserviceid" class="form-label">Service:</label>
-                    <InputSelect id="baseserviceid" @bind-Value="ServiceTicket.BaseServiceId" class="form-control">
-                        <option value="">-- None --</option>
-                        @foreach (var service in Services)
-                        {
-                            <option value="@service.Id">@service.Name (@service.DefaultPrice.ToString("C"))</option>
-                        }
-                    </InputSelect>
-                </div>
-                <div class="mb-3">
-                    <label for="description" class="form-label">Description:</label>
-                    <InputTextArea id="description" @bind-Value="ServiceTicket.Description" class="form-control" rows="3" />
-                </div>
-                <div class="mb-3">
-                    <span class="text-danger">*</span>
-                    <label for="price" class="form-label">Price:</label>
-                    <InputNumber id="price" @bind-Value="ServiceTicket.Price" class="form-control" aria-required="true"/>
-                </div>
-                <button type="submit" class="btn btn-primary">Save</button>
-            </EditForm>
-        </div>
-    </div>
-
-    @if (TicketProducts.Any())
+<div class="p-6 max-w-5xl mx-auto">
+    @if (ticket is null)
     {
-        <h3 class="mt-4">Products</h3>
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Product</th>
-                    <th>Qty</th>
-                    <th>Unit Price</th>
-                    <th>Subtotal</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var tp in TicketProducts)
-                {
-                    <tr>
-                        <td>@tp.Product?.Name</td>
-                        <td>@tp.Quantity</td>
-                        <td>@tp.UnitPrice.ToString("C")</td>
-                        <td>@((tp.Quantity * tp.UnitPrice).ToString("C"))</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+        <p class="text-sm text-gray-400">Cargando...</p>
     }
-}
+    else if (!showProductSelector)
+    {
+        @if (isPaid)
+        {
+            <div class="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-circle-check text-green-600"></i>
+                <span class="text-sm text-green-800 font-medium">Esta boleta ya fue cobrada. Los campos no son editables.</span>
+            </div>
+        }
 
-<div>
-    <a href="/tickets">Back to List</a>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between mb-1">
+                <h2 class="text-xl font-bold text-gray-800">Boleta de servicio #@ticket.Id</h2>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs px-2 py-1 rounded-full @StatusBadgeClass(ticket.Status)">@StatusLabel(ticket.Status)</span>
+                    <span class="text-sm text-gray-500">@ticket.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <span class="text-sm text-gray-500">@(ticket.Bike?.Customer?.FullName ?? "—")</span>
+                <span class="text-sm text-gray-800 ml-4 font-medium">@ticket.Bike?.Name</span>
+            </div>
+
+            <div class="mb-4">
+                <p class="text-sm text-gray-700">@(ticket.BaseService?.Name ?? "Sin servicio base")</p>
+            </div>
+
+            @* Status *@
+            <div class="mb-4">
+                <label class="block text-sm text-gray-600 mb-1">Estado</label>
+                <select class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
+                        @bind="ticket.Status" disabled="@isPaid">
+                    @foreach (var status in Enum.GetValues<TicketStatus>())
+                    {
+                        <option value="@status">@StatusLabel(status)</option>
+                    }
+                </select>
+            </div>
+
+            @* Mechanic selector *@
+            <div class="mb-4">
+                <label class="block text-sm text-gray-600 mb-1">Mecánico asignado</label>
+                <select class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
+                        @bind="ticket.MechanicId" disabled="@isPaid">
+                    <option value="">— Sin asignar —</option>
+                    @foreach (var m in mechanics)
+                    {
+                        <option value="@m.Id">@m.Name</option>
+                    }
+                </select>
+            </div>
+
+            @* Products *@
+            @if (ticketProducts.Any())
+            {
+                <div class="mb-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">Productos</h4>
+                    @foreach (var tp in ticketProducts)
+                    {
+                        <div class="flex items-center justify-between text-sm py-1 border-b border-gray-100">
+                            <span class="text-gray-700">@tp.Product?.Name x@tp.Quantity</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-gray-800">@((tp.UnitPrice * tp.Quantity).ToString("C"))</span>
+                                @if (!isPaid)
+                                {
+                                    <button class="text-red-400 hover:text-red-600 text-xs" @onclick="() => RemoveProduct(tp)">quitar</button>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (!isPaid)
+            {
+                <button class="text-sm text-indigo-600 hover:underline mb-4 block" @onclick="OpenProductSelector">
+                    Agregar productos
+                </button>
+            }
+
+            @* Notes *@
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Anotaciones</label>
+                <textarea class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
+                          rows="3" @bind="ticket.Description" placeholder="Notas adicionales..." disabled="@isPaid"></textarea>
+            </div>
+
+            @* Total *@
+            <div class="flex justify-between items-center text-sm font-semibold border-t border-gray-200 pt-3 mb-4">
+                <span class="text-gray-700">Total</span>
+                <span class="text-gray-800 text-lg">@CalculateTotal().ToString("C")</span>
+            </div>
+
+            <div class="flex gap-3">
+                @if (!isPaid)
+                {
+                    <button class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors"
+                            @onclick="SaveTicket">
+                        Guardar
+                    </button>
+                }
+                <a href="/tickets" class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">&larr; Volver a lista</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        @* Product Selector *@
+        <div class="flex gap-6">
+            <div class="flex-1">
+                <div class="flex items-center gap-3 mb-4">
+                    <button class="text-sm text-gray-500 hover:text-gray-700" @onclick="CloseProductSelector">&larr; Volver</button>
+                    <input type="text" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                           placeholder="Buscar producto..." @bind="productSearch" @bind:event="oninput" @onkeyup="SearchProducts" />
+                </div>
+
+                <div class="grid grid-cols-3 gap-4">
+                    @foreach (var product in productResults)
+                    {
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 cursor-pointer hover:shadow-md hover:border-indigo-300 transition-all"
+                             @onclick="() => AddProduct(product)">
+                            <div class="w-full h-24 bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
+                                <i class="fa-solid fa-box-open text-gray-300 text-3xl"></i>
+                            </div>
+                            <p class="text-sm font-medium text-gray-800">@product.Name</p>
+                            <p class="text-sm text-gray-500">@product.Price.ToString("C")</p>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="w-72 bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-fit sticky top-6">
+                <h4 class="text-sm font-bold text-gray-800 mb-1">Boleta de servicio</h4>
+                <p class="text-xs text-gray-500 mb-3">@(ticket.Bike?.Customer?.FullName ?? "—")</p>
+
+                <div class="text-xs text-gray-700 mb-1">@(ticket.BaseService?.Name ?? "—")</div>
+                <div class="text-xs text-gray-500 mb-3 text-right">@(ticket.BaseService?.DefaultPrice.ToString("C") ?? "—")</div>
+
+                @foreach (var tp in ticketProducts)
+                {
+                    <div class="flex justify-between text-xs text-gray-700 mb-1">
+                        <span>@tp.Product?.Name</span>
+                        <span>@((tp.UnitPrice * tp.Quantity).ToString("C"))</span>
+                    </div>
+                }
+
+                <div class="flex justify-between text-sm font-semibold border-t border-gray-200 pt-2 mt-3">
+                    <span>Total</span>
+                    <span>@CalculateTotal().ToString("C")</span>
+                </div>
+
+                <button class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2 rounded-lg mt-3 transition-colors"
+                        @onclick="SaveTicket">
+                    Guardar
+                </button>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
     [SupplyParameterFromQuery]
     private int Id { get; set; }
 
-    [SupplyParameterFromForm]
-    private ServiceTicket? ServiceTicket { get; set; }
+    private ServiceTicket? ticket;
+    private List<Mechanic> mechanics = new();
+    private List<TicketProduct> ticketProducts = new();
+    private List<TicketProduct> removedProducts = new();
 
-    private List<Bike> Bikes { get; set; } = new();
-    private List<Mechanic> Mechanics { get; set; } = new();
-    private List<Service> Services { get; set; } = new();
-    private List<TicketProduct> TicketProducts { get; set; } = new();
+    private bool isPaid => ticket?.Status == TicketStatus.Charged;
+
+    // Product selector
+    private bool showProductSelector = false;
+    private string productSearch = "";
+    private List<Product> productResults = new();
 
     protected override async Task OnInitializedAsync()
     {
         using var context = DbFactory.CreateDbContext();
+        ticket = await context.ServiceTicket
+            .Include(t => t.Bike).ThenInclude(b => b!.Customer)
+            .Include(t => t.Mechanic)
+            .Include(t => t.BaseService)
+            .FirstOrDefaultAsync(t => t.Id == Id);
 
-        if (ServiceTicket is null)
+        if (ticket is null)
         {
-            ServiceTicket = await context.ServiceTicket.FirstOrDefaultAsync(m => m.Id == Id);
-            if (ServiceTicket is null)
-            {
-                NavigationManager.NotFound();
-                return;
-            }
+            NavigationManager.NotFound();
+            return;
         }
 
-        Bikes = await context.Bike.OrderBy(b => b.Name).ToListAsync();
-        Mechanics = await context.Mechanic.Where(m => m.IsActive).OrderBy(m => m.Name).ToListAsync();
-        Services = await context.Service.OrderBy(s => s.Name).ToListAsync();
-        TicketProducts = await context.TicketProduct
+        mechanics = await context.Mechanic.Where(m => m.IsActive).OrderBy(m => m.Name).ToListAsync();
+        ticketProducts = await context.TicketProduct
             .Include(tp => tp.Product)
             .Where(tp => tp.ServiceTicketId == Id)
             .ToListAsync();
     }
 
-    private async Task UpdateServiceTicket()
+    private decimal CalculateTotal()
+    {
+        var servicePrice = ticket?.BaseService?.DefaultPrice ?? 0;
+        var productsTotal = ticketProducts.Sum(tp => tp.UnitPrice * tp.Quantity);
+        return servicePrice + productsTotal;
+    }
+
+    private void RemoveProduct(TicketProduct tp)
+    {
+        ticketProducts.Remove(tp);
+        if (tp.Id > 0) removedProducts.Add(tp);
+    }
+
+    private async Task OpenProductSelector()
+    {
+        showProductSelector = true;
+        using var context = DbFactory.CreateDbContext();
+        productResults = await context.Product.Where(p => p.QuantityInStock > 0).OrderBy(p => p.Name).ToListAsync();
+    }
+
+    private void CloseProductSelector() => showProductSelector = false;
+
+    private async Task SearchProducts()
     {
         using var context = DbFactory.CreateDbContext();
-        ServiceTicket!.UpdatedAt = DateTime.UtcNow;
-        context.Attach(ServiceTicket!).State = EntityState.Modified;
-
-        try
+        var query = context.Product.Where(p => p.QuantityInStock > 0);
+        if (!string.IsNullOrWhiteSpace(productSearch))
         {
-            await context.SaveChangesAsync();
+            query = query.Where(p => p.Name.Contains(productSearch) || (p.Sku != null && p.Sku.Contains(productSearch)));
         }
-        catch (DbUpdateConcurrencyException)
+        productResults = await query.OrderBy(p => p.Name).ToListAsync();
+    }
+
+    private void AddProduct(Product product)
+    {
+        var existing = ticketProducts.FirstOrDefault(tp => tp.ProductId == product.Id);
+        if (existing is not null)
         {
-            if (!ServiceTicketExists(ServiceTicket!.Id))
+            existing.Quantity++;
+        }
+        else
+        {
+            ticketProducts.Add(new TicketProduct
             {
-                NavigationManager.NotFound();
+                ServiceTicketId = ticket!.Id,
+                ProductId = product.Id,
+                Product = product,
+                UnitPrice = product.Price,
+                Quantity = 1
+            });
+        }
+    }
+
+    private async Task SaveTicket()
+    {
+        if (ticket is null || isPaid) return;
+
+        using var context = DbFactory.CreateDbContext();
+        ticket.Price = CalculateTotal();
+        ticket.UpdatedAt = DateTime.UtcNow;
+        context.Attach(ticket).State = EntityState.Modified;
+
+        foreach (var removed in removedProducts)
+        {
+            context.TicketProduct.Remove(removed);
+        }
+
+        foreach (var tp in ticketProducts)
+        {
+            if (tp.Id == 0)
+            {
+                // Detach nav property so EF doesn't try to INSERT the existing Product
+                var product = tp.Product;
+                tp.Product = null!;
+                context.TicketProduct.Add(tp);
+                tp.Product = product;
             }
             else
             {
-                throw;
+                context.Attach(tp).State = EntityState.Modified;
             }
         }
 
+        await context.SaveChangesAsync();
         NavigationManager.NavigateTo("/tickets");
     }
 
-    private bool ServiceTicketExists(int id)
+    private static string StatusLabel(TicketStatus status) => status switch
     {
-        using var context = DbFactory.CreateDbContext();
-        return context.ServiceTicket.Any(e => e.Id == id);
-    }
+        TicketStatus.Open => "Abierta",
+        TicketStatus.InProgress => "En progreso",
+        TicketStatus.WaitingForParts => "Esperando repuestos",
+        TicketStatus.Completed => "Completada",
+        TicketStatus.Charged => "Cobrada",
+        TicketStatus.Cancelled => "Cancelada",
+        _ => status.ToString()
+    };
+
+    private static string StatusBadgeClass(TicketStatus status) => status switch
+    {
+        TicketStatus.Open => "bg-blue-100 text-blue-700",
+        TicketStatus.InProgress => "bg-yellow-100 text-yellow-700",
+        TicketStatus.WaitingForParts => "bg-orange-100 text-orange-700",
+        TicketStatus.Completed => "bg-green-100 text-green-700",
+        TicketStatus.Charged => "bg-gray-100 text-gray-600",
+        TicketStatus.Cancelled => "bg-red-100 text-red-700",
+        _ => "bg-gray-100 text-gray-600"
+    };
 }

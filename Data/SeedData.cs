@@ -22,47 +22,30 @@ public class SeedData
             return;
         }
 
+        // Meta field definitions
+        var taxIdField = new MetaFieldDefinition { Key = "tax_id", Label = "RUT / Tax ID", FieldType = "text", IsRequired = false, SortOrder = 1 };
+        var companyField = new MetaFieldDefinition { Key = "company_name", Label = "Empresa", FieldType = "text", IsRequired = false, SortOrder = 2 };
+        context.MetaFieldDefinition.AddRange(taxIdField, companyField);
+        context.SaveChanges();
+
+        // Customers
+        var juan = new Customer { FirstName = "Juan Ignacio", LastName = "Campos", Phone = "555-1001", Email = "juan@example.com", City = "Santiago", Country = "Chile" };
+        var mario = new Customer { FirstName = "Mario", LastName = "Barahona", Phone = "555-1002", Email = "mario@example.com", City = "Santiago", Country = "Chile" };
+        var laura = new Customer { FirstName = "Laura", LastName = "Mendez", Phone = "555-1003", Email = "laura@example.com", City = "Valparaiso", Country = "Chile" };
+        context.Customer.AddRange(juan, mario, laura);
+        context.SaveChanges();
+
+        // Sample meta values
+        context.CustomerMetaValue.Add(new CustomerMetaValue { CustomerId = juan.Id, MetaFieldDefinitionId = taxIdField.Id, Value = "12.345.678-9" });
+        context.SaveChanges();
+
+        // Bikes
         context.Bike.AddRange(
-            new Bike
-            {
-                Name = "Batman's Batcycle",
-                Sku = "MM1979",
-                Color = "Red",
-                Brand = "Specialized",
-                Price = 16000,
-            },
-            new Bike
-            {
-                Name = "The Road Warrior",
-                Sku = "TRW1981",
-                Color = "Blue",
-                Brand = "Trek",
-                Price = 18000,
-            },
-            new Bike
-            {
-                Name = "Bike12",
-                Sku = "MMBT1985",
-                Color = "Yellow",
-                Brand = "Specialized",
-                Price = 3550,
-            },
-            new Bike
-            {
-                Name = "Bike13",
-                Sku = "MMFR2015",
-                Color = "Black",
-                Brand = "Specialized",
-                Price = 8430,
-            },
-            new Bike
-            {
-                Name = "Bike14",
-                Sku = "FAMMS2024",
-                Color = "White",
-                Brand = "Trek",
-                Price = 8430,
-            });
+            new Bike { Name = "Tarmac SL7", Sku = "MM1979", Color = "Red", Brand = "Specialized", Price = 16000, CustomerId = juan.Id },
+            new Bike { Name = "The Road Warrior", Sku = "TRW1981", Color = "Blue", Brand = "Trek", Price = 18000, CustomerId = mario.Id },
+            new Bike { Name = "Allez Sprint", Sku = "MMBT1985", Color = "Yellow", Brand = "Specialized", Price = 3550, CustomerId = juan.Id },
+            new Bike { Name = "Domane SLR", Sku = "MMFR2015", Color = "Black", Brand = "Trek", Price = 8430, CustomerId = laura.Id },
+            new Bike { Name = "Venge Pro", Sku = "FAMMS2024", Color = "White", Brand = "Specialized", Price = 8430, CustomerId = mario.Id });
 
         context.Mechanic.AddRange(
             new Mechanic { Name = "Mike Rodriguez", Phone = "555-0101", Email = "mike@bikepos.local" },
@@ -70,14 +53,14 @@ public class SeedData
             new Mechanic { Name = "James Park", Phone = "555-0103", Email = "james@bikepos.local" });
 
         context.Service.AddRange(
-            new Service { Name = "Tune-Up", Description = "Full bike tune-up including derailleur adjustment, brake check, and lubrication", DefaultPrice = 75.00m, EstimatedMinutes = 60 },
+            new Service { Name = "Tune-Up Sencillo", Description = "Full bike tune-up including derailleur adjustment, brake check, and lubrication", DefaultPrice = 75.00m, EstimatedMinutes = 60 },
             new Service { Name = "Brake Replacement", Description = "Replace brake pads and adjust calipers", DefaultPrice = 45.00m, EstimatedMinutes = 30 },
             new Service { Name = "Wheel Truing", Description = "True wheel and check spoke tension", DefaultPrice = 35.00m, EstimatedMinutes = 25 },
             new Service { Name = "Full Overhaul", Description = "Complete disassembly, cleaning, inspection, and reassembly", DefaultPrice = 250.00m, EstimatedMinutes = 180 },
             new Service { Name = "Flat Repair", Description = "Remove tire, patch or replace tube, reinstall", DefaultPrice = 15.00m, EstimatedMinutes = 15 });
 
         context.Product.AddRange(
-            new Product { Name = "Brake Pads (Pair)", Sku = "BP001", Price = 12.99m, QuantityInStock = 50, Category = "Brakes" },
+            new Product { Name = "Fibras AMP", Sku = "BP001", Price = 20000m, QuantityInStock = 50, Category = "Brakes" },
             new Product { Name = "Inner Tube 700c", Sku = "IT700", Price = 7.99m, QuantityInStock = 100, Category = "Tires & Tubes" },
             new Product { Name = "Chain 11-Speed", Sku = "CH11S", Price = 34.99m, QuantityInStock = 25, Category = "Drivetrain" },
             new Product { Name = "Tire 700x25c", Sku = "TR725", Price = 44.99m, QuantityInStock = 30, Category = "Tires & Tubes" },
