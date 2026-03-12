@@ -74,7 +74,7 @@
                     @foreach (var tp in ticketProducts)
                     {
                         <div class="flex items-center justify-between text-sm py-1 border-b border-gray-100">
-                            <span class="text-gray-700">@tp.Product?.Name x@tp.Quantity</span>
+                            <span class="text-gray-700">@tp.Product?.Name x @tp.Quantity</span>
                             <div class="flex items-center gap-2">
                                 <span class="text-gray-800">@((tp.UnitPrice * tp.Quantity).ToString("C"))</span>
                                 @if (!isPaid)
@@ -166,13 +166,17 @@
                 </div>
 
                 <button class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2 rounded-lg mt-3 transition-colors"
-                        @onclick="SaveTicket">
+                        @onclick="SaveAndCloseProducts">
                     Guardar
                 </button>
             </div>
         </div>
     }
 </div>
+
+<Snackbar @ref="snackbar" Color="SnackbarColor.Success" Interval="3000" Location="SnackbarLocation.BottomEnd">
+    <SnackbarBody>Boleta guardada.</SnackbarBody>
+</Snackbar>
 
 @code {
     [SupplyParameterFromQuery]
@@ -184,6 +188,8 @@
     private List<TicketProduct> removedProducts = new();
 
     private bool isPaid => ticket?.Status == TicketStatus.Charged;
+
+    private Snackbar snackbar = null!;
 
     // Product selector
     private bool showProductSelector = false;
@@ -233,6 +239,12 @@
     }
 
     private void CloseProductSelector() => showProductSelector = false;
+
+    private async Task SaveAndCloseProducts()
+    {
+        await SaveTicket();
+        showProductSelector = false;
+    }
 
     private async Task SearchProducts()
     {
@@ -296,7 +308,8 @@
         }
 
         await context.SaveChangesAsync();
-        NavigationManager.NavigateTo("/tickets");
+        removedProducts.Clear();
+        await snackbar.Show();
     }
 
     private static string StatusLabel(TicketStatus status) => status switch

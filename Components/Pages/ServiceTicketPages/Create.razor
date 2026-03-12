@@ -222,7 +222,7 @@
                         @foreach (var tp in ticketProducts)
                         {
                             <div class="flex items-center justify-between text-sm py-1 border-b border-gray-100">
-                                <span class="text-gray-700">@tp.Product.Name x@tp.Quantity</span>
+                                <span class="text-gray-700">@tp.Product.Name x @tp.Quantity</span>
                                 <div class="flex items-center gap-2">
                                     <span class="text-gray-800">@((tp.UnitPrice * tp.Quantity).ToString("C"))</span>
                                     <button class="text-red-400 hover:text-red-600 text-xs" @onclick="() => RemoveProduct(tp)">quitar</button>
@@ -252,7 +252,7 @@
                 <div class="flex gap-3">
                     <button class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors"
                             @onclick="SaveTicket">
-                        Continuar al cobro
+                        Guardar Boleta
                     </button>
                     <button class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2" @onclick="() => step = 3">&larr; Volver</button>
                 </div>

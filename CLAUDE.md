@@ -4,9 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-BikePOS is a bike shop point-of-sale system built with Blazor (.NET 10). It manages bike inventory, service tickets, and customer charges. WebMCP integration exposes shop functionality to AI agents via the Model Context Protocol.
+BikePOS is a bike service shop POS system built with Blazor (.NET 10). It handles the full service lifecycle: customers, service tickets for bikes/rims/components, mechanic assignment, product tracking, and payment processing. WebMCP integration exposes shop functionality to AI agents via the Model Context Protocol.
 
-The end goal is a full POS where bike service tickets can be created, edited, and charged.
+**Always read `plan.md` before starting significant work.** It contains the product roadmap, what's done, and what's next. Keep it updated as work progresses.
+
+## Development Guidelines
+
+- Write clean, readable, maintainable code. Favor clarity over cleverness.
+- Reuse patterns wherever possible — if a pattern exists in the codebase, follow it.
+- **Parametrizable models:** Whenever possible, design models to be extensible via MetaFieldDefinitions (dynamic key-value fields configurable through Settings). This allows admins to add custom fields without code changes.
+- **UI framework:** Use only Blazorise with the Tailwind provider. Do not use raw Bootstrap or other UI libraries. Tailwind utility classes are fine for layout/spacing.
+- Keep components small and reusable (e.g. CustomerForm is used in both CustomerPages and the ticket create modal).
 
 ## Common Commands
 
@@ -33,12 +41,16 @@ No test project exists currently.
 
 **Key layers:**
 - `Components/Pages/` — Blazor routable pages
-  - `BikePages/` — Inventory CRUD (Index with QuickGrid, Create, Edit, Details, Delete)
-  - `PosTerminal.razor` — Point-of-sale terminal with JS interop (charge, cashier, notifications, connectivity)
-- `Models/Bike.cs` — Domain model with data annotation validation
+  - `ServiceTicketPages/` — Ticket CRUD (Create wizard, Edit/Details unified, Index, Delete)
+  - `CustomerPages/` — Customer CRUD + reusable CustomerForm component
+  - `SettingsPages/` — Settings with vertical nav (Profile, Client Meta Fields, Shop Info)
+  - `MechanicPages/`, `ServicePages/`, `ProductPages/` — Entity CRUD
+  - `BikePages/` — Legacy inventory CRUD (to be removed in Phase 2, see plan.md)
+  - `PosTerminal.razor` — Point-of-sale terminal with JS interop
+- `Models/` — Domain models (Customer, Bike, ServiceTicket, Mechanic, Service, Product, TicketProduct, Charge, MetaFieldDefinition, CustomerMetaValue, ShopSetting)
 - `Data/BikePosContext.cs` — EF Core DbContext
 - `Data/SeedData.cs` — Database seeding on startup
-- `Program.cs` — Entry point, DI setup, and minimal API endpoints (`/api/bikes`, `/api/bikes/{id}`, `/api/bikes/search`)
+- `Program.cs` — Entry point, DI setup, and minimal API endpoints
 
 **JS Interop pattern:** `PosTerminal.razor` + co-located `PosTerminal.razor.js` use ES module import via `IJSObjectReference`. The JS module is imported in `OnAfterRenderAsync`, a `DotNetObjectReference` is passed for callbacks (e.g. `[JSInvokable] OnConnectionStatusChanged`), and `IAsyncDisposable` cleans up both references.
 
