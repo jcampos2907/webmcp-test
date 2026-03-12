@@ -1,0 +1,16 @@
+@using Microsoft.AspNetCore.Components.Routing
+
+<NavLink class="w-14 h-10 rounded-md transition-colors flex items-center justify-center group"
+         href="@Href"
+         Match="@Match"
+         ActiveClass="bg-indigo-500"
+         title="@Label">
+    <i class="fa-solid @Icon text-gray-400 group-[.active]:text-white"></i>
+</NavLink>
+
+@code {
+    [Parameter] public string Href { get; set; } = "";
+    [Parameter] public string Icon { get; set; } = "";
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public NavLinkMatch Match { get; set; } = NavLinkMatch.Prefix;
+}

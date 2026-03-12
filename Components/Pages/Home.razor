@@ -1,28 +1,378 @@
 @page "/"
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@using Microsoft.EntityFrameworkCore
+@using BikePOS.Models
+@inject IJSRuntime JS
+@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject NavigationManager NavigationManager
 
 <PageTitle>BikePOS</PageTitle>
 
-<h1>BikePOS</h1>
+<div class="p-6">
+    @* Header *@
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">POS Terminal</h1>
+        <div class="flex items-center gap-3">
+            <span class="inline-block w-3 h-3 rounded-full @(isOnline ? "bg-green-400" : "bg-red-400")" title="@(isOnline ? "Online" : "Offline")"></span>
+            @if (!string.IsNullOrEmpty(activeCashier))
+            {
+                <span class="text-sm text-gray-500">Cashier: <strong class="text-gray-800">@activeCashier</strong></span>
+            }
+            <button class="text-sm text-indigo-600 hover:underline" @onclick="() => showCashierModal = true">Change</button>
+        </div>
+    </div>
 
-<p>Bike shop point-of-sale and service ticket management.</p>
-
-<div class="row g-4 mt-2">
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Inventory</h5>
-                <p class="card-text">Browse, add, and manage bike inventory.</p>
-                <a href="/bikes" class="btn btn-primary">Go to Inventory</a>
+    @* Create Service Ticket — Hero Card *@
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 cursor-pointer hover:shadow-md transition-shadow"
+         @onclick="ShowCreateTicket">
+        <div class="flex items-center gap-4">
+            <div class="w-14 h-14 bg-indigo-100 rounded-lg flex items-center justify-center">
+                <i class="fa-solid fa-file-circle-plus text-indigo-600 text-2xl"></i>
+            </div>
+            <div>
+                <h2 class="text-xl font-semibold text-gray-800">Crear Boleta de Servicio</h2>
+                <p class="text-sm text-gray-500">Create a new service ticket for a bike</p>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">POS Terminal</h5>
-                <p class="card-text">Ring up sales and manage service tickets.</p>
-                <a href="/pos-terminal" class="btn btn-primary">Open Terminal</a>
+
+    @* Two cards side by side *@
+    <div class="grid grid-cols-2 gap-6 mb-6">
+        @* Search Tickets *@
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Consultar Boleta</h3>
+            <div class="mb-3">
+                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                       placeholder="Search by ticket # or bike name..."
+                       @bind="ticketSearch" @bind:event="oninput" @onkeyup="SearchTickets" />
             </div>
+            @if (searchResults.Any())
+            {
+                <div class="space-y-2 max-h-48 overflow-y-auto">
+                    @foreach (var ticket in searchResults)
+                    {
+                        <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-indigo-50 transition-colors"
+                             @onclick="() => SelectTicket(ticket)">
+                            <div>
+                                <span class="text-sm font-medium text-gray-800">#@ticket.Id</span>
+                                <span class="text-sm text-gray-500 ml-2">@ticket.Bike?.Name</span>
+                            </div>
+                            <span class="text-xs px-2 py-1 rounded-full @GetStatusBadgeClass(ticket.Status)">@ticket.Status</span>
+                        </div>
+                    }
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(ticketSearch))
+            {
+                <p class="text-sm text-gray-400">No tickets found</p>
+            }
+        </div>
+
+        @* Customer / Bike Lookup *@
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Consultar Cliente</h3>
+            <div class="mb-3">
+                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                       placeholder="Search by bike name or SKU..."
+                       @bind="bikeSearch" @bind:event="oninput" @onkeyup="SearchBikes" />
+            </div>
+            @if (bikeResults.Any())
+            {
+                <div class="space-y-2 max-h-48 overflow-y-auto">
+                    @foreach (var bike in bikeResults)
+                    {
+                        <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                            <div>
+                                <span class="text-sm font-medium text-gray-800">@bike.Name</span>
+                                <span class="text-xs text-gray-400 ml-2">@bike.Sku</span>
+                            </div>
+                            <span class="text-xs text-gray-500">@bike.Brand — @bike.Color</span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    @* Charge / Selected Ticket + Recent Charges *@
+    <div class="grid grid-cols-2 gap-6">
+        @* Process Charge *@
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Procesar Cargo</h3>
+            @if (selectedTicket is not null)
+            {
+                <div class="bg-indigo-50 rounded-lg p-3 mb-4">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Ticket #@selectedTicket.Id</span>
+                        <span class="font-semibold text-gray-800">@selectedTicket.Bike?.Name</span>
+                    </div>
+                    <div class="flex justify-between text-sm mt-1">
+                        <span class="text-gray-600">@(selectedTicket.Mechanic?.Name ?? "Unassigned")</span>
+                        <span class="font-bold text-indigo-600">@selectedTicket.Price.ToString("C")</span>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="block text-sm text-gray-600 mb-1">Amount</label>
+                    <input type="number" step="0.01" min="0"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                           @bind="chargeAmount" />
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-600 mb-1">Payment Method</label>
+                    <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            @bind="selectedPaymentMethod">
+                        <option value="@PaymentMethod.Cash">Cash</option>
+                        <option value="@PaymentMethod.Card">Card</option>
+                    </select>
+                </div>
+
+                <button class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition-colors disabled:opacity-50"
+                        @onclick="ProcessCharge" disabled="@(!isOnline || chargeAmount <= 0)">
+                    Process Charge
+                </button>
+
+                @if (chargeSuccess is not null)
+                {
+                    <div class="mt-3 p-2 rounded-lg text-sm text-center @(chargeSuccess.Value ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")">
+                        @(chargeSuccess.Value ? "Charge processed successfully!" : "Failed to process charge.")
+                    </div>
+                }
+            }
+            else
+            {
+                <p class="text-sm text-gray-400">Select a ticket from "Consultar Boleta" to charge</p>
+            }
+        </div>
+
+        @* Recent Charges *@
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Cargos Recientes</h3>
+            @if (recentCharges.Any())
+            {
+                <div class="space-y-2 max-h-64 overflow-y-auto">
+                    @foreach (var charge in recentCharges)
+                    {
+                        <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                            <div>
+                                <span class="text-sm font-medium text-gray-800">@charge.Amount.ToString("C")</span>
+                                <span class="text-xs text-gray-400 ml-2">Ticket #@charge.ServiceTicketId</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">@charge.PaymentMethod</span>
+                                <div class="text-xs text-gray-400 mt-1">@charge.ChargedAt.ToLocalTime().ToString("g")</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="text-sm text-gray-400">No charges yet</p>
+            }
         </div>
     </div>
 </div>
+
+@* Cashier Modal *@
+@if (showCashierModal)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-6 w-96 shadow-xl">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Set Cashier</h3>
+            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                   placeholder="Cashier name" @bind="cashierName" />
+            <div class="flex gap-3">
+                <button class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm transition-colors"
+                        @onclick="SaveCashier">Save</button>
+                <button class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg text-sm transition-colors"
+                        @onclick="() => showCashierModal = false">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IJSObjectReference? module;
+    private DotNetObjectReference<Home>? dotNetRef;
+
+    private bool isOnline = true;
+    private string cashierName = "";
+    private string? activeCashier;
+    private bool showCashierModal = false;
+
+    // Ticket search
+    private string ticketSearch = "";
+    private List<ServiceTicket> searchResults = new();
+    private ServiceTicket? selectedTicket;
+
+    // Bike search
+    private string bikeSearch = "";
+    private List<Bike> bikeResults = new();
+
+    // Charge
+    private decimal chargeAmount;
+    private PaymentMethod selectedPaymentMethod = PaymentMethod.Cash;
+    private bool? chargeSuccess;
+    private List<Charge> recentCharges = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            module = await JS.InvokeAsync<IJSObjectReference>("import",
+                "./Components/Pages/Home.razor.js");
+
+            dotNetRef = DotNetObjectReference.Create(this);
+            await module.InvokeVoidAsync("initialize", dotNetRef);
+            await module.InvokeVoidAsync("addOnlineStatusListener");
+
+            activeCashier = await module.InvokeAsync<string?>("loadCashierName");
+            if (string.IsNullOrEmpty(activeCashier))
+            {
+                showCashierModal = true;
+            }
+
+            await LoadRecentCharges();
+            StateHasChanged();
+        }
+    }
+
+    private async Task SearchTickets()
+    {
+        if (string.IsNullOrWhiteSpace(ticketSearch))
+        {
+            searchResults.Clear();
+            return;
+        }
+
+        using var context = DbFactory.CreateDbContext();
+        var query = context.ServiceTicket
+            .Include(t => t.Bike)
+            .Include(t => t.Mechanic)
+            .Where(t => t.Status != TicketStatus.Cancelled);
+
+        if (int.TryParse(ticketSearch, out var ticketId))
+        {
+            query = query.Where(t => t.Id == ticketId);
+        }
+        else
+        {
+            query = query.Where(t => t.Bike.Name!.Contains(ticketSearch));
+        }
+
+        searchResults = await query.OrderByDescending(t => t.CreatedAt).Take(10).ToListAsync();
+    }
+
+    private async Task SearchBikes()
+    {
+        if (string.IsNullOrWhiteSpace(bikeSearch))
+        {
+            bikeResults.Clear();
+            return;
+        }
+
+        using var context = DbFactory.CreateDbContext();
+        bikeResults = await context.Bike
+            .Where(b => b.Name!.Contains(bikeSearch) || b.Sku.Contains(bikeSearch))
+            .Take(10)
+            .ToListAsync();
+    }
+
+    private void SelectTicket(ServiceTicket ticket)
+    {
+        selectedTicket = ticket;
+        chargeAmount = ticket.Price;
+        chargeSuccess = null;
+    }
+
+    private async Task ProcessCharge()
+    {
+        if (selectedTicket is null || chargeAmount <= 0) return;
+
+        try
+        {
+            using var context = DbFactory.CreateDbContext();
+            var charge = new Charge
+            {
+                ServiceTicketId = selectedTicket.Id,
+                Amount = chargeAmount,
+                ChargedAt = DateTime.UtcNow,
+                CashierName = activeCashier,
+                PaymentMethod = selectedPaymentMethod
+            };
+
+            context.Charge.Add(charge);
+            await context.SaveChangesAsync();
+
+            chargeSuccess = true;
+            selectedTicket = null;
+            chargeAmount = 0;
+
+            await LoadRecentCharges();
+
+            if (module is not null)
+            {
+                await module.InvokeAsync<bool>("showNotification",
+                    "BikePOS", $"Charge of {charge.Amount:C} processed by {activeCashier ?? "unknown"}.");
+            }
+        }
+        catch
+        {
+            chargeSuccess = false;
+        }
+    }
+
+    private async Task LoadRecentCharges()
+    {
+        using var context = DbFactory.CreateDbContext();
+        recentCharges = await context.Charge
+            .Include(c => c.ServiceTicket)
+            .OrderByDescending(c => c.ChargedAt)
+            .Take(10)
+            .ToListAsync();
+    }
+
+    private void ShowCreateTicket()
+    {
+        NavigationManager.NavigateTo("/tickets/create");
+    }
+
+    private async Task SaveCashier()
+    {
+        if (module is not null && !string.IsNullOrEmpty(cashierName))
+        {
+            await module.InvokeVoidAsync("saveCashierName", cashierName);
+            activeCashier = cashierName;
+            cashierName = "";
+            showCashierModal = false;
+        }
+    }
+
+    [JSInvokable]
+    public void OnConnectionStatusChanged(bool online)
+    {
+        isOnline = online;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private static string GetStatusBadgeClass(TicketStatus status) => status switch
+    {
+        TicketStatus.Open => "bg-yellow-100 text-yellow-700",
+        TicketStatus.InProgress => "bg-blue-100 text-blue-700",
+        TicketStatus.WaitingForParts => "bg-orange-100 text-orange-700",
+        TicketStatus.Completed => "bg-green-100 text-green-700",
+        TicketStatus.Charged => "bg-purple-100 text-purple-700",
+        TicketStatus.Cancelled => "bg-red-100 text-red-700",
+        _ => "bg-gray-100 text-gray-700"
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        dotNetRef?.Dispose();
+        if (module is not null)
+            await module.DisposeAsync();
+    }
+}

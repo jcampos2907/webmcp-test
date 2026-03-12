@@ -1,11 +1,19 @@
 using BikePOS.Components;
 using BikePOS.Data;
 using Microsoft.EntityFrameworkCore;
+using Blazorise;
+using Blazorise.Tailwind;
+using Blazorise.Icons.FontAwesome;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("BikePosContext") ?? throw new InvalidOperationException("Connection string 'BikePosContext' not found.");
 
 builder.Services.AddDbContextFactory<BikePosContext>(options => options.UseSqlite(connectionString));
+
+builder.Services
+    .AddBlazorise(options => { options.Immediate = true; })
+    .AddTailwindProviders()
+    .AddFontAwesomeIcons();
 
 builder.Services.AddQuickGridEntityFrameworkAdapter();
 

@@ -1,55 +1,24 @@
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">BikePOS</a>
-    </div>
-</div>
+@inject NavigationManager NavigationManager
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+<aside class="w-20 bg-gray-800 flex flex-col items-center py-4 gap-1 flex-shrink-0">
+    @* Brand *@
+    <a href="/" class="w-12 h-12 bg-indigo-500 rounded-lg flex items-center justify-center mb-4 hover:bg-indigo-600 transition-colors" title="Home">
+        <i class="fa-solid fa-cash-register text-white text-lg"></i>
+    </a>
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
+    <NavButton Href="/" Icon="fa-house" Label="Home" Match="NavLinkMatch.All" />
+    <NavButton Href="/tickets" Icon="fa-ticket" Label="Tickets" />
+    <NavButton Href="/bikes" Icon="fa-bicycle" Label="Inventory" />
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="bikes">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Inventory
-            </NavLink>
-        </div>
+    <hr class="w-10 border-gray-600 my-2" />
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="tickets">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Service Tickets
-            </NavLink>
-        </div>
+    <NavButton Href="/mechanics" Icon="fa-wrench" Label="Mechanics" />
+    <NavButton Href="/services" Icon="fa-gears" Label="Services" />
+    <NavButton Href="/products" Icon="fa-box-open" Label="Products" />
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="pos-terminal">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> POS Terminal
-            </NavLink>
-        </div>
+    <div class="mt-auto"></div>
+</aside>
 
-        <hr class="mx-3 my-2" />
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="mechanics">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Mechanics
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="services">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Services
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="products">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Products
-            </NavLink>
-        </div>
-    </nav>
-</div>
+@code {
+    private void Navigate(string url) => NavigationManager.NavigateTo(url);
+}
