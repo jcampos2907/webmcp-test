@@ -45,9 +45,8 @@ No test project exists currently.
   - `CustomerPages/` — Customer CRUD + reusable CustomerForm component
   - `SettingsPages/` — Settings with vertical nav (Profile, Client Meta Fields, Shop Info)
   - `MechanicPages/`, `ServicePages/`, `ProductPages/` — Entity CRUD
-  - `BikePages/` — Legacy inventory CRUD (to be removed in Phase 2, see plan.md)
   - `PosTerminal.razor` — Point-of-sale terminal with JS interop
-- `Models/` — Domain models (Customer, Bike, ServiceTicket, Mechanic, Service, Product, TicketProduct, Charge, MetaFieldDefinition, CustomerMetaValue, ShopSetting)
+- `Models/` — Domain models (Customer, Component, ServiceTicket, Mechanic, Service, Product, TicketProduct, Charge, MetaFieldDefinition, CustomerMetaValue, ShopSetting)
 - `Data/BikePosContext.cs` — EF Core DbContext
 - `Data/SeedData.cs` — Database seeding on startup
 - `Program.cs` — Entry point, DI setup, and minimal API endpoints
@@ -56,7 +55,7 @@ No test project exists currently.
 
 **WebMCP integration:**
 - `wwwroot/js/webmcp.js` — MCP protocol widget library
-- `wwwroot/js/webmcp-tools.js` — App-specific MCP tool/resource/prompt registrations (list-bikes, get-bike, search-bikes, navigate-to-bike, get-page-content)
+- `wwwroot/js/webmcp-tools.js` — App-specific MCP tool/resource/prompt registrations (list-components, get-component, search-components, get-page-content)
 
 **Rendering:** Interactive Server mode with antiforgery protection. Components use `IDbContextFactory<BikePosContext>` for data access.
 

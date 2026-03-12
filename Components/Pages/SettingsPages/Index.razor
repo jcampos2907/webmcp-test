@@ -18,6 +18,12 @@
                 </button>
             </li>
             <li>
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "components" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
+                        @onclick='() => activeSection = "components"'>
+                    <i class="fa-solid fa-cubes w-5 text-center mr-2"></i>Tipos de Componente
+                </button>
+            </li>
+            <li>
                 <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "meta" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
                         @onclick='() => activeSection = "meta"'>
                     <i class="fa-solid fa-sliders w-5 text-center mr-2"></i>Campos de Cliente
@@ -96,6 +102,54 @@
                         <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
                                 @onclick="SaveProfile">Guardar</button>
                     </div>
+                </div>
+            }
+
+            @* ==================== Component Types ==================== *@
+            @if (activeSection == "components")
+            {
+                <h1 class="text-xl font-bold text-gray-800 mb-1">Tipos de Componente</h1>
+                <p class="text-sm text-gray-500 mb-6">Categorías disponibles al registrar un componente en una boleta de servicio (ej: Bicicleta, Aro, Pedal).</p>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    @* Existing types *@
+                    @if (componentTypes.Any())
+                    {
+                        <div class="space-y-2 mb-4">
+                            @foreach (var ct in componentTypes)
+                            {
+                                <div class="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2">
+                                    <span class="text-sm text-gray-800">@ct</span>
+                                    <button class="text-red-400 hover:text-red-600 text-xs" @onclick="() => RemoveComponentType(ct)">quitar</button>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-sm text-gray-400 mb-4">No hay tipos configurados. Agrega al menos uno.</p>
+                    }
+
+                    @* Add new type *@
+                    <div class="flex items-center gap-2">
+                        <input type="text" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                               placeholder="Nuevo tipo (ej: Marco, Rueda...)" @bind="newComponentType" @bind:event="oninput"
+                               @onkeydown="HandleComponentTypeKeyDown" />
+                        <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                                @onclick="AddComponentType" disabled="@string.IsNullOrWhiteSpace(newComponentType)">
+                            Agregar
+                        </button>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(componentTypeError))
+                    {
+                        <div class="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mt-3">@componentTypeError</div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(componentTypeSaveMessage))
+                    {
+                        <div class="text-sm text-green-600 bg-green-50 rounded-lg px-3 py-2 mt-3">@componentTypeSaveMessage</div>
+                    }
                 </div>
             }
 
@@ -409,6 +463,14 @@
     private string profilePhone = "";
     private string? profileSaveMessage;
 
+    // --- Component Types ---
+    private List<string> componentTypes = new();
+    private string newComponentType = "";
+    private string? componentTypeError;
+    private string? componentTypeSaveMessage;
+
+    private static readonly string[] DefaultComponentTypes = ["Bicicleta", "Aro", "Pedal", "Marco", "Rueda", "Otro"];
+
     // --- Meta Fields ---
     private List<MetaFieldDefinition> metaFields = new();
     private bool showFieldForm = false;
@@ -437,6 +499,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadComponentTypes();
         await LoadMetaFields();
         await LoadShopSettings();
         await LoadProfile();
@@ -463,6 +526,77 @@
         UpsertSetting(context, settings, "user_phone", profilePhone);
         await context.SaveChangesAsync();
         profileSaveMessage = "Perfil guardado.";
+    }
+
+    // ===== Component Types =====
+
+    private async Task LoadComponentTypes()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var setting = await context.ShopSetting.FirstOrDefaultAsync(s => s.Key == "component_types");
+        if (setting is not null && !string.IsNullOrWhiteSpace(setting.Value))
+        {
+            componentTypes = setting.Value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
+        }
+        else
+        {
+            // Initialize with defaults
+            componentTypes = DefaultComponentTypes.ToList();
+            await SaveComponentTypes();
+        }
+    }
+
+    private async Task SaveComponentTypes()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var settings = await context.ShopSetting.ToListAsync();
+        UpsertSetting(context, settings, "component_types", string.Join(", ", componentTypes));
+        await context.SaveChangesAsync();
+    }
+
+    private async Task AddComponentType()
+    {
+        componentTypeError = null;
+        componentTypeSaveMessage = null;
+
+        var trimmed = newComponentType?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(trimmed))
+            return;
+
+        if (componentTypes.Any(ct => ct.Equals(trimmed, StringComparison.OrdinalIgnoreCase)))
+        {
+            componentTypeError = $"\"{trimmed}\" ya existe.";
+            return;
+        }
+
+        componentTypes.Add(trimmed);
+        newComponentType = "";
+        await SaveComponentTypes();
+        componentTypeSaveMessage = $"\"{trimmed}\" agregado.";
+    }
+
+    private async Task RemoveComponentType(string type)
+    {
+        componentTypeError = null;
+        componentTypeSaveMessage = null;
+
+        if (componentTypes.Count <= 1)
+        {
+            componentTypeError = "Debe existir al menos un tipo de componente.";
+            return;
+        }
+
+        componentTypes.Remove(type);
+        await SaveComponentTypes();
+        componentTypeSaveMessage = $"\"{type}\" eliminado.";
+    }
+
+    private async Task HandleComponentTypeKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await AddComponentType();
+        }
     }
 
     // ===== Meta Fields =====

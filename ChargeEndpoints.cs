@@ -20,7 +20,7 @@ public static class ChargeEndpoints
             var take = limit ?? 10;
             return await db.Charge
                 .Include(c => c.ServiceTicket)
-                    .ThenInclude(t => t.Bike)
+                    .ThenInclude(t => t.Component)
                 .OrderByDescending(c => c.ChargedAt)
                 .Take(take)
                 .ToListAsync();

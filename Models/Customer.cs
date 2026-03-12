@@ -37,6 +37,6 @@ public class Customer
     [NotMapped]
     public string FullName => $"{FirstName} {LastName}";
 
-    public ICollection<Bike> Bikes { get; set; } = new List<Bike>();
+    public ICollection<Component> Components { get; set; } = new List<Component>();
     public ICollection<CustomerMetaValue> MetaValues { get; set; } = new List<CustomerMetaValue>();
 }

@@ -11,16 +11,20 @@ public class SeedData
             serviceProvider.GetRequiredService<
                 DbContextOptions<BikePosContext>>());
 
-        if (context == null || context.Bike == null)
+        if (context == null || context.Component == null)
         {
             throw new NullReferenceException(
-                "Null BikePosContext or Bike DbSet");
+                "Null BikePosContext or Component DbSet");
         }
 
-        if (context.Bike.Any())
+        if (context.Component.Any())
         {
             return;
         }
+
+        // Component types setting
+        context.ShopSetting.Add(new ShopSetting { Key = "component_types", Value = "Bicicleta, Aro, Pedal, Marco, Rueda, Otro" });
+        context.SaveChanges();
 
         // Meta field definitions
         var taxIdField = new MetaFieldDefinition { Key = "tax_id", Label = "RUT / Tax ID", FieldType = "text", IsRequired = false, SortOrder = 1 };
@@ -39,13 +43,13 @@ public class SeedData
         context.CustomerMetaValue.Add(new CustomerMetaValue { CustomerId = juan.Id, MetaFieldDefinitionId = taxIdField.Id, Value = "12.345.678-9" });
         context.SaveChanges();
 
-        // Bikes
-        context.Bike.AddRange(
-            new Bike { Name = "Tarmac SL7", Sku = "MM1979", Color = "Red", Brand = "Specialized", Price = 16000, CustomerId = juan.Id },
-            new Bike { Name = "The Road Warrior", Sku = "TRW1981", Color = "Blue", Brand = "Trek", Price = 18000, CustomerId = mario.Id },
-            new Bike { Name = "Allez Sprint", Sku = "MMBT1985", Color = "Yellow", Brand = "Specialized", Price = 3550, CustomerId = juan.Id },
-            new Bike { Name = "Domane SLR", Sku = "MMFR2015", Color = "Black", Brand = "Trek", Price = 8430, CustomerId = laura.Id },
-            new Bike { Name = "Venge Pro", Sku = "FAMMS2024", Color = "White", Brand = "Specialized", Price = 8430, CustomerId = mario.Id });
+        // Components (serviceable items)
+        context.Component.AddRange(
+            new Component { Name = "Tarmac SL7", Sku = "MM1979", Color = "Red", Brand = "Specialized", ComponentType = "Bicicleta", Price = 16000, CustomerId = juan.Id },
+            new Component { Name = "The Road Warrior", Sku = "TRW1981", Color = "Blue", Brand = "Trek", ComponentType = "Bicicleta", Price = 18000, CustomerId = mario.Id },
+            new Component { Name = "Allez Sprint", Sku = "MMBT1985", Color = "Yellow", Brand = "Specialized", ComponentType = "Bicicleta", Price = 3550, CustomerId = juan.Id },
+            new Component { Name = "Domane SLR", Sku = "MMFR2015", Color = "Black", Brand = "Trek", ComponentType = "Bicicleta", Price = 8430, CustomerId = laura.Id },
+            new Component { Name = "Venge Pro", Sku = "FAMMS2024", Color = "White", Brand = "Specialized", ComponentType = "Bicicleta", Price = 8430, CustomerId = mario.Id });
 
         context.Mechanic.AddRange(
             new Mechanic { Name = "Mike Rodriguez", Phone = "555-0101", Email = "mike@bikepos.local" },

@@ -25,8 +25,11 @@ public class ServiceTicket
     public TicketStatus Status { get; set; } = TicketStatus.Open;
 
     [Required]
-    public int BikeId { get; set; }
-    public Bike Bike { get; set; } = null!;
+    public int ComponentId { get; set; }
+    public Component Component { get; set; } = null!;
+
+    public int? CustomerId { get; set; }
+    public Customer? Customer { get; set; }
 
     [DataType(DataType.MultilineText)]
     public string? Description { get; set; }
@@ -45,4 +48,8 @@ public class ServiceTicket
     [DataType(DataType.Currency)]
     [Column(TypeName = "decimal(18, 2)")]
     public decimal Price { get; set; }
+
+    [Column(TypeName = "decimal(5, 2)")]
+    [Range(0, 100)]
+    public decimal DiscountPercent { get; set; }
 }

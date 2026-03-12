@@ -1,13 +1,14 @@
-# BikePOS — Product Plan
+# BikePOS — Comprehensive Implementation Plan
 
 ## Vision
+
 A complete bike service shop POS system. Handles the full lifecycle: customer walks in → service ticket is created for their bike/rim/component → mechanic is assigned → work is done → products are added → customer pays at a physical terminal.
 
-## What's Done
+## What's Done (Phase 1)
 
 ### Core Models & Data
 - [x] Customer with address fields and dynamic meta fields (MetaFieldDefinition + CustomerMetaValue)
-- [x] Bike model (serviceable item — needs rename to Component, see Phase 2)
+- [x] Bike model (serviceable item — renamed to Component in Phase 1)
 - [x] ServiceTicket with status workflow (Open → InProgress → WaitingForParts → Completed → Charged → Cancelled)
 - [x] Mechanic model
 - [x] Service model (base service types with default pricing)
@@ -18,105 +19,302 @@ A complete bike service shop POS system. Handles the full lifecycle: customer wa
 
 ### Pages & Flows
 - [x] Home dashboard with recent charges and quick actions
-- [x] Ticket creation wizard (4 steps: Customer → Bike → Service → Summary)
+- [x] Ticket creation wizard (4 steps: Customer → Component → Service → Summary)
 - [x] Ticket edit/details (unified page, read-only when Charged)
 - [x] Ticket list with QuickGrid
 - [x] Customer CRUD with dynamic meta fields, regex validation, conditional fields
 - [x] Customer form reusable component (used in customer pages + ticket create modal)
 - [x] Mechanic, Service, Product CRUD pages
-- [x] Settings page (vertical nav: Profile, Client Fields, Shop Info, Billing placeholder, Notifications placeholder)
+- [x] Settings page (vertical nav: Profile, Component Types, Client Fields, Shop Info, Billing placeholder, Notifications placeholder)
 - [x] POS Terminal with JS interop
 
 ### Infrastructure
 - [x] Blazorise UI framework (Tailwind provider + FontAwesome icons + Snackbar)
 - [x] WebMCP integration for AI agent access
 - [x] EF Core with SQLite, migrations, seed data
-- [x] Minimal API endpoints for bikes
+- [x] Minimal API endpoints for components
 
-## Phase 2 — Rename Bike → Component
+---
 
-The "Bike" model should become "Component" to accommodate all serviceable items (bikes, rims, pedals, frames, wheels, etc.).
+## Critical Bugs — FIXED
 
-- [ ] Rename `Models/Bike.cs` → `Models/Component.cs`, class `Bike` → `Component`
-- [ ] Add `ComponentType` field (e.g. "Bicicleta", "Aro", "Pedal", "Marco", "Rueda", "Otro")
-- [ ] Update `ServiceTicket.BikeId` → `ServiceTicket.ComponentId` and nav property
-- [ ] Update `Customer.Bikes` → `Customer.Components`
-- [ ] Update `DbContext`: DbSet, OnModelCreating, seed data
-- [ ] Delete standalone `BikePages/` — components are only created within ticket flow or customer context
-- [ ] Remove "Inventory" nav link from sidebar
-- [ ] Update ticket Create flow (step 2) — labels, variables, methods
-- [ ] Update ticket Edit/Details — all `ticket.Bike` → `ticket.Component`
-- [ ] Update ticket Index columns
-- [ ] Update API endpoints (`/api/bikes` → `/api/components`)
-- [ ] Update webmcp-tools.js references
-- [ ] Create EF migration `RenameBikeToComponent`
-- [ ] Update CLAUDE.md to reflect changes
+1. **~~ProcessCharge does not update ticket status to Charged~~** — FIXED: ProcessCharge now sets `ticket.Status = TicketStatus.Charged` after creating the Charge record.
 
-## Phase 3 — Payment Terminal Integration
+2. **~~Inventory never decrements~~** — FIXED: Products decrement `QuantityInStock` on ticket save, restore on product removal and ticket cancellation.
 
-Integrate with a physical payment terminal so the cashier can charge directly from the POS.
+3. **Customer dialog in Create ticket flow** — Verified working: modal renders correctly with inline styles (z-index 9999).
 
-- [ ] Research terminal options (SumUp, Square, or local CR provider)
-- [ ] Define payment flow: Ticket → "Cobrar" → select payment method → terminal processes → Charge record created → ticket status → Charged
-- [ ] Support multiple payment methods: cash, card (terminal), transfer
-- [ ] Partial payments (e.g. deposit now, rest on pickup)
-- [ ] Print/email receipt after charge
-- [ ] Refund flow (reverse a charge, reopen ticket)
+4. **~~BikePOS.db in git~~** — FIXED: Added `*.db`, `*.db-shm`, `*.db-wal` to `.gitignore`.
 
-## Architecture Principle — Parametrizable Models
+5. **~~No CustomerId on ServiceTicket~~** — FIXED: Added `CustomerId` FK to ServiceTicket (Phase 2 migration).
 
-All core models should be designed so that administrators can extend them at runtime without code changes. This is critical because the app may run in different countries, each with its own requirements (currencies, tax ID formats, custom fields, legal documents, etc.).
+---
 
-**How it works:**
-- Each major entity (Customer, Component, ServiceTicket, etc.) supports dynamic fields via `MetaFieldDefinition` + entity-specific MetaValue tables (e.g. `CustomerMetaValue`).
-- MetaFieldDefinitions are configurable in Settings: label, key, type, regex validation, format mask, select options, conditional visibility, sort order.
-- When auth is integrated, admins will be able to add/edit/disable these fields through the Settings UI — no developer intervention needed.
+## Phase 1: Rename Bike → Component — DONE
 
-**What should be parametrizable per country/deployment:**
-- Currency and currency format
-- Tax ID formats and labels (Cédula in CR, RUT in Chile, RFC in Mexico, etc.)
-- Required fields per entity (e.g. some countries require a tax ID on every customer)
-- Custom model fields (e.g. "Giro" in Chile, "Actividad Económica" in CR)
-- Invoice/receipt formats and legal requirements
-- Payment methods available
+**Goal**: Generalize the "Bike" model to handle all serviceable items (bikes, rims, pedals, frames, wheels, etc.)
 
-**Pattern to follow:**
-- Already implemented for Customer (MetaFieldDefinition + CustomerMetaValue with regex, conditionals, select fields)
-- Extend to Component, ServiceTicket, and other entities as needed using the same pattern
+- [x] Rename `Models/Bike.cs` → `Models/Component.cs`, class `Bike` → `Component`
+- [x] Add `ComponentType` field (string: "Bicicleta", "Aro", "Pedal", "Marco", "Rueda", "Otro")
+- [x] Update `ServiceTicket.BikeId` → `ServiceTicket.ComponentId` and nav property
+- [x] Update `Customer.Bikes` → `Customer.Components`
+- [x] Update `BikePosContext`: DbSet, OnModelCreating, seed data
+- [x] Delete standalone `BikePages/` — components are only created within ticket flow or customer context
+- [x] Remove "Inventory" nav link from sidebar
+- [x] Update ticket Create flow (step 2) — labels, variables, methods, added ComponentType selector
+- [x] Update ticket Edit/Details — all `ticket.Bike` → `ticket.Component`
+- [x] Update ticket Index columns (shows ComponentType)
+- [x] Update API endpoints (`/api/bikes` → `/api/components`)
+- [x] Update `webmcp-tools.js` references
+- [x] Create EF migration `RenameBikeToComponent` (uses RenameTable to preserve data)
+- [x] Update CLAUDE.md
+- [x] Configurable component types via Settings > "Tipos de Componente" (stored in ShopSetting)
 
-## Phase 4 — ERP Integration
+---
 
-Bidirectional sync with external ERP systems (e.g. SAP Business One, Odoo, QuickBooks, custom ERPs). Configurable through the admin UI — no code changes needed per ERP.
+## Phase 2: Ticket Workflow Hardening — DONE
 
-**Principles:**
-- All core models (Customer, Component, Product, ServiceTicket/Order, Charge/Payment) must have hook points for external sync
-- Two-way street: changes in BikePOS push to ERP, changes in ERP pull into BikePOS
-- Conflict resolution strategy (last-write-wins, manual review, or configurable per entity)
-- Admin UI to configure: which ERP, field mappings, sync frequency, which entities to sync
+**Goal**: Make the ticket lifecycle robust before adding payment integration.
 
-**Implementation plan:**
+- [x] Add `CustomerId` FK to ServiceTicket (direct customer reference, independent of component)
+- [x] Implement inventory decrement on ticket save (and restore on product removal)
+- [x] Fix ProcessCharge to set `ticket.Status = TicketStatus.Charged`
+- [x] Add `UpdatedAt` auto-set in SaveChanges override
+- [x] Add ticket cancellation flow (restore inventory, prevent charging cancelled tickets)
+- [x] Add validation: prevent charging ticket with $0 total, prevent charging cancelled/already-charged tickets
+- [x] Add discount support: `DiscountPercent` on ServiceTicket with UI in Create and Edit
+
+---
+
+## Phase 3: Translation & Internationalization (i18n)
+
+**Goal**: Make all UI text translatable and support locale-specific formatting (currency, dates, numbers). The app currently mixes Spanish and English strings across pages. Centralize all text into resource files so the entire UI can be served in one consistent language, and new languages can be added without code changes. Doing this now makes all future phases translatable from the start.
+
+### Approach: Built-in .NET Localization (`Microsoft.Extensions.Localization`)
+- [ ] Add `Resources/` directory with `.resx` files per language (e.g. `Strings.resx` for default/es, `Strings.en.resx` for English)
+- [ ] Register `IStringLocalizer<T>` in `Program.cs` with `AddLocalization()` and `RequestLocalizationOptions`
+- [ ] Set default culture from `ShopSetting` key `locale` (e.g. `es-CR`, `es-CL`, `en-US`)
+- [ ] Settings UI: add language/locale selector in "Datos del Negocio" section
+- [ ] Inject `IStringLocalizer` into all page components, replace hardcoded strings with `@L["key"]`
+
+### Pages to Translate
+- [ ] Home (POS Terminal) — all labels, buttons, status badges, cashier modal
+- [ ] Ticket Create wizard — step labels, placeholders, buttons, validation messages
+- [ ] Ticket Edit/Details — status labels, section headers, action buttons
+- [ ] Ticket Index — column headers, filter labels
+- [ ] Ticket Delete — confirmation text
+- [ ] Customer pages — form labels, table headers
+- [ ] Mechanic, Service, Product CRUD pages
+- [ ] Settings page — section titles, field labels, messages
+- [ ] NavMenu — link labels
+
+### Locale-Specific Formatting
+- [ ] Currency: use `CultureInfo` for `.ToString("C")` calls (e.g. `$1,000.00` vs `$1.000,00` vs `₡1.000`)
+- [ ] Dates: respect locale for `ToString("g")` / `ToString("dd/MM/yyyy")` calls
+- [ ] Numbers: decimal separators, thousands grouping
+
+### Translation Keys Strategy
+- Group by page/feature (e.g. `Tickets_Create_StepCustomer`, `Pos_ProcessCharge`, `Settings_ShopInfo_Title`)
+- Status labels as a shared group (e.g. `TicketStatus_Open`, `TicketStatus_Charged`)
+- Validation messages as shared group (e.g. `Validation_Required`, `Validation_InvalidEmail`)
+- Keep keys stable — changes break translations
+
+### Supported Locales (Initial)
+- `es` — Spanish (default, covers CR/Chile/Mexico with locale variants)
+- `en` — English
+
+### Why No Extra Libraries
+- `Microsoft.Extensions.Localization` is built into .NET — zero NuGet packages needed
+- Blazorise already integrates with .NET's `CultureInfo` for its own components
+- `.resx` files are compiled into the assembly (good performance)
+- Full framework support: culture middleware, `CultureInfo` for formatting, `IStringLocalizer<T>`
+
+### Future
+- Community-contributed translations via `.resx` files
+- RTL support if needed
+- Per-user language preference (after Auth, Phase 4)
+
+**Files**: `Resources/Strings.*.resx`, `Program.cs`, all `.razor` pages
+
+---
+
+## Phase 4: Authentication & Authorization
+
+**Goal**: ASP.NET Core Identity with roles: Admin, Mechanic, Cashier. Auth comes before payment terminal because payment endpoints must be secured.
+
+### Setup
+- Add `Microsoft.AspNetCore.Identity.EntityFrameworkCore`
+- `Models/ApplicationUser.cs` — extends `IdentityUser`, adds `DisplayName`, optional `MechanicId` FK
+- Change `BikePosContext` base to `IdentityDbContext<ApplicationUser>`
+- Register Identity services in `Program.cs`, add middleware
+
+### Pages
+- `Components/Pages/Account/` — Login, Register (admin-only), Logout, AccessDenied
+
+### Authorization Matrix
+
+| Area | Admin | Mechanic | Cashier |
+|------|-------|----------|---------|
+| All CRUD | Yes | — | — |
+| Tickets read/write | Yes | Own only | No |
+| POS Terminal | Yes | No | Yes |
+| Settings | Yes | No | No |
+| Customer CRUD | Yes | Read only | Read only |
+
+### Audit Trail
+- Add `CreatedBy`/`UpdatedBy` (UserId) to ServiceTicket, Charge
+- Log status changes with timestamp and user
+
+### Seed Data
+- Seed roles and default admin user (`admin@bikepos.local` / changeable password)
+
+---
+
+## Phase 5: Payment Terminal Integration
+
+**Goal**: Integrate with physical payment terminals via an abstracted service interface.
+
+### New Files
+- `Services/IPaymentTerminalService.cs` — interface: CreateCheckout, GetStatus, Cancel, ListDevices
+- `Services/SquareTerminalService.cs` — Square Terminal API via HttpClient
+- `Services/ManualPaymentService.cs` — fallback for Cash/transfer
+
+### Charge Model Updates
+- Add `PaymentStatus` (Pending/Completed/Cancelled/Failed)
+- Add `TerminalCheckoutId`, `CompletedAt`
+- Support multiple payment methods: Cash, Card (terminal), Transfer
+
+### POS Terminal Updates
+- "Terminal" payment method shows "Waiting for customer..." with polling
+- Device selector if multiple terminals
+- Partial payments support (deposit now, rest on pickup)
+
+### Configuration
+```json
+{ "Square": { "AccessToken": "", "LocationId": "", "Environment": "sandbox" } }
+```
+
+No PCI scope — Square Terminal handles card data on-device.
+
+---
+
+## Phase 6: Parametrizable Models Expansion
+
+**Goal**: Extend the MetaFieldDefinition pattern (already working for Customer) to other entities.
+
+- [ ] Add `EntityType` discriminator to `MetaFieldDefinition` (e.g. "Customer", "Component", "ServiceTicket")
+- [ ] Create `ComponentMetaValue`, `TicketMetaValue` tables (same pattern as `CustomerMetaValue`)
+- [ ] Settings UI: add tabs per entity type in "Campos" section
+- [ ] Render dynamic fields in Component and Ticket forms
+- [ ] Support per-country presets (CR, Chile, Mexico defaults for tax ID formats, currencies, required fields)
+
+**Files**: `Models/MetaFieldDefinition.cs`, `Components/Pages/SettingsPages/Index.razor`, new MetaValue models
+
+---
+
+## Phase 7: ERP Integration
+
+**Goal**: Bidirectional sync with external ERP systems, configurable through admin UI.
+
 - [ ] Add `ExternalId` and `ExternalSource` fields to all syncable models (Customer, Component, Product, ServiceTicket, Charge)
-- [ ] Create `SyncMapping` model: maps BikePOS fields ↔ ERP fields per entity, configurable in Settings
+- [ ] Create `SyncMapping` model: maps BikePOS fields ↔ ERP fields per entity
 - [ ] Create `SyncLog` model: tracks sync events, errors, conflicts
-- [ ] Webhook/event system: model save hooks that trigger outbound sync
-- [ ] Inbound sync endpoint: receives ERP updates and applies them
+- [ ] Webhook/event system: model save hooks trigger outbound sync
+- [ ] Inbound sync endpoint: receives ERP updates
 - [ ] Settings UI: ERP connection config, field mapping editor, sync status dashboard
-- [ ] Support multiple ERPs simultaneously (e.g. accounting in one, inventory in another)
+- [ ] Support multiple ERPs simultaneously
 
-**Entities to sync:**
+### Entities to Sync
 - Customers ↔ ERP Contacts/Business Partners
 - Products ↔ ERP Items/Inventory
-- Components ↔ ERP Assets (if supported)
+- Components ↔ ERP Assets
 - ServiceTickets ↔ ERP Orders/Work Orders
 - Charges ↔ ERP Payments/Invoices
 
-## Phase 5 — Enhancements
+---
 
-- [ ] Customer component history (show all components belonging to a customer, with service history per component)
+## Phase 8: Enhancements
+
+- [ ] Customer component history (all components + service history per component)
 - [ ] Ticket timeline/activity log (status changes, notes, who did what)
-- [ ] Mechanic workload view (which tickets are assigned to whom)
-- [ ] Inventory alerts (product stock below threshold)
-- [ ] Reports: daily sales, revenue by service type, mechanic productivity
-- [ ] Multi-user support with authentication and role-based permissions (admin, cashier, mechanic)
+- [ ] Mechanic workload view (assigned tickets dashboard)
+- [ ] Inventory alerts (stock below threshold)
+- [ ] Reports: daily sales, revenue by service type, mechanic productivity (Chart.js)
 - [ ] Notification system (WhatsApp/email when service is ready)
 - [ ] Billing/invoicing (electronic invoicing for CR tax compliance)
+- [ ] Print/email receipt after charge
+- [ ] Refund flow (reverse charge, reopen ticket)
+- [ ] CSV export for reports
+
+---
+
+## Phase 9: WebMCP Expansion
+
+**Goal**: Expose full POS workflow to AI agents.
+
+### New Tools
+- list-tickets, get-ticket, search-tickets, create-ticket, update-ticket-status
+- list-mechanics, list-services, list-products
+- get-pos-summary, process-charge
+- list-customers, get-customer
+
+### New Prompts
+- ticket-summary, daily-report, inventory-status
+
+---
+
+## Architecture Principles
+
+### Parametrizable Models
+All core models support dynamic fields via `MetaFieldDefinition` + entity-specific MetaValue tables. MetaFieldDefinitions are configurable in Settings: label, key, type, regex validation, format mask, select options, conditional visibility, sort order. When auth is integrated, admins manage these through the UI.
+
+### What Should Be Parametrizable Per Country/Deployment
+- Currency and currency format
+- Tax ID formats and labels (Cédula in CR, RUT in Chile, RFC in Mexico)
+- Required fields per entity
+- Custom model fields
+- Invoice/receipt formats
+- Payment methods available
+- UI language (via i18n, Phase 3)
+
+### Tech Stack Rules
+- Blazorise UI with Tailwind provider only (no raw Bootstrap, no other UI libs)
+- FontAwesome icons via Blazorise.Icons.FontAwesome
+- Blazorise.Snackbar for toast notifications
+- EF Core with SQLite (IDbContextFactory pattern)
+- Interactive Server render mode
+- Built-in .NET Localization (`IStringLocalizer` + `.resx`) for i18n — no third-party i18n libraries
+
+---
+
+## Phase Dependencies
+
+```
+Critical Bugs (immediate) ✅
+  → Phase 1 (Bike→Component rename) ✅
+    → Phase 2 (Ticket hardening) ✅
+      → Phase 3 (i18n / Translation) ← translate as you go, before adding more UI
+        → Phase 4 (Auth)
+          → Phase 5 (Payment terminal)
+            → Phase 6 (Parametrizable expansion)
+            → Phase 7 (ERP integration)
+            → Phase 8 (Enhancements)
+            → Phase 9 (WebMCP expansion)
+```
+
+Phases 6-9 can run in parallel once Auth and Payment are done.
+
+---
+
+## Verification
+
+1. **Bugs**: ProcessCharge updates status, inventory decrements, customer dialog works, DB not in git ✅
+2. **Phase 1**: All references to "Bike" replaced, migration applies cleanly, ticket flow works with component types ✅
+3. **Phase 2**: Inventory tracks correctly, cancellation restores stock, discounts apply to total ✅
+4. **Phase 3**: Switch locale in Settings → all UI text changes language, currency/date formats match locale
+5. **Phase 4**: Login/logout works, role restrictions enforced, audit trail records user actions
+6. **Phase 5**: Square sandbox checkout completes, polling updates status, Charge record persisted
+7. **Phase 6**: Dynamic fields render on Component and Ticket forms, validation works
+8. **Phase 7**: Create customer in BikePOS → appears in ERP, edit in ERP → syncs back
+9. **Phase 8**: Dashboard shows metrics, reports export CSV, notifications send
+10. **Phase 9**: WebMCP tools return correct data via Claude Desktop

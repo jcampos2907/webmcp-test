@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace BikePOS.Models;
 
-public class Bike
+public class Component
 {
     public int Id { get; set; }
     [Required]
@@ -14,6 +14,9 @@ public class Bike
     public string Color { get; set; } = null!;
 
     public string Brand { get; set; } = null!;
+
+    [MaxLength(50)]
+    public string ComponentType { get; set; } = "Bicicleta";
 
     [DataType(DataType.Currency)]
     [Column(TypeName = "decimal(18, 2)")]

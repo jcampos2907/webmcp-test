@@ -5,7 +5,7 @@ namespace BikePOS.Data;
 
 public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContext(options)
 {
-    public DbSet<Bike> Bike { get; set; } = default!;
+    public DbSet<Component> Component { get; set; } = default!;
     public DbSet<ServiceTicket> ServiceTicket { get; set; } = default!;
     public DbSet<Mechanic> Mechanic { get; set; } = default!;
     public DbSet<Service> Service { get; set; } = default!;
@@ -17,24 +17,50 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
     public DbSet<CustomerMetaValue> CustomerMetaValue { get; set; } = default!;
     public DbSet<ShopSetting> ShopSetting { get; set; } = default!;
 
+    public override int SaveChanges()
+    {
+        SetUpdatedAt();
+        return base.SaveChanges();
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        SetUpdatedAt();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void SetUpdatedAt()
+    {
+        foreach (var entry in ChangeTracker.Entries<ServiceTicket>()
+            .Where(e => e.State == EntityState.Modified))
+        {
+            entry.Entity.UpdatedAt = DateTime.UtcNow;
+        }
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<Bike>(entity =>
+        modelBuilder.Entity<Component>(entity =>
         {
-            entity.HasOne(b => b.Customer)
-                .WithMany(c => c.Bikes)
-                .HasForeignKey(b => b.CustomerId)
+            entity.HasOne(c => c.Customer)
+                .WithMany(cu => cu.Components)
+                .HasForeignKey(c => c.CustomerId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<ServiceTicket>(entity =>
         {
-            entity.HasOne(t => t.Bike)
+            entity.HasOne(t => t.Component)
                 .WithMany()
-                .HasForeignKey(t => t.BikeId)
+                .HasForeignKey(t => t.ComponentId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(t => t.Customer)
+                .WithMany()
+                .HasForeignKey(t => t.CustomerId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             entity.HasOne(t => t.Mechanic)
                 .WithMany()

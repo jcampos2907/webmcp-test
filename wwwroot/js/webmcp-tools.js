@@ -1,5 +1,5 @@
 // WebMCP Tool Registration
-// Uses jasonjmcghee/WebMCP to expose bike inventory tools to AI agents via Claude Desktop.
+// Uses jasonjmcghee/WebMCP to expose component inventory tools to AI agents via Claude Desktop.
 // https://github.com/jasonjmcghee/WebMCP
 
 const mcp = new WebMCP({
@@ -9,82 +9,49 @@ const mcp = new WebMCP({
     padding: "20px",
 });
 
-// Tool: List all bikes
+// Tool: List all components
 mcp.registerTool(
-    "list-bikes",
-    "List all bikes in the inventory. Returns an array of bike objects with id, name, sku, color, brand, and price.",
+    "list-components",
+    "List all components (bikes, rims, pedals, etc.) in the inventory. Returns an array of component objects with id, name, sku, color, brand, componentType, and price.",
     { type: "object", properties: {} },
     async function () {
-        const res = await fetch("/api/bikes");
+        const res = await fetch("/api/components");
         return { content: [{ type: "text", text: JSON.stringify(await res.json(), null, 2) }] };
     }
 );
 
-// Tool: Get bike by ID
+// Tool: Get component by ID
 mcp.registerTool(
-    "get-bike",
-    "Get details of a specific bike by its ID.",
+    "get-component",
+    "Get details of a specific component by its ID.",
     {
         type: "object",
         properties: {
-            id: { type: "number", description: "The bike ID" },
+            id: { type: "number", description: "The component ID" },
         },
         required: ["id"],
     },
     async function (args) {
-        const res = await fetch(`/api/bikes/${args.id}`);
-        if (!res.ok) return { content: [{ type: "text", text: "Bike not found" }] };
+        const res = await fetch(`/api/components/${args.id}`);
+        if (!res.ok) return { content: [{ type: "text", text: "Component not found" }] };
         return { content: [{ type: "text", text: JSON.stringify(await res.json(), null, 2) }] };
     }
 );
 
-// Tool: Search bikes
+// Tool: Search components
 mcp.registerTool(
-    "search-bikes",
-    "Search bikes by name, brand, color, or SKU. Returns matching bikes.",
+    "search-components",
+    "Search components by name, brand, color, or SKU. Returns matching components.",
     {
         type: "object",
         properties: {
-            query: { type: "string", description: "Search term to match against bike name, brand, color, or SKU" },
+            query: { type: "string", description: "Search term to match against component name, brand, color, or SKU" },
         },
         required: ["query"],
     },
     async function (args) {
-        const res = await fetch(`/api/bikes/search?query=${encodeURIComponent(args.query)}`);
+        const res = await fetch(`/api/components/search?query=${encodeURIComponent(args.query)}`);
         return { content: [{ type: "text", text: JSON.stringify(await res.json(), null, 2) }] };
-    }
-);
-
-// Tool: Navigate to bike page
-mcp.registerTool(
-    "navigate-to-bike",
-    "Navigate the user to a specific bike page (list, create, details, edit, or delete).",
-    {
-        type: "object",
-        properties: {
-            page: {
-                type: "string",
-                description: "The page to navigate to: 'list', 'create', 'details', 'edit', or 'delete'",
-            },
-            id: {
-                type: "number",
-                description: "The bike ID (required for details, edit, and delete pages)",
-            },
-        },
-        required: ["page"],
-    },
-    function (args) {
-        const routes = {
-            list: "/bikes",
-            create: "/bikes/create",
-            details: `/bikes/details?id=${args.id}`,
-            edit: `/bikes/edit?id=${args.id}`,
-            delete: `/bikes/delete?id=${args.id}`,
-        };
-        const url = routes[args.page];
-        if (!url) return { content: [{ type: "text", text: "Invalid page" }] };
-        window.location.href = url;
-        return { content: [{ type: "text", text: `Navigated to ${url}` }] };
     }
 );
 
@@ -121,20 +88,20 @@ mcp.registerResource(
     }
 );
 
-// Prompt: Bike inventory summary
+// Prompt: Component inventory summary
 mcp.registerPrompt(
-    "bike-summary",
-    "Generate a summary of the bike inventory",
+    "component-summary",
+    "Generate a summary of the component inventory",
     [],
     async function () {
-        const res = await fetch("/api/bikes");
-        const bikes = await res.json();
+        const res = await fetch("/api/components");
+        const components = await res.json();
         return {
             messages: [{
                 role: "user",
                 content: {
                     type: "text",
-                    text: `Summarize this bike inventory:\n\n${JSON.stringify(bikes, null, 2)}`,
+                    text: `Summarize this component inventory:\n\n${JSON.stringify(components, null, 2)}`,
                 },
             }],
         };

@@ -57,34 +57,34 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 // Minimal API endpoints for WebMCP tools
-var bikeApi = app.MapGroup("/api/bikes");
+var componentApi = app.MapGroup("/api/components");
 
-bikeApi.MapGet("/", async (IDbContextFactory<BikePosContext> dbFactory) =>
+componentApi.MapGet("/", async (IDbContextFactory<BikePosContext> dbFactory) =>
 {
     using var context = dbFactory.CreateDbContext();
-    return Results.Ok(await context.Bike.ToListAsync());
+    return Results.Ok(await context.Component.ToListAsync());
 });
 
-bikeApi.MapGet("/{id:int}", async (int id, IDbContextFactory<BikePosContext> dbFactory) =>
+componentApi.MapGet("/{id:int}", async (int id, IDbContextFactory<BikePosContext> dbFactory) =>
 {
     using var context = dbFactory.CreateDbContext();
-    var bike = await context.Bike.FindAsync(id);
-    return bike is not null ? Results.Ok(bike) : Results.NotFound();
+    var component = await context.Component.FindAsync(id);
+    return component is not null ? Results.Ok(component) : Results.NotFound();
 });
 
-bikeApi.MapGet("/search", async (string? query, IDbContextFactory<BikePosContext> dbFactory) =>
+componentApi.MapGet("/search", async (string? query, IDbContextFactory<BikePosContext> dbFactory) =>
 {
     using var context = dbFactory.CreateDbContext();
-    var bikes = context.Bike.AsQueryable();
+    var components = context.Component.AsQueryable();
     if (!string.IsNullOrWhiteSpace(query))
     {
-        bikes = bikes.Where(b =>
-            (b.Name != null && b.Name.Contains(query)) ||
-            b.Brand.Contains(query) ||
-            b.Color.Contains(query) ||
-            b.Sku.Contains(query));
+        components = components.Where(c =>
+            (c.Name != null && c.Name.Contains(query)) ||
+            c.Brand.Contains(query) ||
+            c.Color.Contains(query) ||
+            c.Sku.Contains(query));
     }
-    return Results.Ok(await bikes.ToListAsync());
+    return Results.Ok(await components.ToListAsync());
 });
 
 // Ticket API endpoints
@@ -94,7 +94,7 @@ ticketApi.MapGet("/", async (IDbContextFactory<BikePosContext> dbFactory) =>
 {
     using var context = dbFactory.CreateDbContext();
     return Results.Ok(await context.ServiceTicket
-        .Include(t => t.Bike)
+        .Include(t => t.Component)
         .Include(t => t.Mechanic)
         .Include(t => t.BaseService)
         .ToListAsync());
@@ -104,7 +104,7 @@ ticketApi.MapGet("/{id:int}", async (int id, IDbContextFactory<BikePosContext> d
 {
     using var context = dbFactory.CreateDbContext();
     var ticket = await context.ServiceTicket
-        .Include(t => t.Bike)
+        .Include(t => t.Component)
         .Include(t => t.Mechanic)
         .Include(t => t.BaseService)
         .Include(t => t.TicketProducts).ThenInclude(tp => tp.Product)
@@ -112,18 +112,18 @@ ticketApi.MapGet("/{id:int}", async (int id, IDbContextFactory<BikePosContext> d
     return ticket is not null ? Results.Ok(ticket) : Results.NotFound();
 });
 
-ticketApi.MapGet("/search", async (string? status, int? bikeId, int? mechanicId, IDbContextFactory<BikePosContext> dbFactory) =>
+ticketApi.MapGet("/search", async (string? status, int? componentId, int? mechanicId, IDbContextFactory<BikePosContext> dbFactory) =>
 {
     using var context = dbFactory.CreateDbContext();
     var tickets = context.ServiceTicket
-        .Include(t => t.Bike)
+        .Include(t => t.Component)
         .Include(t => t.Mechanic)
         .AsQueryable();
 
     if (Enum.TryParse<BikePOS.Models.TicketStatus>(status, true, out var ticketStatus))
         tickets = tickets.Where(t => t.Status == ticketStatus);
-    if (bikeId.HasValue)
-        tickets = tickets.Where(t => t.BikeId == bikeId.Value);
+    if (componentId.HasValue)
+        tickets = tickets.Where(t => t.ComponentId == componentId.Value);
     if (mechanicId.HasValue)
         tickets = tickets.Where(t => t.MechanicId == mechanicId.Value);
 
@@ -135,7 +135,7 @@ ticketApi.MapGet("/open", async (IDbContextFactory<BikePosContext> dbFactory) =>
     using var context = dbFactory.CreateDbContext();
     var openStatuses = new[] { BikePOS.Models.TicketStatus.Open, BikePOS.Models.TicketStatus.InProgress, BikePOS.Models.TicketStatus.WaitingForParts };
     return Results.Ok(await context.ServiceTicket
-        .Include(t => t.Bike)
+        .Include(t => t.Component)
         .Include(t => t.Mechanic)
         .Where(t => openStatuses.Contains(t.Status))
         .OrderByDescending(t => t.CreatedAt)

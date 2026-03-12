@@ -22,8 +22,8 @@
             <dd class="col-sm-10">@serviceticket.Status</dd>
         </dl>
         <dl class="row">
-            <dt class="col-sm-2">Bike</dt>
-            <dd class="col-sm-10">@serviceticket.Bike?.Name</dd>
+            <dt class="col-sm-2">Component</dt>
+            <dd class="col-sm-10">@serviceticket.Component?.Name (@(serviceticket.Component?.ComponentType ?? "—"))</dd>
         </dl>
         <dl class="row">
             <dt class="col-sm-2">Mechanic</dt>
@@ -54,7 +54,7 @@
     {
         using var context = DbFactory.CreateDbContext();
         serviceticket = await context.ServiceTicket
-            .Include(t => t.Bike)
+            .Include(t => t.Component)
             .Include(t => t.Mechanic)
             .FirstOrDefaultAsync(m => m.Id == Id);
 

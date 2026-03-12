@@ -29,8 +29,9 @@
 <QuickGrid Class="table" Items="FilteredTickets" Pagination="pagination">
     <PropertyColumn Property="t => t.Id" Title="#" />
     <PropertyColumn Property="t => t.Status" />
-    <TemplateColumn Title="Bike" Context="ticket">
-        @ticket.Bike?.Name
+    <TemplateColumn Title="Component" Context="ticket">
+        @ticket.Component?.Name
+        <span class="text-xs text-gray-400 ml-1">@ticket.Component?.ComponentType</span>
     </TemplateColumn>
     <TemplateColumn Title="Mechanic" Context="ticket">
         @ticket.Mechanic?.Name
@@ -57,7 +58,7 @@
         get
         {
             var query = context.ServiceTicket
-                .Include(t => t.Bike)
+                .Include(t => t.Component)
                 .Include(t => t.Mechanic)
                 .AsQueryable();
 

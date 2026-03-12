@@ -3,6 +3,7 @@ using System;
 using BikePOS.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BikePOS.Migrations
 {
     [DbContext(typeof(BikePosContext))]
-    partial class BikePosContextModelSnapshot : ModelSnapshot
+    [Migration("20260312145206_RenameBikeToComponent")]
+    partial class RenameBikeToComponent
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.4");
@@ -314,14 +317,8 @@ namespace BikePOS.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("CustomerId")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("Description")
                         .HasColumnType("TEXT");
-
-                    b.Property<decimal>("DiscountPercent")
-                        .HasColumnType("decimal(5, 2)");
 
                     b.Property<int?>("MechanicId")
                         .HasColumnType("INTEGER");
@@ -340,8 +337,6 @@ namespace BikePOS.Migrations
                     b.HasIndex("BaseServiceId");
 
                     b.HasIndex("ComponentId");
-
-                    b.HasIndex("CustomerId");
 
                     b.HasIndex("MechanicId");
 
@@ -462,11 +457,6 @@ namespace BikePOS.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("BikePOS.Models.Customer", "Customer")
-                        .WithMany()
-                        .HasForeignKey("CustomerId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("BikePOS.Models.Mechanic", "Mechanic")
                         .WithMany()
                         .HasForeignKey("MechanicId")
@@ -475,8 +465,6 @@ namespace BikePOS.Migrations
                     b.Navigation("BaseService");
 
                     b.Navigation("Component");
-
-                    b.Navigation("Customer");
 
                     b.Navigation("Mechanic");
                 });

@@ -14,7 +14,7 @@
     <div class="flex items-center gap-2 mb-6 text-sm text-gray-400">
         <span class="@(step >= 1 ? "text-indigo-600 font-semibold" : "")">1. Cliente</span>
         <span>&rsaquo;</span>
-        <span class="@(step >= 2 ? "text-indigo-600 font-semibold" : "")">2. Bicicleta</span>
+        <span class="@(step >= 2 ? "text-indigo-600 font-semibold" : "")">2. Componente</span>
         <span>&rsaquo;</span>
         <span class="@(step >= 3 ? "text-indigo-600 font-semibold" : "")">3. Servicio</span>
         <span>&rsaquo;</span>
@@ -79,35 +79,41 @@
         </div>
     }
 
-    @* ==================== STEP 2: Select Bike ==================== *@
+    @* ==================== STEP 2: Select Component ==================== *@
     @if (step == 2)
     {
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-3 flex-1">
                     <input type="text" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                           placeholder="Buscar Bicicleta o Componente..."
-                           @bind="bikeSearch" @bind:event="oninput" @onkeyup="SearchBikes" />
+                           placeholder="Buscar Componente..."
+                           @bind="componentSearch" @bind:event="oninput" @onkeyup="SearchComponents" />
                 </div>
                 <button class="ml-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-                        @onclick="() => showCreateBike = true">
+                        @onclick="() => showCreateComponent = true">
                     Crear Componente
                 </button>
             </div>
 
-            @if (showCreateBike)
+            @if (showCreateComponent)
             {
                 <div class="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
                     <h4 class="text-sm font-semibold text-gray-700 mb-3">Nuevo Componente</h4>
                     <div class="grid grid-cols-2 gap-3">
-                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Nombre" @bind="newBikeName" />
-                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="SKU (mayúsculas)" @bind="newBikeSku" />
-                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Color" @bind="newBikeColor" />
-                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Marca" @bind="newBikeBrand" />
+                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Nombre" @bind="newComponentName" />
+                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="SKU (mayúsculas)" @bind="newComponentSku" />
+                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Color" @bind="newComponentColor" />
+                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Marca" @bind="newComponentBrand" />
+                        <select class="border border-gray-300 rounded-lg px-3 py-2 text-sm" @bind="newComponentType">
+                            @foreach (var ct in availableComponentTypes)
+                            {
+                                <option value="@ct">@ct</option>
+                            }
+                        </select>
                     </div>
                     <div class="flex gap-2 mt-3">
-                        <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-1.5 rounded-lg" @onclick="CreateBike">Guardar</button>
-                        <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm px-4 py-1.5 rounded-lg" @onclick="() => showCreateBike = false">Cancelar</button>
+                        <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-1.5 rounded-lg" @onclick="CreateComponent">Guardar</button>
+                        <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm px-4 py-1.5 rounded-lg" @onclick="() => showCreateComponent = false">Cancelar</button>
                     </div>
                 </div>
             }
@@ -116,6 +122,7 @@
                 <thead>
                     <tr class="border-b border-gray-200 text-left text-gray-500">
                         <th class="py-2 font-medium">Nombre</th>
+                        <th class="py-2 font-medium">Tipo</th>
                         <th class="py-2 font-medium">SKU</th>
                         <th class="py-2 font-medium">Marca</th>
                         <th class="py-2 font-medium">Color</th>
@@ -123,25 +130,26 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var bike in bikeResults)
+                    @foreach (var component in componentResults)
                     {
                         <tr class="border-b border-gray-100 hover:bg-gray-50">
-                            <td class="py-2 text-gray-800">@bike.Name</td>
-                            <td class="py-2 text-gray-500">@bike.Sku</td>
-                            <td class="py-2 text-gray-500">@bike.Brand</td>
-                            <td class="py-2 text-gray-500">@bike.Color</td>
+                            <td class="py-2 text-gray-800">@component.Name</td>
+                            <td class="py-2 text-gray-500">@component.ComponentType</td>
+                            <td class="py-2 text-gray-500">@component.Sku</td>
+                            <td class="py-2 text-gray-500">@component.Brand</td>
+                            <td class="py-2 text-gray-500">@component.Color</td>
                             <td class="py-2 text-right">
                                 <button class="bg-white border border-gray-300 hover:bg-indigo-50 hover:border-indigo-300 text-sm px-3 py-1 rounded-md transition-colors"
-                                        @onclick="() => SelectBike(bike)">Utilizar</button>
+                                        @onclick="() => SelectComponent(component)">Utilizar</button>
                             </td>
                         </tr>
                     }
                 </tbody>
             </table>
 
-            @if (!bikeResults.Any() && !string.IsNullOrEmpty(bikeSearch))
+            @if (!componentResults.Any() && !string.IsNullOrEmpty(componentSearch))
             {
-                <p class="text-sm text-gray-400 mt-4 text-center">No se encontraron bicicletas</p>
+                <p class="text-sm text-gray-400 mt-4 text-center">No se encontraron componentes</p>
             }
 
             <div class="mt-4">
@@ -194,7 +202,8 @@
 
                 <div class="mb-4">
                     <span class="text-sm text-gray-500">@selectedCustomer?.FullName</span>
-                    <span class="text-sm text-gray-800 ml-4 font-medium">@selectedBike?.Name</span>
+                    <span class="text-sm text-gray-800 ml-4 font-medium">@selectedComponent?.Name</span>
+                    <span class="text-xs text-gray-400 ml-2">(@selectedComponent?.ComponentType)</span>
                 </div>
 
                 <div class="mb-4">
@@ -243,10 +252,31 @@
                               rows="3" @bind="ticketNotes" placeholder="Notas adicionales..."></textarea>
                 </div>
 
+                @* Discount *@
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-600 mb-1">Descuento (%)</label>
+                    <input type="number" step="0.01" min="0" max="100"
+                           class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                           @bind="discountPercent" />
+                </div>
+
                 @* Total *@
-                <div class="flex justify-between items-center text-sm font-semibold border-t border-gray-200 pt-3 mb-4">
-                    <span class="text-gray-700">Total</span>
-                    <span class="text-gray-800 text-lg">@CalculateTotal().ToString("C")</span>
+                <div class="border-t border-gray-200 pt-3 mb-4">
+                    @if (discountPercent > 0)
+                    {
+                        <div class="flex justify-between items-center text-sm text-gray-500 mb-1">
+                            <span>Subtotal</span>
+                            <span>@CalculateSubtotal().ToString("C")</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm text-red-500 mb-1">
+                            <span>Descuento (@discountPercent%)</span>
+                            <span>-@((CalculateSubtotal() * discountPercent / 100m).ToString("C"))</span>
+                        </div>
+                    }
+                    <div class="flex justify-between items-center text-sm font-semibold">
+                        <span class="text-gray-700">Total</span>
+                        <span class="text-gray-800 text-lg">@CalculateTotal().ToString("C")</span>
+                    </div>
                 </div>
 
                 <div class="flex gap-3">
@@ -327,15 +357,17 @@
     private Customer? selectedCustomer;
     private bool showCreateCustomer = false;
 
-    // Step 2 — Bike
-    private string bikeSearch = "";
-    private List<Bike> bikeResults = new();
-    private Bike? selectedBike;
-    private bool showCreateBike = false;
-    private string newBikeName = "";
-    private string newBikeSku = "";
-    private string newBikeColor = "";
-    private string newBikeBrand = "";
+    // Step 2 — Component
+    private string componentSearch = "";
+    private List<Component> componentResults = new();
+    private Component? selectedComponent;
+    private bool showCreateComponent = false;
+    private string newComponentName = "";
+    private string newComponentSku = "";
+    private string newComponentColor = "";
+    private string newComponentBrand = "";
+    private string newComponentType = "Bicicleta";
+    private List<string> availableComponentTypes = new();
 
     // Step 3 — Service
     private List<Service> availableServices = new();
@@ -351,6 +383,7 @@
     private int? selectedMechanicId;
     private Mechanic? selectedMechanic => availableMechanics.FirstOrDefault(m => m.Id == selectedMechanicId);
     private string ticketNotes = "";
+    private decimal discountPercent = 0;
     private List<TicketProductEntry> ticketProducts = new();
     private bool showProductSelector = false;
     private string productSearch = "";
@@ -359,6 +392,25 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadCustomers();
+        await LoadComponentTypes();
+    }
+
+    private async Task LoadComponentTypes()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var setting = await context.ShopSetting.FirstOrDefaultAsync(s => s.Key == "component_types");
+        if (setting is not null && !string.IsNullOrWhiteSpace(setting.Value))
+        {
+            availableComponentTypes = setting.Value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
+        }
+        else
+        {
+            availableComponentTypes = new List<string> { "Bicicleta", "Aro", "Pedal", "Marco", "Rueda", "Otro" };
+        }
+        if (availableComponentTypes.Any())
+        {
+            newComponentType = availableComponentTypes[0];
+        }
     }
 
     // --- Customer ---
@@ -396,49 +448,49 @@
     {
         selectedCustomer = customer;
         step = 2;
-        _ = LoadBikesForCustomer();
+        _ = LoadComponentsForCustomer();
     }
 
-    // --- Bike ---
-    private async Task LoadBikesForCustomer()
+    // --- Component ---
+    private async Task LoadComponentsForCustomer()
     {
         using var context = DbFactory.CreateDbContext();
-        bikeResults = await context.Bike
-            .Where(b => b.CustomerId == selectedCustomer!.Id)
-            .OrderBy(b => b.Name)
+        componentResults = await context.Component
+            .Where(c => c.CustomerId == selectedCustomer!.Id)
+            .OrderBy(c => c.Name)
             .ToListAsync();
     }
 
-    private async Task SearchBikes()
+    private async Task SearchComponents()
     {
         using var context = DbFactory.CreateDbContext();
-        var query = context.Bike.Where(b => b.CustomerId == selectedCustomer!.Id);
-        if (!string.IsNullOrWhiteSpace(bikeSearch))
+        var query = context.Component.Where(c => c.CustomerId == selectedCustomer!.Id);
+        if (!string.IsNullOrWhiteSpace(componentSearch))
         {
-            query = query.Where(b => b.Name!.Contains(bikeSearch) || b.Sku.Contains(bikeSearch) || b.Brand.Contains(bikeSearch));
+            query = query.Where(c => c.Name!.Contains(componentSearch) || c.Sku.Contains(componentSearch) || c.Brand.Contains(componentSearch));
         }
-        bikeResults = await query.OrderBy(b => b.Name).ToListAsync();
+        componentResults = await query.OrderBy(c => c.Name).ToListAsync();
     }
 
-    private async Task CreateBike()
+    private async Task CreateComponent()
     {
-        if (string.IsNullOrWhiteSpace(newBikeName)) return;
+        if (string.IsNullOrWhiteSpace(newComponentName)) return;
         using var context = DbFactory.CreateDbContext();
-        var bike = new Bike
+        var component = new Component
         {
-            Name = newBikeName, Sku = newBikeSku, Color = newBikeColor,
-            Brand = newBikeBrand, CustomerId = selectedCustomer!.Id
+            Name = newComponentName, Sku = newComponentSku, Color = newComponentColor,
+            Brand = newComponentBrand, ComponentType = newComponentType, CustomerId = selectedCustomer!.Id
         };
-        context.Bike.Add(bike);
+        context.Component.Add(component);
         await context.SaveChangesAsync();
-        showCreateBike = false;
-        newBikeName = ""; newBikeSku = ""; newBikeColor = ""; newBikeBrand = "";
-        SelectBike(bike);
+        showCreateComponent = false;
+        newComponentName = ""; newComponentSku = ""; newComponentColor = ""; newComponentBrand = ""; newComponentType = "Bicicleta";
+        SelectComponent(component);
     }
 
-    private void SelectBike(Bike bike)
+    private void SelectComponent(Component component)
     {
-        selectedBike = bike;
+        selectedComponent = component;
         step = 3;
         _ = LoadServices();
     }
@@ -494,24 +546,32 @@
 
     private void RemoveProduct(TicketProductEntry tp) => ticketProducts.Remove(tp);
 
-    private decimal CalculateTotal()
+    private decimal CalculateSubtotal()
     {
         var servicePrice = selectedService?.DefaultPrice ?? 0;
         var productsTotal = ticketProducts.Sum(tp => tp.UnitPrice * tp.Quantity);
         return servicePrice + productsTotal;
     }
 
+    private decimal CalculateTotal()
+    {
+        var subtotal = CalculateSubtotal();
+        return subtotal - (subtotal * discountPercent / 100m);
+    }
+
     // --- Save ---
-    private async Task SaveTicket()
+    private async Task SaveTicketInternal(bool navigateToCharge)
     {
         using var context = DbFactory.CreateDbContext();
         var ticket = new ServiceTicket
         {
-            BikeId = selectedBike!.Id,
+            ComponentId = selectedComponent!.Id,
+            CustomerId = selectedCustomer!.Id,
             MechanicId = selectedMechanicId,
             BaseServiceId = selectedService!.Id,
             Description = ticketNotes,
             Price = CalculateTotal(),
+            DiscountPercent = discountPercent,
             Status = TicketStatus.Open,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
@@ -528,44 +588,21 @@
                 Quantity = tp.Quantity,
                 UnitPrice = tp.UnitPrice
             });
-        }
-        await context.SaveChangesAsync();
 
-        NavigationManager.NavigateTo($"/tickets/details?id={ticket.Id}");
-    }
-
-    private async Task SaveAndCharge()
-    {
-        using var context = DbFactory.CreateDbContext();
-        var ticket = new ServiceTicket
-        {
-            BikeId = selectedBike!.Id,
-            MechanicId = selectedMechanicId,
-            BaseServiceId = selectedService!.Id,
-            Description = ticketNotes,
-            Price = CalculateTotal(),
-            Status = TicketStatus.Open,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
-        };
-        context.ServiceTicket.Add(ticket);
-        await context.SaveChangesAsync();
-
-        foreach (var tp in ticketProducts)
-        {
-            context.TicketProduct.Add(new TicketProduct
+            // Decrement inventory
+            var product = await context.Product.FindAsync(tp.Product.Id);
+            if (product is not null)
             {
-                ServiceTicketId = ticket.Id,
-                ProductId = tp.Product.Id,
-                Quantity = tp.Quantity,
-                UnitPrice = tp.UnitPrice
-            });
+                product.QuantityInStock -= tp.Quantity;
+            }
         }
         await context.SaveChangesAsync();
 
-        // Navigate back to home where they can search and charge the ticket
-        NavigationManager.NavigateTo("/");
+        NavigationManager.NavigateTo(navigateToCharge ? "/" : $"/tickets/details?id={ticket.Id}");
     }
+
+    private Task SaveTicket() => SaveTicketInternal(navigateToCharge: false);
+    private Task SaveAndCharge() => SaveTicketInternal(navigateToCharge: true);
 
     private class TicketProductEntry
     {

@@ -32,7 +32,7 @@
             </div>
             <div>
                 <h2 class="text-xl font-semibold text-gray-800">Crear Boleta de Servicio</h2>
-                <p class="text-sm text-gray-500">Create a new service ticket for a bike</p>
+                <p class="text-sm text-gray-500">Create a new service ticket for a component</p>
             </div>
         </div>
     </div>
@@ -44,7 +44,7 @@
             <h3 class="text-lg font-semibold text-gray-800 mb-4">Consultar Boleta</h3>
             <div class="mb-3">
                 <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                       placeholder="Search by ticket # or bike name..."
+                       placeholder="Search by ticket # or component name..."
                        @bind="ticketSearch" @bind:event="oninput" @onkeyup="SearchTickets" />
             </div>
             @if (searchResults.Any())
@@ -56,7 +56,7 @@
                              @onclick="() => SelectTicket(ticket)">
                             <div>
                                 <span class="text-sm font-medium text-gray-800">#@ticket.Id</span>
-                                <span class="text-sm text-gray-500 ml-2">@ticket.Bike?.Name</span>
+                                <span class="text-sm text-gray-500 ml-2">@ticket.Component?.Name</span>
                             </div>
                             <span class="text-xs px-2 py-1 rounded-full @GetStatusBadgeClass(ticket.Status)">@ticket.Status</span>
                         </div>
@@ -105,7 +105,7 @@
                 <div class="bg-indigo-50 rounded-lg p-3 mb-4">
                     <div class="flex justify-between text-sm">
                         <span class="text-gray-600">Ticket #@selectedTicket.Id</span>
-                        <span class="font-semibold text-gray-800">@selectedTicket.Bike?.Name</span>
+                        <span class="font-semibold text-gray-800">@selectedTicket.Component?.Name</span>
                     </div>
                     <div class="flex justify-between text-sm mt-1">
                         <span class="text-gray-600">@(selectedTicket.Mechanic?.Name ?? "Unassigned")</span>
@@ -137,7 +137,14 @@
                 @if (chargeSuccess is not null)
                 {
                     <div class="mt-3 p-2 rounded-lg text-sm text-center @(chargeSuccess.Value ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")">
-                        @(chargeSuccess.Value ? "Charge processed successfully!" : "Failed to process charge.")
+                        @if (chargeSuccess.Value)
+                        {
+                            @:Charge processed successfully!
+                        }
+                        else
+                        {
+                            @(chargeError ?? "Failed to process charge.")
+                        }
                     </div>
                 }
             }
@@ -203,6 +210,9 @@
     private string? activeCashier;
     private bool showCashierModal = false;
 
+    [SupplyParameterFromQuery]
+    private int? ticketId { get; set; }
+
     // Ticket search
     private string ticketSearch = "";
     private List<ServiceTicket> searchResults = new();
@@ -236,6 +246,21 @@
             }
 
             await LoadRecentCharges();
+
+            // Auto-select ticket if ticketId query param is provided
+            if (ticketId.HasValue)
+            {
+                using var context = DbFactory.CreateDbContext();
+                var t = await context.ServiceTicket
+                    .Include(t => t.Component)
+                    .Include(t => t.Mechanic)
+                    .FirstOrDefaultAsync(t => t.Id == ticketId.Value);
+                if (t is not null)
+                {
+                    SelectTicket(t);
+                }
+            }
+
             StateHasChanged();
         }
     }
@@ -250,9 +275,9 @@
 
         using var context = DbFactory.CreateDbContext();
         var query = context.ServiceTicket
-            .Include(t => t.Bike)
+            .Include(t => t.Component)
             .Include(t => t.Mechanic)
-            .Where(t => t.Status != TicketStatus.Cancelled);
+            .Where(t => t.Status != TicketStatus.Cancelled && t.Status != TicketStatus.Charged);
 
         if (int.TryParse(ticketSearch, out var ticketId))
         {
@@ -260,7 +285,7 @@
         }
         else
         {
-            query = query.Where(t => t.Bike.Name!.Contains(ticketSearch));
+            query = query.Where(t => t.Component.Name!.Contains(ticketSearch));
         }
 
         searchResults = await query.OrderByDescending(t => t.CreatedAt).Take(10).ToListAsync();
@@ -290,9 +315,36 @@
         chargeSuccess = null;
     }
 
+    private string? chargeError;
+
     private async Task ProcessCharge()
     {
         if (selectedTicket is null || chargeAmount <= 0) return;
+        chargeError = null;
+
+        // Prevent charging cancelled tickets
+        if (selectedTicket.Status == TicketStatus.Cancelled)
+        {
+            chargeError = "No se puede cobrar una boleta cancelada.";
+            chargeSuccess = false;
+            return;
+        }
+
+        // Prevent charging already charged tickets
+        if (selectedTicket.Status == TicketStatus.Charged)
+        {
+            chargeError = "Esta boleta ya fue cobrada.";
+            chargeSuccess = false;
+            return;
+        }
+
+        // Prevent charging $0 tickets
+        if (selectedTicket.Price <= 0)
+        {
+            chargeError = "No se puede cobrar una boleta con total $0.";
+            chargeSuccess = false;
+            return;
+        }
 
         try
         {
@@ -307,6 +359,14 @@
             };
 
             context.Charge.Add(charge);
+
+            // Update ticket status to Charged
+            var ticket = await context.ServiceTicket.FindAsync(selectedTicket.Id);
+            if (ticket is not null)
+            {
+                ticket.Status = TicketStatus.Charged;
+            }
+
             await context.SaveChangesAsync();
 
             chargeSuccess = true;
