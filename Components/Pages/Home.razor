@@ -5,9 +5,12 @@
 @using BikePOS.Models
 @inject IJSRuntime JS
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@using Microsoft.Extensions.Localization
 @inject NavigationManager NavigationManager
 
-<PageTitle>BikePOS</PageTitle>
+@inject IStringLocalizer<SharedResource> L
+
+<PageTitle>@L["Home.Title"]</PageTitle>
 
 <div class="p-6">
     @* Header *@
