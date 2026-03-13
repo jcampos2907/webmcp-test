@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Blazorise;
 using Blazorise.Tailwind;
 using Blazorise.Icons.FontAwesome;
+using System.Globalization;
+using Microsoft.AspNetCore.Localization;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("BikePosContext") ?? throw new InvalidOperationException("Connection string 'BikePosContext' not found.");
@@ -19,6 +21,8 @@ builder.Services.AddQuickGridEntityFrameworkAdapter();
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -33,6 +37,28 @@ using (var scope = app.Services.CreateScope())
 
     SeedData.Initialize(services);
 }
+
+// Localization: read locale from DB, default to Spanish
+var supportedCultures = new[] { new CultureInfo("es"), new CultureInfo("en") };
+string defaultLocale = "es";
+using (var scope = app.Services.CreateScope())
+{
+    var dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<BikePosContext>>();
+    using var ctx = dbFactory.CreateDbContext();
+    var localeSetting = ctx.ShopSetting.FirstOrDefault(s => s.Key == "locale");
+    if (localeSetting is not null && !string.IsNullOrWhiteSpace(localeSetting.Value))
+        defaultLocale = localeSetting.Value;
+}
+app.UseRequestLocalization(new RequestLocalizationOptions
+{
+    DefaultRequestCulture = new RequestCulture(defaultLocale),
+    SupportedCultures = supportedCultures,
+    SupportedUICultures = supportedCultures,
+    RequestCultureProviders = new List<IRequestCultureProvider>
+    {
+        new CookieRequestCultureProvider()
+    }
+});
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

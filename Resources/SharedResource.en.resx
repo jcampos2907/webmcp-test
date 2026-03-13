@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="xml:space" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <!-- ========== Common ========== -->
+  <data name="Common_Save" xml:space="preserve"><value>Save</value></data>
+  <data name="Common_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Common_Delete" xml:space="preserve"><value>Delete</value></data>
+  <data name="Common_Edit" xml:space="preserve"><value>Edit</value></data>
+  <data name="Common_Create" xml:space="preserve"><value>Create</value></data>
+  <data name="Common_Back" xml:space="preserve"><value>Back</value></data>
+  <data name="Common_BackToList" xml:space="preserve"><value>Back to list</value></data>
+  <data name="Common_Loading" xml:space="preserve"><value>Loading...</value></data>
+  <data name="Common_Search" xml:space="preserve"><value>Search</value></data>
+  <data name="Common_Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Common_Phone" xml:space="preserve"><value>Phone</value></data>
+  <data name="Common_Email" xml:space="preserve"><value>Email</value></data>
+  <data name="Common_Address" xml:space="preserve"><value>Address</value></data>
+  <data name="Common_City" xml:space="preserve"><value>City</value></data>
+  <data name="Common_State" xml:space="preserve"><value>State / Region</value></data>
+  <data name="Common_ZipCode" xml:space="preserve"><value>Zip Code</value></data>
+  <data name="Common_Country" xml:space="preserve"><value>Country</value></data>
+  <data name="Common_Actions" xml:space="preserve"><value>Actions</value></data>
+  <data name="Common_Use" xml:space="preserve"><value>Select</value></data>
+  <data name="Common_Remove" xml:space="preserve"><value>remove</value></data>
+  <data name="Common_Add" xml:space="preserve"><value>Add</value></data>
+  <data name="Common_Close" xml:space="preserve"><value>Close</value></data>
+  <data name="Common_Price" xml:space="preserve"><value>Price</value></data>
+  <data name="Common_Total" xml:space="preserve"><value>Total</value></data>
+  <data name="Common_Subtotal" xml:space="preserve"><value>Subtotal</value></data>
+  <data name="Common_Discount" xml:space="preserve"><value>Discount</value></data>
+  <data name="Common_DiscountPercent" xml:space="preserve"><value>Discount (%)</value></data>
+  <data name="Common_Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Common_Description" xml:space="preserve"><value>Description</value></data>
+  <data name="Common_Details" xml:space="preserve"><value>Details</value></data>
+  <data name="Common_Active" xml:space="preserve"><value>Active</value></data>
+  <data name="Common_Inactive" xml:space="preserve"><value>Inactive</value></data>
+  <data name="Common_Yes" xml:space="preserve"><value>Yes</value></data>
+  <data name="Common_No" xml:space="preserve"><value>No</value></data>
+  <data name="Common_Select" xml:space="preserve"><value>— Select —</value></data>
+  <data name="Common_NoResults" xml:space="preserve"><value>No results found</value></data>
+  <data name="Common_CreateNew" xml:space="preserve"><value>Create New</value></data>
+  <data name="Common_ConfirmDelete" xml:space="preserve"><value>Are you sure you want to delete this?</value></data>
+  <data name="Common_Products" xml:space="preserve"><value>Products</value></data>
+  <data name="Common_AddProducts" xml:space="preserve"><value>Add products</value></data>
+  <data name="Common_SearchProduct" xml:space="preserve"><value>Search product...</value></data>
+  <data name="Common_Notes" xml:space="preserve"><value>Notes</value></data>
+  <data name="Common_NotesPlaceholder" xml:space="preserve"><value>Additional notes...</value></data>
+  <data name="Common_Unassigned" xml:space="preserve"><value>Unassigned</value></data>
+  <data name="Common_SKU" xml:space="preserve"><value>SKU</value></data>
+  <data name="Common_Brand" xml:space="preserve"><value>Brand</value></data>
+  <data name="Common_Color" xml:space="preserve"><value>Color</value></data>
+  <data name="Common_Category" xml:space="preserve"><value>Category</value></data>
+  <data name="Common_QuantityInStock" xml:space="preserve"><value>Quantity in Stock</value></data>
+  <data name="Common_IsActive" xml:space="preserve"><value>Active</value></data>
+  <data name="Common_DefaultPrice" xml:space="preserve"><value>Default Price</value></data>
+  <data name="Common_EstimatedMinutes" xml:space="preserve"><value>Estimated Minutes</value></data>
+  <data name="Common_Created" xml:space="preserve"><value>Created</value></data>
+  <data name="Common_SavedSuccess" xml:space="preserve"><value>Saved successfully.</value></data>
+
+  <!-- ========== Nav ========== -->
+  <data name="Nav_Home" xml:space="preserve"><value>Home</value></data>
+  <data name="Nav_Tickets" xml:space="preserve"><value>Tickets</value></data>
+  <data name="Nav_Customers" xml:space="preserve"><value>Customers</value></data>
+  <data name="Nav_Mechanics" xml:space="preserve"><value>Mechanics</value></data>
+  <data name="Nav_Services" xml:space="preserve"><value>Services</value></data>
+  <data name="Nav_Products" xml:space="preserve"><value>Products</value></data>
+  <data name="Nav_Settings" xml:space="preserve"><value>Settings</value></data>
+
+  <!-- ========== Ticket Status ========== -->
+  <data name="Status_Open" xml:space="preserve"><value>Open</value></data>
+  <data name="Status_InProgress" xml:space="preserve"><value>In Progress</value></data>
+  <data name="Status_WaitingForParts" xml:space="preserve"><value>Waiting for Parts</value></data>
+  <data name="Status_Completed" xml:space="preserve"><value>Completed</value></data>
+  <data name="Status_Charged" xml:space="preserve"><value>Charged</value></data>
+  <data name="Status_Cancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="Status_All" xml:space="preserve"><value>All</value></data>
+
+  <!-- ========== POS / Home ========== -->
+  <data name="Pos_Title" xml:space="preserve"><value>POS Terminal</value></data>
+  <data name="Pos_Online" xml:space="preserve"><value>Online</value></data>
+  <data name="Pos_Offline" xml:space="preserve"><value>Offline</value></data>
+  <data name="Pos_Cashier" xml:space="preserve"><value>Cashier</value></data>
+  <data name="Pos_Change" xml:space="preserve"><value>Change</value></data>
+  <data name="Pos_CreateTicket" xml:space="preserve"><value>Create Service Ticket</value></data>
+  <data name="Pos_CreateTicketDesc" xml:space="preserve"><value>Create a new service ticket for a component</value></data>
+  <data name="Pos_SearchTicket" xml:space="preserve"><value>Search Ticket</value></data>
+  <data name="Pos_SearchTicketPlaceholder" xml:space="preserve"><value>Search by ticket # or component name...</value></data>
+  <data name="Pos_NoTicketsFound" xml:space="preserve"><value>No tickets found</value></data>
+  <data name="Pos_SearchCustomer" xml:space="preserve"><value>Customer Lookup</value></data>
+  <data name="Pos_SearchCustomerPlaceholder" xml:space="preserve"><value>Search by name, phone, or email...</value></data>
+  <data name="Pos_ProcessCharge" xml:space="preserve"><value>Process Charge</value></data>
+  <data name="Pos_Amount" xml:space="preserve"><value>Amount</value></data>
+  <data name="Pos_PaymentMethod" xml:space="preserve"><value>Payment Method</value></data>
+  <data name="Pos_Cash" xml:space="preserve"><value>Cash</value></data>
+  <data name="Pos_Card" xml:space="preserve"><value>Card</value></data>
+  <data name="Pos_ProcessChargeButton" xml:space="preserve"><value>Process Charge</value></data>
+  <data name="Pos_ChargeSuccess" xml:space="preserve"><value>Charge processed successfully!</value></data>
+  <data name="Pos_ChargeFailed" xml:space="preserve"><value>Failed to process charge.</value></data>
+  <data name="Pos_RecentCharges" xml:space="preserve"><value>Recent Charges</value></data>
+  <data name="Pos_NoCharges" xml:space="preserve"><value>No charges yet</value></data>
+  <data name="Pos_SetCashier" xml:space="preserve"><value>Set Cashier</value></data>
+  <data name="Pos_CashierName" xml:space="preserve"><value>Cashier name</value></data>
+  <data name="Pos_SelectTicketHint" xml:space="preserve"><value>Select a ticket from "Search Ticket" to charge</value></data>
+  <data name="Pos_ErrorCancelled" xml:space="preserve"><value>Cannot charge a cancelled ticket.</value></data>
+  <data name="Pos_ErrorAlreadyCharged" xml:space="preserve"><value>This ticket has already been charged.</value></data>
+  <data name="Pos_ErrorZeroTotal" xml:space="preserve"><value>Cannot charge a ticket with $0 total.</value></data>
+
+  <!-- ========== Tickets ========== -->
+  <data name="Tickets_Title" xml:space="preserve"><value>Service Tickets</value></data>
+  <data name="Tickets_FilterByStatus" xml:space="preserve"><value>Filter by Status:</value></data>
+  <data name="Tickets_ServiceTicket" xml:space="preserve"><value>Service Ticket</value></data>
+  <data name="Tickets_Component" xml:space="preserve"><value>Component</value></data>
+  <data name="Tickets_Mechanic" xml:space="preserve"><value>Mechanic</value></data>
+  <data name="Tickets_AssignedMechanic" xml:space="preserve"><value>Assigned Mechanic</value></data>
+  <data name="Tickets_NoMechanic" xml:space="preserve"><value>— Unassigned —</value></data>
+  <data name="Tickets_Charge" xml:space="preserve"><value>Charge</value></data>
+  <data name="Tickets_CancelTicket" xml:space="preserve"><value>Cancel Ticket</value></data>
+  <data name="Tickets_SaveTicket" xml:space="preserve"><value>Save Ticket</value></data>
+  <data name="Tickets_ContinueToCharge" xml:space="preserve"><value>Continue to charge</value></data>
+  <data name="Tickets_TicketSaved" xml:space="preserve"><value>Ticket saved.</value></data>
+  <data name="Tickets_AlreadyChargedBanner" xml:space="preserve"><value>This ticket has been charged. Fields are not editable.</value></data>
+  <data name="Tickets_CancelledBanner" xml:space="preserve"><value>This ticket has been cancelled. Fields are not editable.</value></data>
+  <data name="Tickets_ConfirmDelete" xml:space="preserve"><value>Are you sure you want to delete this ticket?</value></data>
+  <data name="Tickets_DeleteTitle" xml:space="preserve"><value>Delete Service Ticket</value></data>
+
+  <!-- Ticket Create Steps -->
+  <data name="Tickets_Create_Title" xml:space="preserve"><value>Create Service Ticket</value></data>
+  <data name="Tickets_Create_Step1" xml:space="preserve"><value>1. Customer</value></data>
+  <data name="Tickets_Create_Step2" xml:space="preserve"><value>2. Component</value></data>
+  <data name="Tickets_Create_Step3" xml:space="preserve"><value>3. Service</value></data>
+  <data name="Tickets_Create_Step4" xml:space="preserve"><value>4. Summary</value></data>
+  <data name="Tickets_Create_SearchCustomer" xml:space="preserve"><value>Search Customer...</value></data>
+  <data name="Tickets_Create_CreateCustomer" xml:space="preserve"><value>Create Customer</value></data>
+  <data name="Tickets_Create_NoCustomers" xml:space="preserve"><value>No customers found</value></data>
+  <data name="Tickets_Create_SearchComponent" xml:space="preserve"><value>Search Component...</value></data>
+  <data name="Tickets_Create_CreateComponent" xml:space="preserve"><value>Create Component</value></data>
+  <data name="Tickets_Create_NewComponent" xml:space="preserve"><value>New Component</value></data>
+  <data name="Tickets_Create_NoComponents" xml:space="preserve"><value>No components found</value></data>
+  <data name="Tickets_Create_SearchService" xml:space="preserve"><value>Search service...</value></data>
+  <data name="Tickets_Create_NoServices" xml:space="preserve"><value>No services found</value></data>
+  <data name="Tickets_Create_NamePlaceholder" xml:space="preserve"><value>Name</value></data>
+  <data name="Tickets_Create_SkuPlaceholder" xml:space="preserve"><value>SKU (uppercase)</value></data>
+  <data name="Tickets_Create_ColorPlaceholder" xml:space="preserve"><value>Color</value></data>
+  <data name="Tickets_Create_BrandPlaceholder" xml:space="preserve"><value>Brand</value></data>
+
+  <!-- ========== Customers ========== -->
+  <data name="Customers_Title" xml:space="preserve"><value>Customers</value></data>
+  <data name="Customers_Create" xml:space="preserve"><value>Create Customer</value></data>
+  <data name="Customers_Edit" xml:space="preserve"><value>Edit Customer</value></data>
+  <data name="Customers_New" xml:space="preserve"><value>New Customer</value></data>
+  <data name="Customers_Delete" xml:space="preserve"><value>Delete Customer</value></data>
+  <data name="Customers_SearchPlaceholder" xml:space="preserve"><value>Search by name, phone, or email...</value></data>
+  <data name="Customers_NoResults" xml:space="preserve"><value>No customers found</value></data>
+  <data name="Customers_ConfirmDelete" xml:space="preserve"><value>Are you sure you want to delete</value></data>
+  <data name="Customers_FirstName" xml:space="preserve"><value>First Name</value></data>
+  <data name="Customers_LastName" xml:space="preserve"><value>Last Name</value></data>
+  <data name="Customers_AdditionalFields" xml:space="preserve"><value>Additional fields</value></data>
+  <data name="Customers_StreetPlaceholder" xml:space="preserve"><value>Street and number</value></data>
+
+  <!-- Customer Validation -->
+  <data name="Validation_NameRequired" xml:space="preserve"><value>First name and last name are required.</value></data>
+  <data name="Validation_FieldRequired" xml:space="preserve"><value>"{0}" is required.</value></data>
+  <data name="Validation_InvalidFormat" xml:space="preserve"><value>Invalid format for "{0}".</value></data>
+  <data name="Validation_FixErrors" xml:space="preserve"><value>Please fix the errors in the marked fields.</value></data>
+  <data name="Validation_LabelKeyRequired" xml:space="preserve"><value>Label and key are required.</value></data>
+  <data name="Validation_SelectOptionsRequired" xml:space="preserve"><value>Dropdown fields require at least one option.</value></data>
+  <data name="Validation_InvalidRegex" xml:space="preserve"><value>The regex pattern is not valid.</value></data>
+  <data name="Validation_DuplicateKey" xml:space="preserve"><value>A field with key "{0}" already exists.</value></data>
+
+  <!-- ========== Mechanics ========== -->
+  <data name="Mechanics_Title" xml:space="preserve"><value>Mechanics</value></data>
+  <data name="Mechanics_Entity" xml:space="preserve"><value>Mechanic</value></data>
+  <data name="Mechanics_Create" xml:space="preserve"><value>Create Mechanic</value></data>
+  <data name="Mechanics_Edit" xml:space="preserve"><value>Edit Mechanic</value></data>
+  <data name="Mechanics_Delete" xml:space="preserve"><value>Delete Mechanic</value></data>
+  <data name="Mechanics_Details" xml:space="preserve"><value>Mechanic Details</value></data>
+  <data name="Mechanics_ConfirmDelete" xml:space="preserve"><value>Are you sure you want to delete this mechanic?</value></data>
+
+  <!-- ========== Services ========== -->
+  <data name="Services_Title" xml:space="preserve"><value>Services</value></data>
+  <data name="Services_Entity" xml:space="preserve"><value>Service</value></data>
+  <data name="Services_Create" xml:space="preserve"><value>Create Service</value></data>
+  <data name="Services_Edit" xml:space="preserve"><value>Edit Service</value></data>
+  <data name="Services_Delete" xml:space="preserve"><value>Delete Service</value></data>
+  <data name="Services_Details" xml:space="preserve"><value>Service Details</value></data>
+  <data name="Services_ConfirmDelete" xml:space="preserve"><value>Are you sure you want to delete this service?</value></data>
+  <data name="Services_NoBaseService" xml:space="preserve"><value>No base service</value></data>
+
+  <!-- ========== Products ========== -->
+  <data name="Products_Title" xml:space="preserve"><value>Products</value></data>
+  <data name="Products_Entity" xml:space="preserve"><value>Product</value></data>
+  <data name="Products_Create" xml:space="preserve"><value>Create Product</value></data>
+  <data name="Products_Edit" xml:space="preserve"><value>Edit Product</value></data>
+  <data name="Products_Delete" xml:space="preserve"><value>Delete Product</value></data>
+  <data name="Products_Details" xml:space="preserve"><value>Product Details</value></data>
+  <data name="Products_ConfirmDelete" xml:space="preserve"><value>Are you sure you want to delete this product?</value></data>
+
+  <!-- ========== Settings ========== -->
+  <data name="Settings_Title" xml:space="preserve"><value>Settings</value></data>
+  <data name="Settings_Profile" xml:space="preserve"><value>My Profile</value></data>
+  <data name="Settings_ProfileSubtitle" xml:space="preserve"><value>Your user information.</value></data>
+  <data name="Settings_NoName" xml:space="preserve"><value>No name</value></data>
+  <data name="Settings_NoEmail" xml:space="preserve"><value>No email</value></data>
+  <data name="Settings_FullName" xml:space="preserve"><value>Full name</value></data>
+  <data name="Settings_YourName" xml:space="preserve"><value>Your name</value></data>
+  <data name="Settings_YourEmail" xml:space="preserve"><value>you@email.com</value></data>
+  <data name="Settings_PhonePlaceholder" xml:space="preserve"><value>+1 555 123 4567</value></data>
+  <data name="Settings_Role" xml:space="preserve"><value>Role</value></data>
+  <data name="Settings_Admin" xml:space="preserve"><value>Administrator</value></data>
+  <data name="Settings_ProfileSaved" xml:space="preserve"><value>Profile saved.</value></data>
+
+  <data name="Settings_ComponentTypes" xml:space="preserve"><value>Component Types</value></data>
+  <data name="Settings_ComponentTypesSubtitle" xml:space="preserve"><value>Categories available when registering a component in a service ticket (e.g., Bicycle, Rim, Pedal).</value></data>
+  <data name="Settings_NoTypes" xml:space="preserve"><value>No types configured. Add at least one.</value></data>
+  <data name="Settings_NewTypePlaceholder" xml:space="preserve"><value>New type (e.g., Frame, Wheel...)</value></data>
+  <data name="Settings_TypeAlreadyExists" xml:space="preserve"><value>"{0}" already exists.</value></data>
+  <data name="Settings_TypeAdded" xml:space="preserve"><value>"{0}" added.</value></data>
+  <data name="Settings_TypeRemoved" xml:space="preserve"><value>"{0}" removed.</value></data>
+  <data name="Settings_MinOneType" xml:space="preserve"><value>At least one component type is required.</value></data>
+
+  <data name="Settings_ClientFields" xml:space="preserve"><value>Client Fields</value></data>
+  <data name="Settings_ClientFieldsSubtitle" xml:space="preserve"><value>Custom fields shown when creating or editing customers. Support regex validation, formatting, and conditional visibility.</value></data>
+  <data name="Settings_AddField" xml:space="preserve"><value>Add field</value></data>
+  <data name="Settings_EditField" xml:space="preserve"><value>Edit field</value></data>
+  <data name="Settings_NewField" xml:space="preserve"><value>New field</value></data>
+  <data name="Settings_Label" xml:space="preserve"><value>Label</value></data>
+  <data name="Settings_LabelPlaceholder" xml:space="preserve"><value>E.g., Tax ID, SSN</value></data>
+  <data name="Settings_Key" xml:space="preserve"><value>Key</value></data>
+  <data name="Settings_KeyPlaceholder" xml:space="preserve"><value>E.g., tax_id, ssn</value></data>
+  <data name="Settings_Order" xml:space="preserve"><value>Order</value></data>
+  <data name="Settings_FieldType" xml:space="preserve"><value>Field type</value></data>
+  <data name="Settings_FieldText" xml:space="preserve"><value>Text</value></data>
+  <data name="Settings_FieldNumber" xml:space="preserve"><value>Number</value></data>
+  <data name="Settings_FieldEmail" xml:space="preserve"><value>Email</value></data>
+  <data name="Settings_FieldPhone" xml:space="preserve"><value>Phone</value></data>
+  <data name="Settings_FieldDate" xml:space="preserve"><value>Date</value></data>
+  <data name="Settings_FieldUrl" xml:space="preserve"><value>URL</value></data>
+  <data name="Settings_FieldSelect" xml:space="preserve"><value>Dropdown</value></data>
+  <data name="Settings_OptionsComma" xml:space="preserve"><value>Options (comma-separated)</value></data>
+  <data name="Settings_OptionsPlaceholder" xml:space="preserve"><value>Individual, Business</value></data>
+  <data name="Settings_Validation" xml:space="preserve"><value>Validation</value></data>
+  <data name="Settings_RegexValidation" xml:space="preserve"><value>Validation regex</value></data>
+  <data name="Settings_RegexPlaceholder" xml:space="preserve"><value>E.g., ^\d \d{4} \d{4}$</value></data>
+  <data name="Settings_RegexErrorMessage" xml:space="preserve"><value>Regex error message</value></data>
+  <data name="Settings_RegexErrorPlaceholder" xml:space="preserve"><value>E.g., Format must be 0 0000 0000</value></data>
+  <data name="Settings_FormatMask" xml:space="preserve"><value>Format mask (placeholder)</value></data>
+  <data name="Settings_FormatMaskPlaceholder" xml:space="preserve"><value>E.g., 0 0000 0000</value></data>
+  <data name="Settings_RequiredField" xml:space="preserve"><value>Required field</value></data>
+  <data name="Settings_ConditionalVisibility" xml:space="preserve"><value>Conditional visibility</value></data>
+  <data name="Settings_ShowWhenField" xml:space="preserve"><value>Show only when this field...</value></data>
+  <data name="Settings_AlwaysVisible" xml:space="preserve"><value>— Always visible —</value></data>
+  <data name="Settings_HasValue" xml:space="preserve"><value>...has the value</value></data>
+  <data name="Settings_SaveField" xml:space="preserve"><value>Save field</value></data>
+  <data name="Settings_FieldTableOrder" xml:space="preserve"><value>#</value></data>
+  <data name="Settings_FieldTableLabel" xml:space="preserve"><value>Label</value></data>
+  <data name="Settings_FieldTableType" xml:space="preserve"><value>Type</value></data>
+  <data name="Settings_FieldTableValidation" xml:space="preserve"><value>Validation</value></data>
+  <data name="Settings_FieldTableCondition" xml:space="preserve"><value>Condition</value></data>
+  <data name="Settings_FieldTableStatus" xml:space="preserve"><value>Status</value></data>
+  <data name="Settings_Deactivate" xml:space="preserve"><value>deactivate</value></data>
+  <data name="Settings_Activate" xml:space="preserve"><value>activate</value></data>
+  <data name="Settings_NoFieldsConfigured" xml:space="preserve"><value>No additional fields configured.</value></data>
+  <data name="Settings_NoFieldsHint" xml:space="preserve"><value>Create custom fields like Tax ID, Person type, SSN, etc.</value></data>
+
+  <data name="Settings_ShopInfo" xml:space="preserve"><value>Shop Info</value></data>
+  <data name="Settings_ShopInfoSubtitle" xml:space="preserve"><value>Information that appears on tickets and documents.</value></data>
+  <data name="Settings_ShopName" xml:space="preserve"><value>Business name</value></data>
+  <data name="Settings_ShopNamePlaceholder" xml:space="preserve"><value>My Bike Shop</value></data>
+  <data name="Settings_TaxId" xml:space="preserve"><value>Tax ID / EIN</value></data>
+  <data name="Settings_TaxIdPlaceholder" xml:space="preserve"><value>12-3456789</value></data>
+  <data name="Settings_BusinessType" xml:space="preserve"><value>Business type / Activity</value></data>
+  <data name="Settings_BusinessTypePlaceholder" xml:space="preserve"><value>Bicycle repair</value></data>
+  <data name="Settings_ShopPhone" xml:space="preserve"><value>+1 555 123 4567</value></data>
+  <data name="Settings_ShopEmail" xml:space="preserve"><value>contact@myshop.com</value></data>
+  <data name="Settings_ShopAddress" xml:space="preserve"><value>123 Main St, City</value></data>
+  <data name="Settings_ConfigSaved" xml:space="preserve"><value>Settings saved.</value></data>
+
+  <data name="Settings_Billing" xml:space="preserve"><value>Billing</value></data>
+  <data name="Settings_BillingSubtitle" xml:space="preserve"><value>Electronic billing configuration.</value></data>
+  <data name="Settings_BillingComingSoon" xml:space="preserve"><value>Coming soon — electronic billing configuration and print formats.</value></data>
+  <data name="Settings_Notifications" xml:space="preserve"><value>Notifications</value></data>
+  <data name="Settings_NotificationsSubtitle" xml:space="preserve"><value>System alerts and notifications.</value></data>
+  <data name="Settings_NotificationsComingSoon" xml:space="preserve"><value>Coming soon — email / WhatsApp notifications when a service is ready.</value></data>
+
+  <data name="Settings_Language" xml:space="preserve"><value>Language</value></data>
+  <data name="Settings_LanguageSubtitle" xml:space="preserve"><value>Interface language.</value></data>
+
+  <!-- ========== Not Found / Error ========== -->
+  <data name="NotFound_Title" xml:space="preserve"><value>Not Found</value></data>
+  <data name="NotFound_Message" xml:space="preserve"><value>Sorry, the content you are looking for does not exist.</value></data>
+
+  <!-- ========== Component Type Label ========== -->
+  <data name="Component_Type" xml:space="preserve"><value>Type</value></data>
+</root>

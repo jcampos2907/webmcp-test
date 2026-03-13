@@ -6,15 +6,16 @@
 @using BikePOS.Data
 @implements IAsyncDisposable
 @inject IDbContextFactory<BikePosContext> DbFactory
+@inject IStringLocalizer<SharedResource> L
 
-<PageTitle>Service Tickets</PageTitle>
+<PageTitle>@L["Tickets_Title"]</PageTitle>
 
-<h1>Service Tickets</h1>
+<h1>@L["Tickets_Title"]</h1>
 
 <div class="mb-3">
-    <label class="form-label">Filter by Status:</label>
+    <label class="form-label">@L["Tickets_FilterByStatus"]</label>
     <select @bind="StatusFilter" @bind:event="onchange" class="form-select" style="width: 200px; display: inline-block;">
-        <option value="">All</option>
+        <option value="">@L["Status_All"]</option>
         @foreach (var status in Enum.GetValues<TicketStatus>())
         {
             <option value="@status">@status</option>
@@ -23,26 +24,26 @@
 </div>
 
 <p>
-    <a href="tickets/create">Create New</a>
+    <a href="tickets/create">@L["Common_CreateNew"]</a>
 </p>
 
 <QuickGrid Class="table" Items="FilteredTickets" Pagination="pagination">
     <PropertyColumn Property="t => t.Id" Title="#" />
     <PropertyColumn Property="t => t.Status" />
-    <TemplateColumn Title="Component" Context="ticket">
+    <TemplateColumn Title="@L["Tickets_Component"]" Context="ticket">
         @ticket.Component?.Name
         <span class="text-xs text-gray-400 ml-1">@ticket.Component?.ComponentType</span>
     </TemplateColumn>
-    <TemplateColumn Title="Mechanic" Context="ticket">
+    <TemplateColumn Title="@L["Tickets_Mechanic"]" Context="ticket">
         @ticket.Mechanic?.Name
     </TemplateColumn>
     <PropertyColumn Property="t => t.Price" Format="C" />
     <PropertyColumn Property="t => t.CreatedAt" Format="g" />
 
     <TemplateColumn Context="ticket">
-        <a href="@($"tickets/edit?id={ticket.Id}")">Edit</a> |
-        <a href="@($"tickets/details?id={ticket.Id}")">Details</a> |
-        <a href="@($"tickets/delete?id={ticket.Id}")">Delete</a>
+        <a href="@($"tickets/edit?id={ticket.Id}")">@L["Common_Edit"]</a> |
+        <a href="@($"tickets/details?id={ticket.Id}")">@L["Common_Details"]</a> |
+        <a href="@($"tickets/delete?id={ticket.Id}")">@L["Common_Delete"]</a>
     </TemplateColumn>
 </QuickGrid>
 

@@ -3,30 +3,31 @@
 @using BikePOS.Models
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
+@inject IStringLocalizer<SharedResource> L
 
-<PageTitle>Eliminar Cliente</PageTitle>
+<PageTitle>@L["Customers_Delete"]</PageTitle>
 
 <div class="p-6 max-w-lg mx-auto">
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 class="text-lg font-semibold text-gray-800 mb-4">Eliminar Cliente</h2>
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">@L["Customers_Delete"]</h2>
         @if (customer is null)
         {
-            <p class="text-sm text-gray-400">Cargando...</p>
+            <p class="text-sm text-gray-400">@L["Common_Loading"]</p>
         }
         else
         {
-            <p class="text-sm text-gray-600 mb-4">¿Está seguro que desea eliminar a <strong>@customer.FullName</strong>?</p>
+            <p class="text-sm text-gray-600 mb-4">@L["Customers_ConfirmDelete"] <strong>@customer.FullName</strong>?</p>
             <dl class="text-sm space-y-1 mb-6">
-                <div class="flex gap-2"><dt class="text-gray-500 w-20">Teléfono</dt><dd class="text-gray-800">@(customer.Phone ?? "—")</dd></div>
-                <div class="flex gap-2"><dt class="text-gray-500 w-20">Email</dt><dd class="text-gray-800">@(customer.Email ?? "—")</dd></div>
-                <div class="flex gap-2"><dt class="text-gray-500 w-20">Ciudad</dt><dd class="text-gray-800">@(customer.City ?? "—")</dd></div>
+                <div class="flex gap-2"><dt class="text-gray-500 w-20">@L["Common_Phone"]</dt><dd class="text-gray-800">@(customer.Phone ?? "—")</dd></div>
+                <div class="flex gap-2"><dt class="text-gray-500 w-20">@L["Common_Email"]</dt><dd class="text-gray-800">@(customer.Email ?? "—")</dd></div>
+                <div class="flex gap-2"><dt class="text-gray-500 w-20">@L["Common_City"]</dt><dd class="text-gray-800">@(customer.City ?? "—")</dd></div>
             </dl>
 
             <EditForm method="post" Model="customer" OnValidSubmit="DeleteCustomer" FormName="delete" Enhance>
                 <button type="submit" class="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors">
-                    Eliminar
+                    @L["Common_Delete"]
                 </button>
-                <a href="/customers" class="ml-3 text-sm text-gray-500 hover:text-gray-700">Cancelar</a>
+                <a href="/customers" class="ml-3 text-sm text-gray-500 hover:text-gray-700">@L["Common_Cancel"]</a>
             </EditForm>
         }
     </div>

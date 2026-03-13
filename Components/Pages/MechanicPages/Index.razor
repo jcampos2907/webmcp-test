@@ -6,25 +6,26 @@
 @implements IAsyncDisposable
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
+@inject IStringLocalizer<SharedResource> L
 
-<PageTitle>Index</PageTitle>
+<PageTitle>@L["Mechanics_Title"]</PageTitle>
 
-<h1>Index</h1>
+<h1>@L["Mechanics_Title"]</h1>
 
 <p>
-    <a href="mechanics/create">Create New</a>
+    <a href="mechanics/create">@L["Common_CreateNew"]</a>
 </p>
 
 <QuickGrid Class="table" Items="context.Mechanic">
-    <PropertyColumn Property="mechanic => mechanic.Name" />
-    <PropertyColumn Property="mechanic => mechanic.Phone" />
-    <PropertyColumn Property="mechanic => mechanic.Email" />
-    <PropertyColumn Property="mechanic => mechanic.IsActive" />
+    <PropertyColumn Property="mechanic => mechanic.Name" Title="@L["Common_Name"]" />
+    <PropertyColumn Property="mechanic => mechanic.Phone" Title="@L["Common_Phone"]" />
+    <PropertyColumn Property="mechanic => mechanic.Email" Title="@L["Common_Email"]" />
+    <PropertyColumn Property="mechanic => mechanic.IsActive" Title="@L["Common_IsActive"]" />
 
     <TemplateColumn Context="mechanic">
-        <a href="@($"mechanics/edit?id={mechanic.Id}")">Edit</a> |
-        <a href="@($"mechanics/details?id={mechanic.Id}")">Details</a> |
-        <a href="@($"mechanics/delete?id={mechanic.Id}")">Delete</a>
+        <a href="@($"mechanics/edit?id={mechanic.Id}")">@L["Common_Edit"]</a> |
+        <a href="@($"mechanics/details?id={mechanic.Id}")">@L["Common_Details"]</a> |
+        <a href="@($"mechanics/delete?id={mechanic.Id}")">@L["Common_Delete"]</a>
     </TemplateColumn>
 </QuickGrid>
 
