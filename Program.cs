@@ -5,6 +5,10 @@ using Blazorise;
 using Blazorise.Tailwind;
 using Blazorise.Icons.FontAwesome;
 
+using I18Next.Net.AspNetCore;
+using I18Next.Net.Backends;
+using I18Next.Net.Extensions;
+
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("BikePosContext") ?? throw new InvalidOperationException("Connection string 'BikePosContext' not found.");
 
@@ -22,6 +26,15 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+
+
+builder.Services.AddI18NextLocalization(i18n => i18n
+    .IntegrateToAspNetCore()
+    .AddBackend(new JsonFileBackend("wwwroot/locales"))
+    .UseDefaultLanguage("es"));
+
+
 
 builder.Services.AddOpenApi();
 
@@ -47,7 +60,8 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-};
+}
+;
 app.UseHttpsRedirection();
 
 app.UseAntiforgery();
