@@ -2,22 +2,23 @@
 @inject IStringLocalizer<SharedResource> L
 
 <aside class="w-20 bg-gray-800 flex flex-col items-center py-4 gap-1 flex-shrink-0">
-    @* Brand *@
-    <a href="/" class="w-12 h-12 bg-indigo-500 rounded-lg flex items-center justify-center mb-4 hover:bg-indigo-600 transition-colors" title="Home">
+    <a href="/"
+           class="w-12 h-12 bg-indigo-500 rounded-lg flex items-center justify-center mb-4 hover:bg-indigo-600 transition-colors"
+           title="@L["Nav.Home"]">
         <i class="fa-solid fa-cash-register text-white text-lg"></i>
     </a>
 
-    <NavButton Href="/" Icon="fa-house" Label="@L["Nav_Home"]" Match="NavLinkMatch.All" />
-    <NavButton Href="/tickets" Icon="fa-ticket" Label="@L["Nav_Tickets"]" />
-    <NavButton Href="/customers" Icon="fa-users" Label="@L["Nav_Customers"]" />
+    <NavButton Href="/" Icon="fa-house" Label="@L["Nav.Home"]" Match="NavLinkMatch.All" />
+    <NavButton Href="/tickets" Icon="fa-ticket" Label="@L["Nav.Tickets"]" />
+    <NavButton Href="/customers" Icon="fa-users" Label="@L["Nav.Customers"]" />
     <hr class="w-10 border-gray-600 my-2" />
 
-    <NavButton Href="/mechanics" Icon="fa-wrench" Label="@L["Nav_Mechanics"]" />
-    <NavButton Href="/services" Icon="fa-gears" Label="@L["Nav_Services"]" />
-    <NavButton Href="/products" Icon="fa-box-open" Label="@L["Nav_Products"]" />
+    <NavButton Href="/mechanics" Icon="fa-wrench" Label="@L["Nav.Mechanics"]" />
+    <NavButton Href="/services" Icon="fa-gears" Label="@L["Nav.Services"]" />
+    <NavButton Href="/products" Icon="fa-box-open" Label="@L["Nav.Products"]" />
 
     <div class="mt-auto">
-        <NavButton Href="/settings" Icon="fa-gear" Label="@L["Nav_Settings"]" />
+        <NavButton Href="/settings" Icon="fa-gear" Label="@L["Nav.Settings"]" />
     </div>
 </aside>
 
