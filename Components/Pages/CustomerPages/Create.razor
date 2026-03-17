@@ -1,8 +1,9 @@
 @page "/customers/create"
 @rendermode InteractiveServer
 @inject NavigationManager NavigationManager
+@inject IStringLocalizer<SharedResource> L
 
-<PageTitle>Crear Cliente</PageTitle>
+<PageTitle>@L["Customers.Create"]</PageTitle>
 
 <div class="p-6 max-w-2xl mx-auto">
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

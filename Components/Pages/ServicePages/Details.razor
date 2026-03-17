@@ -3,17 +3,18 @@
 @using BikePOS.Models
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
+@inject IStringLocalizer<SharedResource> L
 
-<PageTitle>Details</PageTitle>
+<PageTitle>@L["Services.Details"]</PageTitle>
 
-<h1>Details</h1>
+<h1>@L["Common.Details"]</h1>
 
 <div>
-    <h2>Service</h2>
+    <h2>@L["Services.Entity"]</h2>
     <hr />
     @if (service is null)
     {
-        <p><em>Loading...</em></p>
+        <p><em>@L["Common.Loading"]</em></p>
     }
     else {
         <dl class="row">

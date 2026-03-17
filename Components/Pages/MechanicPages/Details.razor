@@ -3,32 +3,33 @@
 @using BikePOS.Models
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
+@inject IStringLocalizer<SharedResource> L
 
-<PageTitle>Details</PageTitle>
+<PageTitle>@L["Mechanics.Details"]</PageTitle>
 
-<h1>Details</h1>
+<h1>@L["Common.Details"]</h1>
 
 <div>
-    <h2>Mechanic</h2>
+    <h2>@L["Mechanics.Entity"]</h2>
     <hr />
     @if (mechanic is null)
     {
-        <p><em>Loading...</em></p>
+        <p><em>@L["Common.Loading"]</em></p>
     }
     else {
         <dl class="row">
-            <dt class="col-sm-2">Name</dt>
+            <dt class="col-sm-2">@L["Common.Name"]</dt>
             <dd class="col-sm-10">@mechanic.Name</dd>
-            <dt class="col-sm-2">Phone</dt>
+            <dt class="col-sm-2">@L["Common.Phone"]</dt>
             <dd class="col-sm-10">@mechanic.Phone</dd>
-            <dt class="col-sm-2">Email</dt>
+            <dt class="col-sm-2">@L["Common.Email"]</dt>
             <dd class="col-sm-10">@mechanic.Email</dd>
-            <dt class="col-sm-2">IsActive</dt>
+            <dt class="col-sm-2">@L["Common.IsActive"]</dt>
             <dd class="col-sm-10">@mechanic.IsActive</dd>
         </dl>
         <div>
-            <a href="@($"/mechanics/edit?id={mechanic.Id}")">Edit</a> |
-            <a href="@($"/mechanics")">Back to List</a>
+            <a href="@($"/mechanics/edit?id={mechanic.Id}")">@L["Common.Edit"]</a> |
+            <a href="@($"/mechanics")">@L["Common.BackToList"]</a>
         </div>
     }
 </div>

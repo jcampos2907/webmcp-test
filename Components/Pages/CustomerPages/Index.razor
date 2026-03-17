@@ -4,20 +4,21 @@
 @using BikePOS.Models
 @implements IAsyncDisposable
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject IStringLocalizer<SharedResource> L
 
-<PageTitle>Clientes</PageTitle>
+<PageTitle>@L["Customers.Title"]</PageTitle>
 
 <div class="p-6">
     <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold text-gray-800">Clientes</h1>
+        <h1 class="text-2xl font-bold text-gray-800">@L["Customers.Title"]</h1>
         <a href="/customers/create" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
-            Crear Cliente
+            @L["Customers.Create"]
         </a>
     </div>
 
     <div class="mb-4">
         <input type="text" class="w-full max-w-md border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-               placeholder="Buscar por nombre, teléfono o email..."
+               placeholder="@L["Customers.SearchPlaceholder"]"
                @bind="searchFilter" @bind:event="oninput" />
     </div>
 
@@ -25,10 +26,10 @@
         <table class="w-full text-sm">
             <thead>
                 <tr class="border-b border-gray-200 bg-gray-50 text-left text-gray-500">
-                    <th class="px-4 py-3 font-medium">Nombre</th>
-                    <th class="px-4 py-3 font-medium">Teléfono</th>
-                    <th class="px-4 py-3 font-medium">Email</th>
-                    <th class="px-4 py-3 font-medium">Ciudad</th>
+                    <th class="px-4 py-3 font-medium">@L["Common.Name"]</th>
+                    <th class="px-4 py-3 font-medium">@L["Common.Phone"]</th>
+                    <th class="px-4 py-3 font-medium">@L["Common.Email"]</th>
+                    <th class="px-4 py-3 font-medium">@L["Common.City"]</th>
                     <th class="px-4 py-3"></th>
                 </tr>
             </thead>
@@ -41,8 +42,8 @@
                         <td class="px-4 py-3 text-gray-500">@customer.Email</td>
                         <td class="px-4 py-3 text-gray-500">@customer.City</td>
                         <td class="px-4 py-3 text-right space-x-2">
-                            <a href="@($"/customers/edit?id={customer.Id}")" class="text-indigo-600 hover:underline text-xs">Editar</a>
-                            <a href="@($"/customers/delete?id={customer.Id}")" class="text-red-500 hover:underline text-xs">Eliminar</a>
+                            <a href="@($"/customers/edit?id={customer.Id}")" class="text-indigo-600 hover:underline text-xs">@L["Common.Edit"]</a>
+                            <a href="@($"/customers/delete?id={customer.Id}")" class="text-red-500 hover:underline text-xs">@L["Common.Delete"]</a>
                         </td>
                     </tr>
                 }
@@ -51,7 +52,7 @@
 
         @if (!FilteredCustomers.Any())
         {
-            <p class="text-sm text-gray-400 text-center py-8">No se encontraron clientes</p>
+            <p class="text-sm text-gray-400 text-center py-8">@L["Customers.NoResults"]</p>
         }
     </div>
 </div>

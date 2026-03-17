@@ -3,16 +3,17 @@
 @using BikePOS.Models
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
+@inject IStringLocalizer<SharedResource> L
 
-<PageTitle>Edit</PageTitle>
+<PageTitle>@L["Mechanics.Edit"]</PageTitle>
 
-<h1>Edit</h1>
+<h1>@L["Common.Edit"]</h1>
 
-<h2>Mechanic</h2>
+<h2>@L["Mechanics.Entity"]</h2>
 <hr />
 @if (Mechanic is null)
 {
-    <p><em>Loading...</em></p>
+    <p><em>@L["Common.Loading"]</em></p>
 }
 else
 {
@@ -24,33 +25,33 @@ else
                 <input type="hidden" name="Mechanic.Id" value="@Mechanic.Id" />
                 <div class="mb-3">
                 <span class="text-danger">*</span>
-                    <label for="name" class="form-label">Name:</label>
+                    <label for="name" class="form-label">@L["Common.Name"]:</label>
                     <InputText id="name" @bind-Value="Mechanic.Name" class="form-control" aria-required="true"/>
                     <ValidationMessage For="() => Mechanic.Name" class="text-danger" />
                 </div>
                 <div class="mb-3">
-                    <label for="phone" class="form-label">Phone:</label>
+                    <label for="phone" class="form-label">@L["Common.Phone"]:</label>
                     <InputText id="phone" @bind-Value="Mechanic.Phone" class="form-control" />
                     <ValidationMessage For="() => Mechanic.Phone" class="text-danger" />
                 </div>
                 <div class="mb-3">
-                    <label for="email" class="form-label">Email:</label>
+                    <label for="email" class="form-label">@L["Common.Email"]:</label>
                     <InputText id="email" @bind-Value="Mechanic.Email" class="form-control" />
                     <ValidationMessage For="() => Mechanic.Email" class="text-danger" />
                 </div>
                 <div class="mb-3">
-                    <label for="isactive" class="form-label">IsActive:</label>
+                    <label for="isactive" class="form-label">@L["Common.IsActive"]:</label>
                     <InputCheckbox id="isactive" @bind-Value="Mechanic.IsActive" class="form-check-input" />
                     <ValidationMessage For="() => Mechanic.IsActive" class="text-danger" />
                 </div>
-                <button type="submit" class="btn btn-primary">Save</button>
+                <button type="submit" class="btn btn-primary">@L["Common.Save"]</button>
             </EditForm>
         </div>
     </div>
 }
 
 <div>
-    <a href="/mechanics">Back to List</a>
+    <a href="/mechanics">@L["Common.BackToList"]</a>
 </div>
 
 @code {

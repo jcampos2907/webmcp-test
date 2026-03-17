@@ -2,66 +2,67 @@
 @using BikePOS.Models
 @using System.Text.RegularExpressions
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject IStringLocalizer<SharedResource> L
 
 <div class="space-y-4">
-    <h3 class="text-lg font-semibold text-gray-800">@(IsEditMode ? "Editar Cliente" : "Nuevo Cliente")</h3>
+    <h3 class="text-lg font-semibold text-gray-800">@(IsEditMode ? L["Customers.Edit"] : L["Customers.New"])</h3>
 
     @* Name *@
     <div class="grid grid-cols-2 gap-3">
         <div>
-            <label class="block text-sm text-gray-600 mb-1">Nombre <span class="text-red-500">*</span></label>
+            <label class="block text-sm text-gray-600 mb-1">@L["Customers.FirstName"] <span class="text-red-500">*</span></label>
             <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="firstName" placeholder="Nombre" />
+                   @bind="firstName" placeholder="@L["Customers.FirstName"]" />
         </div>
         <div>
-            <label class="block text-sm text-gray-600 mb-1">Apellido <span class="text-red-500">*</span></label>
+            <label class="block text-sm text-gray-600 mb-1">@L["Customers.LastName"] <span class="text-red-500">*</span></label>
             <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="lastName" placeholder="Apellido" />
+                   @bind="lastName" placeholder="@L["Customers.LastName"]" />
         </div>
     </div>
 
     @* Contact *@
     <div class="grid grid-cols-2 gap-3">
         <div>
-            <label class="block text-sm text-gray-600 mb-1">Teléfono</label>
+            <label class="block text-sm text-gray-600 mb-1">@L["Common.Phone"]</label>
             <input type="tel" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="phone" placeholder="Teléfono" />
+                   @bind="phone" placeholder="@L["Common.Phone"]" />
         </div>
         <div>
-            <label class="block text-sm text-gray-600 mb-1">Email</label>
+            <label class="block text-sm text-gray-600 mb-1">@L["Common.Email"]</label>
             <input type="email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="email" placeholder="Email" />
+                   @bind="email" placeholder="@L["Common.Email"]" />
         </div>
     </div>
 
     @* Address *@
     <div>
-        <label class="block text-sm text-gray-600 mb-1">Dirección</label>
+        <label class="block text-sm text-gray-600 mb-1">@L["Common.Address"]</label>
         <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-               @bind="street" placeholder="Calle y número" />
+               @bind="street" placeholder="@L["Customers.StreetPlaceholder"]" />
     </div>
     <div class="grid grid-cols-2 gap-3">
         <div>
-            <label class="block text-sm text-gray-600 mb-1">Ciudad</label>
+            <label class="block text-sm text-gray-600 mb-1">@L["Common.City"]</label>
             <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="city" placeholder="Ciudad" />
+                   @bind="city" placeholder="@L["Common.City"]" />
         </div>
         <div>
-            <label class="block text-sm text-gray-600 mb-1">Región / Estado</label>
+            <label class="block text-sm text-gray-600 mb-1">@L["Common.State"]</label>
             <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="state" placeholder="Región" />
+                   @bind="state" placeholder="@L["Common.State"]" />
         </div>
     </div>
     <div class="grid grid-cols-2 gap-3">
         <div>
-            <label class="block text-sm text-gray-600 mb-1">Código Postal</label>
+            <label class="block text-sm text-gray-600 mb-1">@L["Common.ZipCode"]</label>
             <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="zipCode" placeholder="Código Postal" />
+                   @bind="zipCode" placeholder="@L["Common.ZipCode"]" />
         </div>
         <div>
-            <label class="block text-sm text-gray-600 mb-1">País</label>
+            <label class="block text-sm text-gray-600 mb-1">@L["Common.Country"]</label>
             <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="country" placeholder="País" />
+                   @bind="country" placeholder="@L["Common.Country"]" />
         </div>
     </div>
 
@@ -69,7 +70,7 @@
     @if (metaFields.Any())
     {
         <hr class="border-gray-200" />
-        <p class="text-xs text-gray-400 uppercase tracking-wide">Campos adicionales</p>
+        <p class="text-xs text-gray-400 uppercase tracking-wide">@L["Customers.AdditionalFields"]</p>
         <div class="grid grid-cols-2 gap-3">
             @foreach (var field in metaFields)
             {
@@ -86,7 +87,7 @@
                             <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                                     value="@GetMetaValue(field.Id)"
                                     @onchange="e => SetMetaValue(field.Id, e.Value?.ToString())">
-                                <option value="">— Seleccionar —</option>
+                                <option value="">@L["Common.Select"]</option>
                                 @foreach (var opt in field.Options.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                                 {
                                     <option value="@opt">@opt</option>
@@ -121,11 +122,11 @@
     @* Actions *@
     <div class="flex gap-3 pt-2">
         <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
-                @onclick="Save">Guardar</button>
+                @onclick="Save">@L["Common.Save"]</button>
         @if (ShowCancelButton)
         {
             <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm px-5 py-2 rounded-lg transition-colors"
-                    @onclick="Cancel">Cancelar</button>
+                    @onclick="Cancel">@L["Common.Cancel"]</button>
         }
     </div>
 </div>
@@ -209,7 +210,7 @@
 
         if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
         {
-            validationError = "Nombre y apellido son obligatorios.";
+            validationError = L["Validation.NameRequired"];
             return;
         }
 
@@ -220,7 +221,7 @@
 
             if (field.IsRequired && string.IsNullOrWhiteSpace(val))
             {
-                fieldErrors[field.Id] = $"\"{field.Label}\" es obligatorio.";
+                fieldErrors[field.Id] = string.Format(L["Validation.FieldRequired"], field.Label);
                 continue;
             }
 
@@ -230,7 +231,7 @@
                 {
                     if (!Regex.IsMatch(val, field.RegexPattern))
                     {
-                        fieldErrors[field.Id] = field.RegexMessage ?? $"Formato inválido para \"{field.Label}\".";
+                        fieldErrors[field.Id] = field.RegexMessage ?? string.Format(L["Validation.InvalidFormat"], field.Label);
                     }
                 }
                 catch
@@ -242,7 +243,7 @@
 
         if (fieldErrors.Any())
         {
-            validationError = "Corrige los errores en los campos marcados.";
+            validationError = L["Validation.FixErrors"];
             return;
         }
 

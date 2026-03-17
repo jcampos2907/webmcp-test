@@ -6,13 +6,14 @@
 @implements IAsyncDisposable
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
+@inject IStringLocalizer<SharedResource> L
 
-<PageTitle>Index</PageTitle>
+<PageTitle>@L["Services.Title"]</PageTitle>
 
-<h1>Index</h1>
+<h1>@L["Services.Title"]</h1>
 
 <p>
-    <a href="services/create">Create New</a>
+    <a href="services/create">@L["Common.CreateNew"]</a>
 </p>
 
 <QuickGrid Class="table" Items="context.Service">
@@ -22,9 +23,9 @@
     <PropertyColumn Property="service => service.EstimatedMinutes" />
 
     <TemplateColumn Context="service">
-        <a href="@($"services/edit?id={service.Id}")">Edit</a> |
-        <a href="@($"services/details?id={service.Id}")">Details</a> |
-        <a href="@($"services/delete?id={service.Id}")">Delete</a>
+        <a href="@($"services/edit?id={service.Id}")">@L["Common.Edit"]</a> |
+        <a href="@($"services/details?id={service.Id}")">@L["Common.Details"]</a> |
+        <a href="@($"services/delete?id={service.Id}")">@L["Common.Delete"]</a>
     </TemplateColumn>
 </QuickGrid>
 

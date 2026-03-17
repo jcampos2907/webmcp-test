@@ -34,8 +34,6 @@ builder.Services.AddI18NextLocalization(i18n => i18n
     .AddBackend(new JsonFileBackend("wwwroot/locales"))
     .UseDefaultLanguage("es"));
 
-builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
-
 
 builder.Services.AddOpenApi();
 
