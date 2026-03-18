@@ -4,12 +4,15 @@ namespace BikePOS.Models;
 
 public class StoreUser
 {
-    public int Id { get; set; }
+    [MaxLength(36)]
+    public string Id { get; set; } = Guid.NewGuid().ToString();
 
-    public int AppUserId { get; set; }
+    [MaxLength(36)]
+    public string AppUserId { get; set; } = null!;
     public AppUser AppUser { get; set; } = null!;
 
-    public int StoreId { get; set; }
+    [MaxLength(36)]
+    public string StoreId { get; set; } = null!;
     public Store Store { get; set; } = null!;
 
     public StoreRole Role { get; set; } = StoreRole.Cashier;

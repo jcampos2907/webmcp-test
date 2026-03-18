@@ -312,8 +312,8 @@ Task<bool> PingAsync(string deviceId);                    // Health check
 1. [x] Models + migration (PaymentTerminal, PaymentSession, Charge updates with PaymentStatus + CompletedAt)
 2. [x] `IPaymentTerminalProvider` interface + `ManualPaymentProvider` + `PaymentTerminalService` resolver
 3. [x] Terminal management UI in Settings (add/edit/delete/activate/deactivate/test connection, i18n)
-4. POS Terminal integration (device selector, payment flow, polling)
-5. Partial payments support
+4. [x] POS Terminal integration (terminal selector for Card payments, send-to-terminal flow, 2s polling loop, cancel button, PaymentSession persistence)
+5. [x] Partial payments (previous payments display, remaining balance calc, partial toggle, ticket only marked Charged when fully paid)
 
 No PCI scope — terminals handle card data on-device. The app only sends the amount and receives success/failure.
 

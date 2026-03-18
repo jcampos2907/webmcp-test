@@ -44,12 +44,108 @@ public class SeedData
             context.SaveChanges();
         }
 
+        var storeId = context.Store.First().Id;
+
+        // Seed payment terminals (independent guard)
+        if (!context.PaymentTerminal.Any())
+        {
+            context.PaymentTerminal.AddRange(
+                new PaymentTerminal
+                {
+                    StoreId = storeId,
+                    Name = "Front Counter",
+                    IpAddress = "192.168.1.100",
+                    Port = 8080,
+                    Provider = TerminalProvider.Ingenico,
+                    IsActive = true
+                },
+                new PaymentTerminal
+                {
+                    StoreId = storeId,
+                    Name = "Service Desk",
+                    IpAddress = "192.168.1.101",
+                    Port = 8080,
+                    Provider = TerminalProvider.Ingenico,
+                    IsActive = true
+                });
+            context.SaveChanges();
+        }
+
+        // Seed test tickets for POS testing (independent guard)
+        if (!context.ServiceTicket.Any() && context.Component.Any() && context.Mechanic.Any())
+        {
+            var mechanics = context.Mechanic.ToList();
+            var services = context.Service.ToList();
+            var components = context.Component.Include(c => c.Customer).ToList();
+
+            // Ticket 1: Completed, ready to charge (full amount)
+            var ticket1 = new ServiceTicket
+            {
+                ComponentId = components[0].Id,
+                CustomerId = components[0].CustomerId,
+                MechanicId = mechanics[0].Id,
+                BaseServiceId = services[0].Id,
+                Price = services[0].DefaultPrice,
+                Status = TicketStatus.Completed,
+                Description = "Full tune-up on Tarmac SL7",
+                StoreId = storeId,
+                TicketNumber = 1,
+                CreatedBy = "seed"
+            };
+
+            // Ticket 2: Completed, will have a partial payment already
+            var ticket2 = new ServiceTicket
+            {
+                ComponentId = components[1].Id,
+                CustomerId = components[1].CustomerId,
+                MechanicId = mechanics[1].Id,
+                BaseServiceId = services.Count > 3 ? services[3].Id : services[0].Id,
+                Price = services.Count > 3 ? services[3].DefaultPrice : 250m,
+                Status = TicketStatus.Completed,
+                Description = "Full overhaul on The Road Warrior",
+                StoreId = storeId,
+                TicketNumber = 2,
+                CreatedBy = "seed"
+            };
+
+            // Ticket 3: In progress
+            var ticket3 = new ServiceTicket
+            {
+                ComponentId = components[2].Id,
+                CustomerId = components[2].CustomerId,
+                MechanicId = mechanics.Count > 2 ? mechanics[2].Id : mechanics[0].Id,
+                BaseServiceId = services.Count > 4 ? services[4].Id : services[0].Id,
+                Price = services.Count > 4 ? services[4].DefaultPrice : 15m,
+                Status = TicketStatus.InProgress,
+                Description = "Flat repair on Allez Sprint",
+                StoreId = storeId,
+                TicketNumber = 3,
+                CreatedBy = "seed"
+            };
+
+            context.ServiceTicket.AddRange(ticket1, ticket2, ticket3);
+            context.SaveChanges();
+
+            // Add a partial payment on ticket 2 ($100 deposit on $250 overhaul)
+            context.Charge.Add(new Charge
+            {
+                ServiceTicketId = ticket2.Id,
+                Amount = 100m,
+                ChargedAt = DateTime.UtcNow.AddHours(-2),
+                CashierName = "seed",
+                PaymentMethod = PaymentMethod.Cash,
+                PaymentStatus = PaymentStatus.Completed,
+                CompletedAt = DateTime.UtcNow.AddHours(-2),
+                StoreId = storeId,
+                CreatedBy = "seed"
+            });
+            context.SaveChanges();
+        }
+
         if (context.Component.Any())
         {
             return;
         }
-
-        var storeId = context.Store.First().Id;
 
         // Component types setting
         context.ShopSetting.Add(new ShopSetting { Key = "component_types", Value = "Bicicleta, Aro, Pedal, Marco, Rueda, Otro", StoreId = storeId });

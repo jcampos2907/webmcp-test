@@ -11,6 +11,7 @@
 @inject I18nText I18nText
 @inject ShopCultureService CultureService
 @inject TenantContext Tenant
+@inject PaymentTerminalService TerminalService
 
 <PageTitle>@L.Pos_Title</PageTitle>
 
@@ -56,7 +57,7 @@
                         <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-indigo-50 transition-colors"
                              @onclick="() => SelectTicket(ticket)">
                             <div>
-                                <span class="text-sm font-medium text-gray-800">#@ticket.Id</span>
+                                <span class="text-sm font-medium text-gray-800">@ticket.TicketDisplay</span>
                                 <span class="text-sm text-gray-500 ml-2">@ticket.Component?.Name</span>
                             </div>
                             <span class="text-xs px-2 py-1 rounded-full @GetStatusBadgeClass(ticket.Status)">@ticket.Status</span>
@@ -103,9 +104,10 @@
             <h3 class="text-lg font-semibold text-gray-800 mb-4">@L.Pos_ProcessCharge</h3>
             @if (selectedTicket is not null)
             {
+                @* Ticket info header *@
                 <div class="bg-indigo-50 rounded-lg p-3 mb-4">
                     <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Ticket #@selectedTicket.Id</span>
+                        <span class="text-gray-600">@selectedTicket.TicketDisplay</span>
                         <span class="font-semibold text-gray-800">@selectedTicket.Component?.Name</span>
                     </div>
                     <div class="flex justify-between text-sm mt-1">
@@ -114,26 +116,104 @@
                     </div>
                 </div>
 
-                <div class="mb-3">
-                    <label class="block text-sm text-gray-600 mb-1">@L.Pos_Amount</label>
-                    <input type="number" step="0.01" min="0"
-                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                           @bind="chargeAmount" />
-                </div>
+                @* Previous payments on this ticket (partial payments) *@
+                @if (ticketCharges.Any())
+                {
+                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                        <p class="text-xs font-semibold text-amber-700 uppercase mb-1">@L.Pos_PreviousPayments</p>
+                        @foreach (var c in ticketCharges)
+                        {
+                            <div class="flex justify-between text-xs text-amber-800">
+                                <span>@c.PaymentMethod — @c.ChargedAt.ToLocalTime().ToString("g", culture)</span>
+                                <span class="font-medium">@c.Amount.ToString("C", culture)</span>
+                            </div>
+                        }
+                        <div class="flex justify-between text-sm font-bold text-amber-900 mt-1 pt-1 border-t border-amber-300">
+                            <span>@L.Pos_RemainingBalance</span>
+                            <span>@remainingBalance.ToString("C", culture)</span>
+                        </div>
+                    </div>
+                }
 
-                <div class="mb-4">
-                    <label class="block text-sm text-gray-600 mb-1">@L.Pos_PaymentMethod</label>
-                    <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                            @bind="selectedPaymentMethod">
-                        <option value="@PaymentMethod.Cash">@L.Pos_Cash</option>
-                        <option value="@PaymentMethod.Card">@L.Pos_Card</option>
-                    </select>
-                </div>
+                @* Terminal waiting overlay *@
+                @if (terminalPolling)
+                {
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-4 text-center">
+                        <i class="fa-solid fa-spinner fa-spin text-blue-500 text-2xl mb-3"></i>
+                        <p class="text-sm text-blue-700 font-medium">@L.Pos_WaitingForTerminal</p>
+                        <p class="text-xs text-blue-500 mt-1">@selectedTerminal?.Name</p>
+                        <button class="mt-3 text-xs text-red-500 hover:text-red-700 underline"
+                                @onclick="CancelTerminalPayment">
+                            @L.Pos_CancelTerminalPayment
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    @* Amount input with partial payment toggle *@
+                    <div class="mb-3">
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-sm text-gray-600">@L.Pos_Amount</label>
+                            @if (remainingBalance > 0)
+                            {
+                                <label class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+                                    <input type="checkbox" class="rounded border-gray-300" @bind="isPartialPayment" @bind:after="OnPartialToggle" />
+                                    @L.Pos_PartialPayment
+                                </label>
+                            }
+                        </div>
+                        <input type="number" step="0.01" min="0" max="@remainingBalance"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                               @bind="chargeAmount"
+                               disabled="@(!isPartialPayment && ticketCharges.Count == 0)" />
+                        @if (isPartialPayment)
+                        {
+                            <p class="text-xs text-gray-400 mt-1">@L.Pos_DepositAmount — max @remainingBalance.ToString("C", culture)</p>
+                        }
+                    </div>
 
-                <button class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition-colors disabled:opacity-50"
-                        @onclick="ProcessCharge" disabled="@(!isOnline || chargeAmount <= 0)">
-                    @L.Pos_ProcessChargeButton
-                </button>
+                    @* Payment method selector *@
+                    <div class="mb-4">
+                        <label class="block text-sm text-gray-600 mb-1">@L.Pos_PaymentMethod</label>
+                        <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                @bind="selectedPaymentMethod">
+                            <option value="@PaymentMethod.Cash">@L.Pos_Cash</option>
+                            <option value="@PaymentMethod.Card">@L.Pos_Card</option>
+                            <option value="@PaymentMethod.Transfer">@L.Pos_Transfer</option>
+                        </select>
+                    </div>
+
+                    @* Terminal selector (only for Card payments) *@
+                    @if (selectedPaymentMethod == PaymentMethod.Card)
+                    {
+                        <div class="mb-4">
+                            <label class="block text-sm text-gray-600 mb-1">@L.Pos_SelectTerminal</label>
+                            @if (storeTerminals.Any())
+                            {
+                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                        @bind="selectedTerminalId">
+                                    <option value="">@L.Common_Select</option>
+                                    @foreach (var t in storeTerminals)
+                                    {
+                                        <option value="@t.Id">@t.Name (@t.Provider — @t.IpAddress)</option>
+                                    }
+                                </select>
+                            }
+                            else
+                            {
+                                <p class="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+                                    <i class="fa-solid fa-triangle-exclamation mr-1"></i>@L.Pos_NoTerminalsConfigured
+                                </p>
+                            }
+                        </div>
+                    }
+
+                    <button class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition-colors disabled:opacity-50"
+                            @onclick="ProcessCharge"
+                            disabled="@(!isOnline || chargeAmount <= 0 || (selectedPaymentMethod == PaymentMethod.Card && string.IsNullOrEmpty(selectedTerminalId)))">
+                        @L.Pos_ProcessChargeButton
+                    </button>
+                }
 
                 @if (chargeSuccess is not null)
                 {
@@ -166,7 +246,7 @@
                         <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                             <div>
                                 <span class="text-sm font-medium text-gray-800">@charge.Amount.ToString("C", culture)</span>
-                                <span class="text-xs text-gray-400 ml-2">Ticket #@charge.ServiceTicketId</span>
+                                <span class="text-xs text-gray-400 ml-2">@(charge.ServiceTicket?.TicketDisplay ?? charge.ServiceTicketId)</span>
                             </div>
                             <div class="text-right">
                                 <span class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">@charge.PaymentMethod</span>
@@ -202,14 +282,17 @@
             var state = await AuthState;
             Tenant.PopulateFromClaims(state.User);
         }
+
+        await LoadStoreTerminals();
     }
+
     private IJSObjectReference? module;
     private DotNetObjectReference<Home>? dotNetRef;
 
     private bool isOnline = true;
 
     [SupplyParameterFromQuery]
-    private int? ticketId { get; set; }
+    private string? ticketId { get; set; }
 
     // Ticket search
     private string ticketSearch = "";
@@ -224,7 +307,20 @@
     private decimal chargeAmount;
     private PaymentMethod selectedPaymentMethod = PaymentMethod.Cash;
     private bool? chargeSuccess;
+    private string? chargeError;
     private List<Charge> recentCharges = new();
+
+    // Terminal
+    private List<PaymentTerminal> storeTerminals = new();
+    private string selectedTerminalId = "";
+    private PaymentTerminal? selectedTerminal => storeTerminals.FirstOrDefault(t => t.Id == selectedTerminalId);
+    private bool terminalPolling;
+    private CancellationTokenSource? pollCts;
+
+    // Partial payments
+    private List<Charge> ticketCharges = new();
+    private decimal remainingBalance;
+    private bool isPartialPayment;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -240,21 +336,33 @@
             await LoadRecentCharges();
 
             // Auto-select ticket if ticketId query param is provided
-            if (ticketId.HasValue)
+            if (!string.IsNullOrEmpty(ticketId))
             {
                 using var context = DbFactory.CreateDbContext();
                 var t = await context.ServiceTicket
                     .Include(t => t.Component)
                     .Include(t => t.Mechanic)
-                    .FirstOrDefaultAsync(t => t.Id == ticketId.Value);
+                    .FirstOrDefaultAsync(t => t.Id == ticketId);
                 if (t is not null)
                 {
-                    SelectTicket(t);
+                    await SelectTicket(t);
                 }
             }
 
             StateHasChanged();
         }
+    }
+
+    private async Task LoadStoreTerminals()
+    {
+        using var context = DbFactory.CreateDbContext();
+        storeTerminals = await context.PaymentTerminal
+            .Where(t => t.StoreId == Tenant.StoreId && t.IsActive)
+            .OrderBy(t => t.Name)
+            .ToListAsync();
+
+        if (storeTerminals.Count == 1)
+            selectedTerminalId = storeTerminals[0].Id;
     }
 
     private async Task SearchTickets()
@@ -271,9 +379,9 @@
             .Include(t => t.Mechanic)
             .Where(t => t.Status != TicketStatus.Cancelled && t.Status != TicketStatus.Charged);
 
-        if (int.TryParse(ticketSearch, out var ticketId))
+        if (int.TryParse(ticketSearch, out var searchNum))
         {
-            query = query.Where(t => t.Id == ticketId);
+            query = query.Where(t => t.TicketNumber == searchNum);
         }
         else
         {
@@ -300,14 +408,30 @@
             .ToListAsync();
     }
 
-    private void SelectTicket(ServiceTicket ticket)
+    private async Task SelectTicket(ServiceTicket ticket)
     {
         selectedTicket = ticket;
-        chargeAmount = ticket.Price;
         chargeSuccess = null;
+        chargeError = null;
+        isPartialPayment = false;
+
+        // Load existing charges for this ticket (partial payments)
+        using var context = DbFactory.CreateDbContext();
+        ticketCharges = await context.Charge
+            .Where(c => c.ServiceTicketId == ticket.Id && c.PaymentStatus == PaymentStatus.Completed)
+            .OrderBy(c => c.ChargedAt)
+            .ToListAsync();
+
+        var totalPaid = ticketCharges.Sum(c => c.Amount);
+        remainingBalance = ticket.Price - totalPaid;
+        chargeAmount = remainingBalance;
     }
 
-    private string? chargeError;
+    private void OnPartialToggle()
+    {
+        if (!isPartialPayment)
+            chargeAmount = remainingBalance;
+    }
 
     private async Task ProcessCharge()
     {
@@ -322,7 +446,7 @@
             return;
         }
 
-        // Prevent charging already charged tickets
+        // Prevent charging already fully charged tickets
         if (selectedTicket.Status == TicketStatus.Charged)
         {
             chargeError = L.Pos_ErrorAlreadyCharged;
@@ -338,42 +462,181 @@
             return;
         }
 
+        // Cap charge at remaining balance
+        var amount = Math.Min(chargeAmount, remainingBalance);
+
+        // Card payment → send to terminal
+        if (selectedPaymentMethod == PaymentMethod.Card && selectedTerminal is not null)
+        {
+            await ProcessTerminalPayment(amount);
+            return;
+        }
+
+        // Cash/Transfer → immediate completion
+        await CreateCharge(amount, PaymentStatus.Completed);
+    }
+
+    private async Task ProcessTerminalPayment(decimal amount)
+    {
+        var terminal = selectedTerminal;
+        if (terminal is null) return;
+
+        terminalPolling = true;
+        pollCts = new CancellationTokenSource();
+        StateHasChanged();
+
+        try
+        {
+            var provider = TerminalService.GetProvider(terminal.Provider);
+            var request = new PaymentRequest(amount, "");
+
+            // Send payment to terminal
+            var session = await provider.CreatePaymentAsync(terminal, request);
+
+            if (session.Status == PaymentSessionStatus.Completed)
+            {
+                // Instant completion (e.g., ManualPaymentProvider or fast terminal)
+                await CreateCharge(amount, PaymentStatus.Completed, session.ExternalRef);
+                return;
+            }
+
+            // Poll for result
+            var externalRef = session.ExternalRef ?? "";
+            var maxAttempts = 60; // ~2 minutes at 2s intervals
+            for (var i = 0; i < maxAttempts && !pollCts.Token.IsCancellationRequested; i++)
+            {
+                await Task.Delay(2000, pollCts.Token);
+                var status = await provider.GetStatusAsync(terminal, externalRef);
+
+                if (status == PaymentSessionStatus.Completed)
+                {
+                    await CreateCharge(amount, PaymentStatus.Completed, externalRef);
+                    return;
+                }
+                if (status is PaymentSessionStatus.Failed or PaymentSessionStatus.Cancelled)
+                {
+                    chargeError = L.Pos_TerminalPaymentFailed;
+                    chargeSuccess = false;
+                    return;
+                }
+            }
+
+            // Timeout
+            chargeError = L.Pos_TerminalPaymentFailed;
+            chargeSuccess = false;
+        }
+        catch (OperationCanceledException)
+        {
+            // User cancelled — try to cancel on terminal too
+            if (terminal is not null)
+            {
+                try
+                {
+                    var provider = TerminalService.GetProvider(terminal.Provider);
+                    await provider.CancelAsync(terminal, "");
+                }
+                catch { }
+            }
+            chargeError = L.Pos_TerminalPaymentFailed;
+            chargeSuccess = false;
+        }
+        catch
+        {
+            chargeError = L.Pos_ChargeFailed;
+            chargeSuccess = false;
+        }
+        finally
+        {
+            terminalPolling = false;
+            pollCts?.Dispose();
+            pollCts = null;
+            StateHasChanged();
+        }
+    }
+
+    private void CancelTerminalPayment()
+    {
+        pollCts?.Cancel();
+    }
+
+    private async Task CreateCharge(decimal amount, PaymentStatus paymentStatus, string? externalRef = null)
+    {
         try
         {
             using var context = DbFactory.CreateDbContext();
             var charge = new Charge
             {
-                ServiceTicketId = selectedTicket.Id,
-                Amount = chargeAmount,
+                ServiceTicketId = selectedTicket!.Id,
+                Amount = amount,
                 ChargedAt = DateTime.UtcNow,
                 CashierName = Tenant.UserIdentifier,
                 PaymentMethod = selectedPaymentMethod,
+                PaymentStatus = paymentStatus,
+                CompletedAt = paymentStatus == PaymentStatus.Completed ? DateTime.UtcNow : null,
+                ExternalTransactionId = externalRef,
+                StoreId = Tenant.StoreId,
                 CreatedBy = Tenant.UserIdentifier
             };
 
             context.Charge.Add(charge);
 
-            // Update ticket status to Charged
+            // Save the charge first to get its Id
+            await context.SaveChangesAsync();
+
+            // If a terminal session was used, persist it linked to the charge
+            if (selectedPaymentMethod == PaymentMethod.Card && selectedTerminal is not null)
+            {
+                context.PaymentSession.Add(new PaymentSession
+                {
+                    ChargeId = charge.Id,
+                    TerminalId = selectedTerminal.Id,
+                    Status = paymentStatus == PaymentStatus.Completed
+                        ? PaymentSessionStatus.Completed
+                        : PaymentSessionStatus.Pending,
+                    Amount = amount,
+                    ExternalRef = externalRef,
+                    CompletedAt = paymentStatus == PaymentStatus.Completed ? DateTime.UtcNow : null
+                });
+                await context.SaveChangesAsync();
+            }
+
+            // Check if ticket is fully paid
+            var totalPaid = await context.Charge
+                .Where(c => c.ServiceTicketId == selectedTicket.Id && c.PaymentStatus == PaymentStatus.Completed)
+                .SumAsync(c => c.Amount);
+
             var ticket = await context.ServiceTicket.FindAsync(selectedTicket.Id);
-            if (ticket is not null)
+            if (ticket is not null && totalPaid >= ticket.Price)
             {
                 ticket.Status = TicketStatus.Charged;
                 ticket.UpdatedAt = DateTime.UtcNow;
                 ticket.UpdatedBy = Tenant.UserIdentifier;
+                await context.SaveChangesAsync();
             }
 
-            await context.SaveChangesAsync();
-
             chargeSuccess = true;
-            selectedTicket = null;
-            chargeAmount = 0;
+            terminalPolling = false;
+
+            // If fully paid, clear selection; otherwise refresh partial state
+            if (ticket?.Status == TicketStatus.Charged)
+            {
+                selectedTicket = null;
+                chargeAmount = 0;
+                ticketCharges.Clear();
+            }
+            else
+            {
+                // Refresh partial payment state
+                await SelectTicket(selectedTicket!);
+                chargeSuccess = true; // SelectTicket resets this
+            }
 
             await LoadRecentCharges();
 
             if (module is not null)
             {
                 await module.InvokeAsync<bool>("showNotification",
-                    "BikePOS", $"Charge of {charge.Amount:C} processed by {Tenant.DisplayName ?? "unknown"}.");
+                    "BikePOS", $"Charge of {charge.Amount.ToString("C", culture)} processed by {Tenant.DisplayName ?? "unknown"}.");
             }
         }
         catch
@@ -417,6 +680,8 @@
 
     public async ValueTask DisposeAsync()
     {
+        pollCts?.Cancel();
+        pollCts?.Dispose();
         dotNetRef?.Dispose();
         if (module is not null)
             await module.DisposeAsync();

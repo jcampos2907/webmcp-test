@@ -4,7 +4,8 @@ namespace BikePOS.Models;
 
 public class Conglomerate
 {
-    public int Id { get; set; }
+    [MaxLength(36)]
+    public string Id { get; set; } = Guid.NewGuid().ToString();
 
     [Required]
     [MaxLength(200)]

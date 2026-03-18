@@ -178,7 +178,7 @@
                                 }
 
                                 @* New store form (when adding to this company) *@
-                                @if (editingStoreId == 0 && addStoreForCompanyId == company.Id)
+                                @if (editingStoreId == "" && addStoreForCompanyId == company.Id)
                                 {
                                     <div class="relative pl-6">
                                         <div class="absolute left-0 top-4 w-6 border-t-2 border-gray-200"></div>
@@ -187,7 +187,7 @@
                                 }
 
                                 @* Add store button *@
-                                @if (!(editingStoreId == 0 && addStoreForCompanyId == company.Id))
+                                @if (!(editingStoreId == "" && addStoreForCompanyId == company.Id))
                                 {
                                     <div class="relative pl-6">
                                         <div class="absolute left-0 top-3 w-6 border-t-2 border-gray-200"></div>
@@ -204,7 +204,7 @@
             }
 
             @* New company form *@
-            @if (editingCompanyId == 0)
+            @if (editingCompanyId == "")
             {
                 <div class="relative pl-8 pb-4">
                     <div class="absolute left-0 top-5 w-8 border-t-2 border-gray-200"></div>
@@ -215,7 +215,7 @@
             }
 
             @* Add company button *@
-            @if (editingCompanyId != 0)
+            @if (editingCompanyId != "")
             {
                 <div class="relative pl-8 pb-2">
                     <div class="absolute left-0 top-4 w-8 border-t-2 border-gray-200"></div>
@@ -248,23 +248,23 @@
     private List<MetaFieldDefinition> conglomerateMetaFields = new();
     private List<MetaFieldDefinition> companyMetaFields = new();
     private List<MetaFieldDefinition> storeMetaFields = new();
-    private Dictionary<int, string> metaValues = new(); // fieldDefId -> value
-    private Dictionary<int, string> fieldErrors = new();
+    private Dictionary<string, string> metaValues = new(); // fieldDefId -> value
+    private Dictionary<string, string> fieldErrors = new();
 
     // Conglomerate edit
     private bool editingConglomerate;
     private string conglomerateName = "";
 
-    // Company edit
-    private int? editingCompanyId;
+    // Company edit — null=closed, ""=new, "uuid"=editing
+    private string? editingCompanyId;
     private string formCompanyName = "";
     private string formCompanyTaxId = "";
     private string formCompanyLocale = "es-CR";
     private string formCompanyCountry = "";
 
-    // Store edit
-    private int? editingStoreId;
-    private int addStoreForCompanyId;
+    // Store edit — null=closed, ""=new, "uuid"=editing
+    private string? editingStoreId;
+    private string addStoreForCompanyId = "";
     private string formStoreName = "";
     private string formStoreAddress = "";
     private string formStorePhone = "";
@@ -335,7 +335,7 @@
     private async Task LoadData()
     {
         using var context = DbFactory.CreateDbContext();
-        var conglomerateId = Tenant.ConglomerateId ?? 1;
+        var conglomerateId = Tenant.ConglomerateId ?? "";
 
         conglomerate = await context.Conglomerate.FindAsync(conglomerateId);
         companies = await context.Company
@@ -388,7 +388,7 @@
 
     private void StartAddCompany()
     {
-        editingCompanyId = 0; // 0 = new
+        editingCompanyId = ""; // "" = new
         formCompanyName = "";
         formCompanyTaxId = "";
         formCompanyLocale = "es-CR";
@@ -425,10 +425,10 @@
         using var context = DbFactory.CreateDbContext();
         var currency = GetCurrencyForLocale(formCompanyLocale);
 
-        int entityId;
-        if (editingCompanyId is > 0)
+        string entityId;
+        if (editingCompanyId is not null and not "")
         {
-            var entity = await context.Company.FindAsync(editingCompanyId.Value);
+            var entity = await context.Company.FindAsync(editingCompanyId);
             if (entity != null)
             {
                 entity.Name = formCompanyName.Trim();
@@ -437,13 +437,13 @@
                 entity.TaxId = NullIfEmpty(formCompanyTaxId);
                 entity.CountryCode = NullIfEmpty(formCompanyCountry);
             }
-            entityId = editingCompanyId.Value;
+            entityId = editingCompanyId;
         }
         else
         {
             var newCompany = new Company
             {
-                ConglomerateId = Tenant.ConglomerateId ?? 1,
+                ConglomerateId = Tenant.ConglomerateId ?? "",
                 Name = formCompanyName.Trim(),
                 Locale = formCompanyLocale,
                 Currency = currency,
@@ -455,7 +455,7 @@
             entityId = newCompany.Id;
         }
 
-        if (editingCompanyId is > 0)
+        if (editingCompanyId is not null and not "")
             await context.SaveChangesAsync();
 
         await SaveMetaValues(context, "Company", entityId, companyMetaFields);
@@ -486,10 +486,10 @@
 
     // ===== Store =====
 
-    private void StartAddStore(int companyId)
+    private void StartAddStore(string companyId)
     {
         addStoreForCompanyId = companyId;
-        editingStoreId = 0; // 0 = new
+        editingStoreId = ""; // "" = new
         formStoreName = "";
         formStoreAddress = "";
         formStorePhone = "";
@@ -535,10 +535,10 @@
 
         using var context = DbFactory.CreateDbContext();
 
-        int entityId;
-        if (editingStoreId is > 0)
+        string entityId;
+        if (editingStoreId is not null and not "")
         {
-            var entity = await context.Store.FindAsync(editingStoreId.Value);
+            var entity = await context.Store.FindAsync(editingStoreId);
             if (entity != null)
             {
                 entity.Name = formStoreName.Trim();
@@ -547,7 +547,7 @@
                 entity.Email = NullIfEmpty(formStoreEmail);
                 entity.IsActive = formStoreIsActive;
             }
-            entityId = editingStoreId.Value;
+            entityId = editingStoreId;
         }
         else
         {
@@ -565,7 +565,7 @@
             entityId = newStore.Id;
         }
 
-        if (editingStoreId is > 0)
+        if (editingStoreId is not null and not "")
             await context.SaveChangesAsync();
 
         await SaveMetaValues(context, "Store", entityId, storeMetaFields);
@@ -576,10 +576,10 @@
 
     // ===== Meta Field Helpers =====
 
-    private string GetMetaValue(int fieldId) =>
+    private string GetMetaValue(string fieldId) =>
         metaValues.TryGetValue(fieldId, out var val) ? val : "";
 
-    private void SetMetaValue(int fieldId, string? value)
+    private void SetMetaValue(string fieldId, string? value)
     {
         metaValues[fieldId] = value ?? "";
         fieldErrors.Remove(fieldId);
@@ -587,12 +587,12 @@
 
     private bool IsFieldVisible(MetaFieldDefinition field)
     {
-        if (!field.ConditionalOnFieldId.HasValue) return true;
-        var parentValue = GetMetaValue(field.ConditionalOnFieldId.Value);
+        if (string.IsNullOrEmpty(field.ConditionalOnFieldId)) return true;
+        var parentValue = GetMetaValue(field.ConditionalOnFieldId);
         return string.Equals(parentValue, field.ConditionalOnValue, StringComparison.OrdinalIgnoreCase);
     }
 
-    private async Task LoadMetaValues(string entityType, int entityId)
+    private async Task LoadMetaValues(string entityType, string entityId)
     {
         metaValues.Clear();
         fieldErrors.Clear();
@@ -636,7 +636,7 @@
         return true;
     }
 
-    private async Task SaveMetaValues(BikePOS.Data.BikePosContext context, string entityType, int entityId, List<MetaFieldDefinition> fields)
+    private async Task SaveMetaValues(BikePOS.Data.BikePosContext context, string entityType, string entityId, List<MetaFieldDefinition> fields)
     {
         var existing = await context.EntityMetaValue
             .Where(mv => mv.EntityType == entityType && mv.EntityId == entityId)

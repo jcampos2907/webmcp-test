@@ -233,7 +233,7 @@
                 @if (showFieldForm)
                 {
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
-                        <h4 class="text-sm font-semibold text-gray-800 mb-4">@(editingFieldId.HasValue ? L.Settings_EditField : L.Settings_NewField)</h4>
+                        <h4 class="text-sm font-semibold text-gray-800 mb-4">@(!string.IsNullOrEmpty(editingFieldId) ? L.Settings_EditField : L.Settings_NewField)</h4>
 
                         <div class="grid grid-cols-3 gap-3 mb-4">
                             <div>
@@ -392,7 +392,7 @@
                                             }
                                         </td>
                                         <td class="py-3 px-4 text-xs text-gray-500">
-                                            @if (field.ConditionalOnFieldId.HasValue)
+                                            @if (!string.IsNullOrEmpty(field.ConditionalOnFieldId))
                                             {
                                                 var parent = metaFields.FirstOrDefault(f => f.Id == field.ConditionalOnFieldId);
                                                 <span>@(parent?.Label ?? "?") = @field.ConditionalOnValue</span>
@@ -565,7 +565,7 @@
     private string selectedEntityType = "Customer";
     private List<MetaFieldDefinition> metaFields = new();
     private bool showFieldForm = false;
-    private int? editingFieldId;
+    private string? editingFieldId;
     private string fieldLabel = "";
     private string fieldKey = "";
     private string fieldType = "text";
@@ -783,7 +783,7 @@
         fieldIsRequired = field.IsRequired; fieldSortOrder = field.SortOrder;
         fieldRegex = field.RegexPattern ?? ""; fieldRegexMessage = field.RegexMessage ?? "";
         fieldFormatMask = field.FormatMask ?? ""; fieldOptions = field.Options ?? "";
-        fieldConditionalOnId = field.ConditionalOnFieldId?.ToString() ?? "";
+        fieldConditionalOnId = field.ConditionalOnFieldId ?? "";
         fieldConditionalOnValue = field.ConditionalOnValue ?? ""; fieldError = null;
         showFieldForm = true;
     }
@@ -810,17 +810,17 @@
 
         var isOrgType = OrgEntityTypes.Contains(selectedEntityType);
         var dupQuery = context.MetaFieldDefinition
-            .Where(f => f.Key == fieldKey.Trim() && f.EntityType == selectedEntityType && f.Id != (editingFieldId ?? 0));
+            .Where(f => f.Key == fieldKey.Trim() && f.EntityType == selectedEntityType && f.Id != (editingFieldId ?? ""));
         if (!isOrgType)
             dupQuery = dupQuery.Where(f => f.CompanyId == Tenant.CompanyId);
         var duplicate = await dupQuery.AnyAsync();
         if (duplicate) { fieldError = string.Format(L.Validation_DuplicateKey, fieldKey.Trim()); return; }
 
-        int? conditionalId = int.TryParse(fieldConditionalOnId, out var cid) ? cid : null;
+        string? conditionalId = string.IsNullOrWhiteSpace(fieldConditionalOnId) ? null : fieldConditionalOnId;
 
-        if (editingFieldId.HasValue)
+        if (!string.IsNullOrEmpty(editingFieldId))
         {
-            var field = await context.MetaFieldDefinition.FindAsync(editingFieldId.Value);
+            var field = await context.MetaFieldDefinition.FindAsync(editingFieldId);
             if (field is not null)
             {
                 field.Label = fieldLabel.Trim(); field.Key = fieldKey.Trim(); field.FieldType = fieldType;

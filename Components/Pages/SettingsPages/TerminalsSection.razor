@@ -164,8 +164,8 @@
     // Status
     private string? statusMessage;
     private bool isError;
-    private Dictionary<int, bool> pingResults = new();
-    private HashSet<int> pingInProgress = new();
+    private Dictionary<string, bool> pingResults = new();
+    private HashSet<string> pingInProgress = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -178,7 +178,7 @@
     {
         using var context = DbFactory.CreateDbContext();
         terminals = await context.PaymentTerminal
-            .Where(t => t.StoreId == (Tenant.StoreId ?? 0))
+            .Where(t => t.StoreId == (Tenant.StoreId ?? ""))
             .OrderBy(t => t.Name)
             .ToListAsync();
     }
@@ -245,7 +245,7 @@
         {
             context.PaymentTerminal.Add(new PaymentTerminal
             {
-                StoreId = Tenant.StoreId ?? 0,
+                StoreId = Tenant.StoreId ?? "",
                 Name = formName.Trim(),
                 IpAddress = formIpAddress.Trim(),
                 Port = formPort,

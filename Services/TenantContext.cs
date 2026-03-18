@@ -9,12 +9,12 @@ namespace BikePOS.Services;
 /// </summary>
 public class TenantContext
 {
-    public int? AppUserId { get; private set; }
-    public int? StoreId { get; private set; }
+    public string? AppUserId { get; private set; }
+    public string? StoreId { get; private set; }
     public string? StoreName { get; private set; }
-    public int? CompanyId { get; private set; }
+    public string? CompanyId { get; private set; }
     public string? CompanyName { get; private set; }
-    public int? ConglomerateId { get; private set; }
+    public string? ConglomerateId { get; private set; }
     public StoreRole? Role { get; private set; }
     public string? DisplayName { get; private set; }
     public string? Email { get; private set; }
@@ -30,17 +30,17 @@ public class TenantContext
     /// </summary>
     public string UserIdentifier =>
         !string.IsNullOrEmpty(ExternalSubjectId) ? $"sub:{ExternalSubjectId}" :
-        AppUserId.HasValue ? $"uid:{AppUserId}" :
+        !string.IsNullOrEmpty(AppUserId) ? $"uid:{AppUserId}" :
         "unknown";
 
-    public bool IsResolved => StoreId.HasValue;
+    public bool IsResolved => !string.IsNullOrEmpty(StoreId);
 
     /// <summary>
     /// Runtime context switch for SuperAdmins — overrides store/company/conglomerate
     /// without re-authenticating. Once set, PopulateFromClaims won't overwrite
     /// store/company/conglomerate fields.
     /// </summary>
-    public void SwitchContext(int storeId, string storeName, int companyId, string companyName, int conglomerateId)
+    public void SwitchContext(string storeId, string storeName, string companyId, string companyName, string conglomerateId)
     {
         StoreId = storeId;
         StoreName = storeName;
@@ -58,8 +58,7 @@ public class TenantContext
         if (user.Identity?.IsAuthenticated != true) return;
 
         // Always read user-identity fields (these don't change with store switch)
-        if (int.TryParse(user.FindFirstValue("app_user_id"), out var uid))
-            AppUserId = uid;
+        AppUserId = user.FindFirstValue("app_user_id");
         if (Enum.TryParse<StoreRole>(user.FindFirstValue("store_role"), out var role))
             Role = role;
 
@@ -71,13 +70,9 @@ public class TenantContext
         // Only set store/company from claims if not manually overridden
         if (!IsOverridden)
         {
-            if (int.TryParse(user.FindFirstValue("store_id"), out var sid))
-                StoreId = sid;
-            if (int.TryParse(user.FindFirstValue("company_id"), out var cid))
-                CompanyId = cid;
-            if (int.TryParse(user.FindFirstValue("conglomerate_id"), out var congId))
-                ConglomerateId = congId;
-
+            StoreId = user.FindFirstValue("store_id");
+            CompanyId = user.FindFirstValue("company_id");
+            ConglomerateId = user.FindFirstValue("conglomerate_id");
             StoreName = user.FindFirstValue("store_name");
             CompanyName = user.FindFirstValue("company_name");
         }

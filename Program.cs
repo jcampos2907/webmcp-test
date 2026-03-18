@@ -38,6 +38,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddI18nText();
 builder.Services.AddScoped<ShopCultureService>();
 builder.Services.AddScoped<TenantContext>();
+builder.Services.AddScoped<AuditDisplayService>();
 builder.Services.AddSingleton<SecretProtector>();
 builder.Services.AddSingleton<IPaymentTerminalProvider, ManualPaymentProvider>();
 builder.Services.AddSingleton<PaymentTerminalService>();
@@ -212,8 +213,18 @@ app.MapGet("/account/login", (string? returnUrl) =>
 
 app.MapGet("/account/logout", async (HttpContext httpContext) =>
 {
+    // Always clear the local cookie
     await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-    await httpContext.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme);
+    try
+    {
+        // Try OIDC sign-out (requires IdP to be reachable)
+        await httpContext.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme);
+    }
+    catch
+    {
+        // IdP unreachable — local cookie is already cleared, redirect home
+        httpContext.Response.Redirect("/");
+    }
 }).AllowAnonymous();
 
 
@@ -229,7 +240,7 @@ componentApi.MapGet("/", async (IDbContextFactory<BikePosContext> dbFactory) =>
     return Results.Ok(await context.Component.ToListAsync());
 });
 
-componentApi.MapGet("/{id:int}", async (int id, IDbContextFactory<BikePosContext> dbFactory) =>
+componentApi.MapGet("/{id}", async (string id, IDbContextFactory<BikePosContext> dbFactory) =>
 {
     using var context = dbFactory.CreateDbContext();
     var component = await context.Component.FindAsync(id);
@@ -264,7 +275,7 @@ ticketApi.MapGet("/", async (IDbContextFactory<BikePosContext> dbFactory) =>
         .ToListAsync());
 });
 
-ticketApi.MapGet("/{id:int}", async (int id, IDbContextFactory<BikePosContext> dbFactory) =>
+ticketApi.MapGet("/{id}", async (string id, IDbContextFactory<BikePosContext> dbFactory) =>
 {
     using var context = dbFactory.CreateDbContext();
     var ticket = await context.ServiceTicket
@@ -276,7 +287,7 @@ ticketApi.MapGet("/{id:int}", async (int id, IDbContextFactory<BikePosContext> d
     return ticket is not null ? Results.Ok(ticket) : Results.NotFound();
 });
 
-ticketApi.MapGet("/search", async (string? status, int? componentId, int? mechanicId, IDbContextFactory<BikePosContext> dbFactory) =>
+ticketApi.MapGet("/search", async (string? status, string? componentId, string? mechanicId, IDbContextFactory<BikePosContext> dbFactory) =>
 {
     using var context = dbFactory.CreateDbContext();
     var tickets = context.ServiceTicket
@@ -286,10 +297,10 @@ ticketApi.MapGet("/search", async (string? status, int? componentId, int? mechan
 
     if (Enum.TryParse<BikePOS.Models.TicketStatus>(status, true, out var ticketStatus))
         tickets = tickets.Where(t => t.Status == ticketStatus);
-    if (componentId.HasValue)
-        tickets = tickets.Where(t => t.ComponentId == componentId.Value);
-    if (mechanicId.HasValue)
-        tickets = tickets.Where(t => t.MechanicId == mechanicId.Value);
+    if (!string.IsNullOrEmpty(componentId))
+        tickets = tickets.Where(t => t.ComponentId == componentId);
+    if (!string.IsNullOrEmpty(mechanicId))
+        tickets = tickets.Where(t => t.MechanicId == mechanicId);
 
     return Results.Ok(await tickets.ToListAsync());
 });

@@ -207,7 +207,7 @@
     private async Task LoadConfig()
     {
         using var context = DbFactory.CreateDbContext();
-        var conglomerateId = Tenant.ConglomerateId ?? 1;
+        var conglomerateId = Tenant.ConglomerateId ?? "";
         config = await context.OidcConfig
             .Where(c => c.ConglomerateId == conglomerateId)
             .OrderByDescending(c => c.IsActive)
@@ -279,7 +279,7 @@
         }
 
         using var context = DbFactory.CreateDbContext();
-        var conglomerateId = Tenant.ConglomerateId ?? 1;
+        var conglomerateId = Tenant.ConglomerateId ?? "";
 
         var existing = await context.OidcConfig
             .Where(c => c.ConglomerateId == conglomerateId)

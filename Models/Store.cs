@@ -4,9 +4,11 @@ namespace BikePOS.Models;
 
 public class Store
 {
-    public int Id { get; set; }
+    [MaxLength(36)]
+    public string Id { get; set; } = Guid.NewGuid().ToString();
 
-    public int CompanyId { get; set; }
+    [MaxLength(36)]
+    public string CompanyId { get; set; } = null!;
     public Company Company { get; set; } = null!;
 
     [Required]

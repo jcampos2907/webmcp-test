@@ -15,7 +15,14 @@ public enum TicketStatus
 
 public class ServiceTicket
 {
-    public int Id { get; set; }
+    [MaxLength(36)]
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+
+    /// <summary>Store-scoped sequential number for human-readable display (e.g. T-001)</summary>
+    public int TicketNumber { get; set; }
+
+    [NotMapped]
+    public string TicketDisplay => $"T-{TicketNumber:D3}";
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -25,19 +32,23 @@ public class ServiceTicket
     public TicketStatus Status { get; set; } = TicketStatus.Open;
 
     [Required]
-    public int ComponentId { get; set; }
+    [MaxLength(36)]
+    public string ComponentId { get; set; } = null!;
     public Component Component { get; set; } = null!;
 
-    public int? CustomerId { get; set; }
+    [MaxLength(36)]
+    public string? CustomerId { get; set; }
     public Customer? Customer { get; set; }
 
     [DataType(DataType.MultilineText)]
     public string? Description { get; set; }
 
-    public int? MechanicId { get; set; }
+    [MaxLength(36)]
+    public string? MechanicId { get; set; }
     public Mechanic? Mechanic { get; set; }
 
-    public int? BaseServiceId { get; set; }
+    [MaxLength(36)]
+    public string? BaseServiceId { get; set; }
     public Service? BaseService { get; set; }
 
     public ICollection<TicketProduct> TicketProducts { get; set; } = new List<TicketProduct>();
@@ -53,7 +64,8 @@ public class ServiceTicket
     [Range(0, 100)]
     public decimal DiscountPercent { get; set; }
 
-    public int? StoreId { get; set; }
+    [MaxLength(36)]
+    public string? StoreId { get; set; }
     public Store? Store { get; set; }
 
     [MaxLength(500)]

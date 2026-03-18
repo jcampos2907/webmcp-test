@@ -35,6 +35,18 @@
                     return;
                 }
 
+                // Validate that the store from claims actually exists (guards against stale cookies after DB reset/migration)
+                using (var ctx = DbFactory.CreateDbContext())
+                {
+                    var storeExists = await ctx.Store.AnyAsync(s => s.Id == Tenant.StoreId);
+                    if (!storeExists)
+                    {
+                        // Stale claims — force re-login to get fresh IDs
+                        Navigation.NavigateTo("/account/logout", forceLoad: true);
+                        return;
+                    }
+                }
+
                 // Try server-side cookie reading (works during SSR/prerender)
                 await ApplyStoreOverrideFromHttpContext();
             }
@@ -57,8 +69,8 @@
         var httpContext = HttpContextAccessor.HttpContext;
         if (httpContext == null) return;
 
-        if (!httpContext.Request.Cookies.TryGetValue("store_override", out var overrideValue)) return;
-        if (!int.TryParse(overrideValue, out var overrideStoreId)) return;
+        if (!httpContext.Request.Cookies.TryGetValue("store_override", out var overrideStoreId)) return;
+        if (string.IsNullOrEmpty(overrideStoreId)) return;
         if (overrideStoreId == Tenant.StoreId) return;
 
         if (Tenant.Role != StoreRole.SuperAdmin) return;
@@ -70,10 +82,10 @@
     {
         try
         {
-            var cookieValue = await JS.InvokeAsync<string>("eval",
+            var overrideStoreId = await JS.InvokeAsync<string>("eval",
                 "(document.cookie.split('; ').find(c => c.startsWith('store_override=')) || '').split('=')[1] || ''");
 
-            if (!int.TryParse(cookieValue, out var overrideStoreId)) return;
+            if (string.IsNullOrEmpty(overrideStoreId)) return;
             if (overrideStoreId == Tenant.StoreId) return;
 
             await ApplyOverride(overrideStoreId);
@@ -85,7 +97,7 @@
         }
     }
 
-    private async Task ApplyOverride(int overrideStoreId)
+    private async Task ApplyOverride(string overrideStoreId)
     {
         using var context = DbFactory.CreateDbContext();
         var store = await context.Store.Include(s => s.Company)

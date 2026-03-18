@@ -5,7 +5,8 @@ namespace BikePOS.Models;
 
 public class Customer
 {
-    public int Id { get; set; }
+    [MaxLength(36)]
+    public string Id { get; set; } = Guid.NewGuid().ToString();
 
     [Required, MaxLength(100)]
     public string FirstName { get; set; } = null!;
@@ -34,7 +35,8 @@ public class Customer
     [MaxLength(100)]
     public string? Country { get; set; }
 
-    public int? StoreId { get; set; }
+    [MaxLength(36)]
+    public string? StoreId { get; set; }
     public Store? Store { get; set; }
 
     [NotMapped]

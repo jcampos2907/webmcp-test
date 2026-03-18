@@ -14,12 +14,15 @@ public enum PaymentSessionStatus
 
 public class PaymentSession
 {
-    public int Id { get; set; }
+    [MaxLength(36)]
+    public string Id { get; set; } = Guid.NewGuid().ToString();
 
-    public int ChargeId { get; set; }
+    [MaxLength(36)]
+    public string ChargeId { get; set; } = null!;
     public Charge Charge { get; set; } = null!;
 
-    public int TerminalId { get; set; }
+    [MaxLength(36)]
+    public string TerminalId { get; set; } = null!;
     public PaymentTerminal Terminal { get; set; } = null!;
 
     [Required]

@@ -6,7 +6,7 @@ namespace BikePOS.Data;
 public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContext(options)
 {
     /// <summary>Set after creation to enable tenant query filters. Null = no filtering (superadmin/system).</summary>
-    public int? CurrentStoreId { get; set; }
+    public string? CurrentStoreId { get; set; }
 
     // Tenant hierarchy
     public DbSet<Conglomerate> Conglomerate { get; set; } = default!;
@@ -86,6 +86,8 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
                 .WithMany()
                 .HasForeignKey(t => t.BaseServiceId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(t => new { t.StoreId, t.TicketNumber }).IsUnique();
         });
 
         modelBuilder.Entity<TicketProduct>(entity =>
