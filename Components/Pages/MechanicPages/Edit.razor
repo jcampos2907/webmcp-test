@@ -59,7 +59,7 @@ else
 @code {
     Text L = new();
     [SupplyParameterFromQuery]
-    private int Id { get; set; }
+    private string Id { get; set; } = "";
 
     [SupplyParameterFromForm]
     private Mechanic? Mechanic { get; set; }
@@ -102,7 +102,7 @@ else
         NavigationManager.NavigateTo("/mechanics");
     }
 
-    private bool MechanicExists(int id)
+    private bool MechanicExists(string id)
     {
         using var context = DbFactory.CreateDbContext();
         return context.Mechanic.Any(e => e.Id == id);

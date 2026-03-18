@@ -391,7 +391,7 @@
 
     // Step 4 — Summary
     private List<Mechanic> availableMechanics = new();
-    private int? selectedMechanicId;
+    private string? selectedMechanicId;
     private Mechanic? selectedMechanic => availableMechanics.FirstOrDefault(m => m.Id == selectedMechanicId);
     private string ticketNotes = "";
     private decimal discountPercent = 0;
@@ -498,7 +498,8 @@
         var component = new Component
         {
             Name = newComponentName, Sku = newComponentSku, Color = newComponentColor,
-            Brand = newComponentBrand, ComponentType = newComponentType, CustomerId = selectedCustomer!.Id
+            Brand = newComponentBrand, ComponentType = newComponentType, CustomerId = selectedCustomer!.Id,
+            StoreId = Tenant.StoreId
         };
         context.Component.Add(component);
         await context.SaveChangesAsync();
@@ -582,6 +583,12 @@
     private async Task SaveTicketInternal(bool navigateToCharge)
     {
         using var context = DbFactory.CreateDbContext();
+
+        // Assign store-scoped sequential TicketNumber
+        var maxTicketNum = await context.ServiceTicket
+            .Where(t => t.StoreId == Tenant.StoreId)
+            .MaxAsync(t => (int?)t.TicketNumber) ?? 0;
+
         var ticket = new ServiceTicket
         {
             ComponentId = selectedComponent!.Id,
@@ -592,9 +599,11 @@
             Price = CalculateTotal(),
             DiscountPercent = discountPercent,
             Status = TicketStatus.Open,
+            TicketNumber = maxTicketNum + 1,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
             CreatedBy = Tenant.UserIdentifier,
+            StoreId = Tenant.StoreId,
         };
         context.ServiceTicket.Add(ticket);
         await context.SaveChangesAsync();

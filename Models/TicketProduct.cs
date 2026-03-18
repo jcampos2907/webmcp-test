@@ -5,14 +5,17 @@ namespace BikePOS.Models;
 
 public class TicketProduct
 {
-    public int Id { get; set; }
+    [MaxLength(36)]
+    public string Id { get; set; } = Guid.NewGuid().ToString();
 
     [Required]
-    public int ServiceTicketId { get; set; }
+    [MaxLength(36)]
+    public string ServiceTicketId { get; set; } = null!;
     public ServiceTicket ServiceTicket { get; set; } = null!;
 
     [Required]
-    public int ProductId { get; set; }
+    [MaxLength(36)]
+    public string ProductId { get; set; } = null!;
     public Product Product { get; set; } = null!;
 
     public int Quantity { get; set; } = 1;

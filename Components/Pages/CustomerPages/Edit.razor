@@ -27,7 +27,7 @@
 @code {
     Text L = new();
     [SupplyParameterFromQuery]
-    private int Id { get; set; }
+    private string Id { get; set; } = "";
 
     [CascadingParameter]
     private Task<AuthenticationState>? AuthState { get; set; }

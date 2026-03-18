@@ -8,16 +8,18 @@ namespace BikePOS.Models;
 /// </summary>
 public class EntityMetaValue
 {
-    public int Id { get; set; }
+    [MaxLength(36)]
+    public string Id { get; set; } = Guid.NewGuid().ToString();
 
-    /// <summary>Entity type matching MetaFieldDefinition.EntityType (e.g. "Company", "Store")</summary>
     [Required, MaxLength(50)]
     public string EntityType { get; set; } = "";
 
-    /// <summary>Primary key of the target entity</summary>
-    public int EntityId { get; set; }
+    /// <summary>Primary key (UUID) of the target entity</summary>
+    [MaxLength(36)]
+    public string EntityId { get; set; } = "";
 
-    public int MetaFieldDefinitionId { get; set; }
+    [MaxLength(36)]
+    public string MetaFieldDefinitionId { get; set; } = null!;
     public MetaFieldDefinition MetaFieldDefinition { get; set; } = null!;
 
     [MaxLength(500)]

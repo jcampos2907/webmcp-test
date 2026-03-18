@@ -23,9 +23,9 @@ public class ShopCultureService
         using var context = _dbFactory.CreateDbContext();
 
         // Try to read locale from the Company (tenant-level setting)
-        if (_tenant.CompanyId.HasValue)
+        if (!string.IsNullOrEmpty(_tenant.CompanyId))
         {
-            var company = await context.Company.FindAsync(_tenant.CompanyId.Value);
+            var company = await context.Company.FindAsync(_tenant.CompanyId);
             if (company != null && !string.IsNullOrEmpty(company.Locale))
             {
                 try { _cached = new CultureInfo(company.Locale); return _cached; }

@@ -6,7 +6,7 @@ namespace BikePOS.Data;
 public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContext(options)
 {
     /// <summary>Set after creation to enable tenant query filters. Null = no filtering (superadmin/system).</summary>
-    public int? CurrentStoreId { get; set; }
+    public string? CurrentStoreId { get; set; }
 
     // Tenant hierarchy
     public DbSet<Conglomerate> Conglomerate { get; set; } = default!;
@@ -29,6 +29,8 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
     public DbSet<EntityMetaValue> EntityMetaValue { get; set; } = default!;
     public DbSet<ShopSetting> ShopSetting { get; set; } = default!;
     public DbSet<OidcConfig> OidcConfig { get; set; } = default!;
+    public DbSet<PaymentTerminal> PaymentTerminal { get; set; } = default!;
+    public DbSet<PaymentSession> PaymentSession { get; set; } = default!;
 
     public override int SaveChanges()
     {
@@ -84,6 +86,8 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
                 .WithMany()
                 .HasForeignKey(t => t.BaseServiceId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(t => new { t.StoreId, t.TicketNumber }).IsUnique();
         });
 
         modelBuilder.Entity<TicketProduct>(entity =>
@@ -154,6 +158,19 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
         {
             entity.HasOne(o => o.Conglomerate).WithMany().HasForeignKey(o => o.ConglomerateId).OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(o => new { o.ConglomerateId, o.IsActive });
+        });
+
+        modelBuilder.Entity<PaymentTerminal>(entity =>
+        {
+            entity.HasOne(t => t.Store).WithMany().HasForeignKey(t => t.StoreId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(t => new { t.StoreId, t.IsActive });
+        });
+
+        modelBuilder.Entity<PaymentSession>(entity =>
+        {
+            entity.HasOne(s => s.Charge).WithMany().HasForeignKey(s => s.ChargeId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(s => s.Terminal).WithMany().HasForeignKey(s => s.TerminalId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(s => s.Status);
         });
 
         // Tenant hierarchy

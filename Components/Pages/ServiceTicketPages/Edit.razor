@@ -10,6 +10,7 @@
 @inject I18nText I18nText
 @inject ShopCultureService CultureService
 @inject TenantContext Tenant
+@inject AuditDisplayService AuditDisplay
 
 <PageTitle>@(isPaid ? L.Tickets_ServiceTicket : L.Common_Edit + " " + L.Tickets_ServiceTicket)</PageTitle>
 
@@ -38,7 +39,7 @@
 
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div class="flex items-center justify-between mb-1">
-                <h2 class="text-xl font-bold text-gray-800">@L.Tickets_ServiceTicket #@ticket.Id</h2>
+                <h2 class="text-xl font-bold text-gray-800">@L.Tickets_ServiceTicket @ticket.TicketDisplay</h2>
                 <div class="flex items-center gap-3">
                     <span class="text-xs px-2 py-1 rounded-full @StatusBadgeClass(ticket.Status)">@StatusLabel(ticket.Status)</span>
                     <span class="text-sm text-gray-500">@ticket.CreatedAt.ToString("g", culture)</span>
@@ -168,11 +169,11 @@
             <div class="mt-6 pt-4 border-t border-gray-100 flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-gray-400">
                 @if (!string.IsNullOrEmpty(ticket.CreatedBy))
                 {
-                    <span><i class="fa-solid fa-user-plus mr-1"></i>@L.Common_CreatedBy @FormatAuditUser(ticket.CreatedBy) · @ticket.CreatedAt.ToString("g", culture)</span>
+                    <span><i class="fa-solid fa-user-plus mr-1"></i>@L.Common_CreatedBy @createdByDisplay · @ticket.CreatedAt.ToString("g", culture)</span>
                 }
                 @if (!string.IsNullOrEmpty(ticket.UpdatedBy))
                 {
-                    <span><i class="fa-solid fa-pen mr-1"></i>@L.Common_UpdatedBy @FormatAuditUser(ticket.UpdatedBy) · @ticket.UpdatedAt.ToString("g", culture)</span>
+                    <span><i class="fa-solid fa-pen mr-1"></i>@L.Common_UpdatedBy @updatedByDisplay · @ticket.UpdatedAt.ToString("g", culture)</span>
                 }
             </div>
         </div>
@@ -244,12 +245,16 @@
     private Task<AuthenticationState>? AuthState { get; set; }
 
     [SupplyParameterFromQuery]
-    private int Id { get; set; }
+    private string Id { get; set; } = "";
 
     private ServiceTicket? ticket;
     private List<Mechanic> mechanics = new();
     private List<TicketProduct> ticketProducts = new();
     private List<TicketProduct> removedProducts = new();
+    private HashSet<string> savedProductIds = new();
+
+    private string? createdByDisplay;
+    private string? updatedByDisplay;
 
     private bool isPaid => ticket?.Status == TicketStatus.Charged;
     private bool isCancelled => ticket?.Status == TicketStatus.Cancelled;
@@ -285,11 +290,15 @@
             return;
         }
 
+        createdByDisplay = await AuditDisplay.ResolveAsync(ticket.CreatedBy);
+        updatedByDisplay = await AuditDisplay.ResolveAsync(ticket.UpdatedBy);
+
         mechanics = await context.Mechanic.Where(m => m.IsActive).OrderBy(m => m.Name).ToListAsync();
         ticketProducts = await context.TicketProduct
             .Include(tp => tp.Product)
             .Where(tp => tp.ServiceTicketId == Id)
             .ToListAsync();
+        savedProductIds = ticketProducts.Select(tp => tp.Id).ToHashSet();
     }
 
     private decimal CalculateSubtotal()
@@ -309,7 +318,7 @@
     private void RemoveProduct(TicketProduct tp)
     {
         ticketProducts.Remove(tp);
-        if (tp.Id > 0) removedProducts.Add(tp);
+        if (savedProductIds.Contains(tp.Id)) removedProducts.Add(tp);
     }
 
     private async Task OpenProductSelector()
@@ -381,7 +390,7 @@
 
         foreach (var tp in ticketProducts)
         {
-            if (tp.Id == 0)
+            if (!savedProductIds.Contains(tp.Id))
             {
                 // Decrement inventory for new products
                 var product = await context.Product.FindAsync(tp.ProductId);
@@ -475,11 +484,4 @@
         _ => "bg-gray-100 text-gray-600"
     };
 
-    private static string FormatAuditUser(string identifier)
-    {
-        // "sub:abc123" → "abc123", "uid:5" → "User #5"
-        if (identifier.StartsWith("sub:")) return identifier[4..];
-        if (identifier.StartsWith("uid:")) return $"User #{identifier[4..]}";
-        return identifier;
-    }
 }

@@ -230,6 +230,7 @@ Conglomerate (optional top level — e.g. "FamCR Group")
 | Companies & Stores (create/edit/delete) | Yes | — | — | — | — |
 | User management (assign roles per store) | Yes | — | — | — | — |
 | Settings (meta fields, component types) | Yes | — | — | — | — |
+| Payment terminals (per store) | Yes | — | Yes | — | — |
 | OAuth / OIDC configuration | Yes | Yes | — | — | — |
 | Services CRUD | Yes | — | Read/Write | — | — |
 | Products CRUD | Yes | — | Read/Write | — | — |
@@ -308,11 +309,11 @@ Task<bool> PingAsync(string deviceId);                    // Health check
 - Device status indicator (online/offline based on last ping)
 
 ### Implementation Steps
-1. Models + migration (PaymentTerminal, PaymentSession, Charge updates)
-2. `IPaymentTerminalProvider` interface + `ManualPaymentProvider`
-3. Terminal management UI in Settings
-4. POS Terminal integration (device selector, payment flow, polling)
-5. Partial payments support
+1. [x] Models + migration (PaymentTerminal, PaymentSession, Charge updates with PaymentStatus + CompletedAt)
+2. [x] `IPaymentTerminalProvider` interface + `ManualPaymentProvider` + `PaymentTerminalService` resolver
+3. [x] Terminal management UI in Settings (add/edit/delete/activate/deactivate/test connection, i18n)
+4. [x] POS Terminal integration (terminal selector for Card payments, send-to-terminal flow, 2s polling loop, cancel button, PaymentSession persistence)
+5. [x] Partial payments (previous payments display, remaining balance calc, partial toggle, ticket only marked Charged when fully paid)
 
 No PCI scope — terminals handle card data on-device. The app only sends the amount and receives success/failure.
 
@@ -433,7 +434,7 @@ Phases 6-9 can run in parallel once Auth and Payment are done.
 3. **Phase 2**: Inventory tracks correctly, cancellation restores stock, discounts apply to total ✅
 4. **Phase 3**: Switch locale in Settings → all UI text changes language, currency/date formats match locale
 5. **Phase 4**: Login/logout works, role restrictions enforced, audit trail records user actions
-6. **Phase 5**: Square sandbox checkout completes, polling updates status, Charge record persisted
+6. **Phase 5**: Terminal configured in Settings → payment sent to device → polling updates status → Charge record persisted
 7. **Phase 6**: Dynamic fields render on Component and Ticket forms, validation works
 8. **Phase 7**: Create customer in BikePOS → appears in ERP, edit in ERP → syncs back
 9. **Phase 8**: Dashboard shows metrics, reports export CSV, notifications send

@@ -28,7 +28,7 @@
     }
 
     <div class="mt-auto flex flex-col items-center gap-1">
-        @if (HasRole(StoreRole.SuperAdmin))
+        @if (HasRole(StoreRole.SuperAdmin) || HasRole(StoreRole.Admin) || HasRole(StoreRole.Developer))
         {
             <NavButton Href="/settings" Icon="fa-gear" Label="@L.Nav_Settings" />
         }

@@ -83,7 +83,7 @@
                                 <label class="block text-xs text-gray-500 mb-1">@L.Settings_Stores</label>
                                 <select class="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300"
                                         @bind="newAssignStoreId">
-                                    <option value="0">@L.Settings_SelectCompany...</option>
+                                    <option value="">@L.Settings_SelectCompany...</option>
                                     @foreach (var store in allStores)
                                     {
                                         <option value="@store.Id">@store.Company.Name / @store.Name</option>
@@ -132,8 +132,8 @@ else
     Text L = new();
     private List<AppUser> users = new();
     private List<Store> allStores = new();
-    private int? expandedUserId;
-    private int newAssignStoreId;
+    private string? expandedUserId;
+    private string newAssignStoreId = "";
     private StoreRole newAssignRole = StoreRole.Cashier;
     private string? errorMessage;
     private string? successMessage;
@@ -161,12 +161,12 @@ else
             .ToListAsync();
     }
 
-    private void ToggleExpand(int userId)
+    private void ToggleExpand(string userId)
     {
         expandedUserId = expandedUserId == userId ? null : userId;
         errorMessage = null;
         successMessage = null;
-        newAssignStoreId = 0;
+        newAssignStoreId = "";
         newAssignRole = StoreRole.Cashier;
     }
 
@@ -175,7 +175,7 @@ else
         errorMessage = null;
         successMessage = null;
 
-        if (newAssignStoreId <= 0) return;
+        if (string.IsNullOrEmpty(newAssignStoreId)) return;
 
         // Check if already exists
         if (user.StoreUsers.Any(su => su.StoreId == newAssignStoreId))

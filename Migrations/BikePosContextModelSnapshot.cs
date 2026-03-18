@@ -19,9 +19,9 @@ namespace BikePOS.Migrations
 
             modelBuilder.Entity("BikePOS.Models.AppUser", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
@@ -52,9 +52,9 @@ namespace BikePOS.Migrations
 
             modelBuilder.Entity("BikePOS.Models.Charge", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(18, 2)");
@@ -63,6 +63,9 @@ namespace BikePOS.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("ChargedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("CreatedBy")
@@ -78,11 +81,17 @@ namespace BikePOS.Migrations
                     b.Property<int>("PaymentMethod")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("ServiceTicketId")
+                    b.Property<int>("PaymentStatus")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("StoreId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("ServiceTicketId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("StoreId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -95,12 +104,14 @@ namespace BikePOS.Migrations
 
             modelBuilder.Entity("BikePOS.Models.Company", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
-                    b.Property<int>("ConglomerateId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("ConglomerateId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("CountryCode")
                         .HasMaxLength(2)
@@ -137,9 +148,9 @@ namespace BikePOS.Migrations
 
             modelBuilder.Entity("BikePOS.Models.Component", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Brand")
                         .IsRequired()
@@ -154,8 +165,9 @@ namespace BikePOS.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("CustomerId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("CustomerId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -168,8 +180,9 @@ namespace BikePOS.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("StoreId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("StoreId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -182,9 +195,9 @@ namespace BikePOS.Migrations
 
             modelBuilder.Entity("BikePOS.Models.Conglomerate", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
@@ -201,9 +214,9 @@ namespace BikePOS.Migrations
 
             modelBuilder.Entity("BikePOS.Models.Customer", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("City")
                         .HasMaxLength(100)
@@ -233,8 +246,9 @@ namespace BikePOS.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("StoreId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("StoreId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Street")
                         .HasMaxLength(200)
@@ -253,15 +267,19 @@ namespace BikePOS.Migrations
 
             modelBuilder.Entity("BikePOS.Models.CustomerMetaValue", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
-                    b.Property<int>("CustomerId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("CustomerId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
-                    b.Property<int>("MetaFieldDefinitionId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("MetaFieldDefinitionId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Value")
                         .HasMaxLength(500)
@@ -279,20 +297,24 @@ namespace BikePOS.Migrations
 
             modelBuilder.Entity("BikePOS.Models.EntityMetaValue", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
-                    b.Property<int>("EntityId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("EntityId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("EntityType")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("MetaFieldDefinitionId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("MetaFieldDefinitionId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Value")
                         .HasMaxLength(500)
@@ -310,9 +332,9 @@ namespace BikePOS.Migrations
 
             modelBuilder.Entity("BikePOS.Models.Mechanic", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Email")
                         .HasColumnType("TEXT");
@@ -327,8 +349,9 @@ namespace BikePOS.Migrations
                     b.Property<string>("Phone")
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("StoreId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("StoreId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -339,15 +362,17 @@ namespace BikePOS.Migrations
 
             modelBuilder.Entity("BikePOS.Models.MetaFieldDefinition", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
-                    b.Property<int?>("CompanyId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("CompanyId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
-                    b.Property<int?>("ConditionalOnFieldId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("ConditionalOnFieldId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("ConditionalOnValue")
                         .HasMaxLength(200)
@@ -398,8 +423,9 @@ namespace BikePOS.Migrations
                     b.Property<int>("SortOrder")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("StoreId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("StoreId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -417,9 +443,9 @@ namespace BikePOS.Migrations
 
             modelBuilder.Entity("BikePOS.Models.OidcConfig", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Authority")
                         .IsRequired()
@@ -435,8 +461,10 @@ namespace BikePOS.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("ConglomerateId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("ConglomerateId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
@@ -481,11 +509,101 @@ namespace BikePOS.Migrations
                     b.ToTable("OidcConfig");
                 });
 
+            modelBuilder.Entity("BikePOS.Models.PaymentSession", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18, 2)");
+
+                    b.Property<string>("ChargeId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ExternalRef")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TerminalId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChargeId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("TerminalId");
+
+                    b.ToTable("PaymentSession");
+                });
+
+            modelBuilder.Entity("BikePOS.Models.PaymentTerminal", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("IpAddress")
+                        .IsRequired()
+                        .HasMaxLength(45)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("LastSeenAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Port")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Provider")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("StoreId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId", "IsActive");
+
+                    b.ToTable("PaymentTerminal");
+                });
+
             modelBuilder.Entity("BikePOS.Models.Product", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Category")
                         .HasColumnType("TEXT");
@@ -503,8 +621,9 @@ namespace BikePOS.Migrations
                     b.Property<string>("Sku")
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("StoreId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("StoreId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -515,9 +634,9 @@ namespace BikePOS.Migrations
 
             modelBuilder.Entity("BikePOS.Models.Service", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<decimal>("DefaultPrice")
                         .HasColumnType("decimal(18, 2)");
@@ -532,8 +651,9 @@ namespace BikePOS.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("StoreId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("StoreId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -544,15 +664,18 @@ namespace BikePOS.Migrations
 
             modelBuilder.Entity("BikePOS.Models.ServiceTicket", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
-                    b.Property<int?>("BaseServiceId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("BaseServiceId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
-                    b.Property<int>("ComponentId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("ComponentId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
@@ -561,8 +684,9 @@ namespace BikePOS.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("CustomerId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("CustomerId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Description")
                         .HasColumnType("TEXT");
@@ -570,8 +694,9 @@ namespace BikePOS.Migrations
                     b.Property<decimal>("DiscountPercent")
                         .HasColumnType("decimal(5, 2)");
 
-                    b.Property<int?>("MechanicId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("MechanicId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(18, 2)");
@@ -579,7 +704,11 @@ namespace BikePOS.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("StoreId")
+                    b.Property<string>("StoreId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("TicketNumber")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -599,24 +728,26 @@ namespace BikePOS.Migrations
 
                     b.HasIndex("MechanicId");
 
-                    b.HasIndex("StoreId");
+                    b.HasIndex("StoreId", "TicketNumber")
+                        .IsUnique();
 
                     b.ToTable("ServiceTicket");
                 });
 
             modelBuilder.Entity("BikePOS.Models.ShopSetting", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Key")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("StoreId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("StoreId")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Value")
                         .IsRequired()
@@ -633,16 +764,18 @@ namespace BikePOS.Migrations
 
             modelBuilder.Entity("BikePOS.Models.Store", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Address")
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("CompanyId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("CompanyId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
@@ -672,12 +805,14 @@ namespace BikePOS.Migrations
 
             modelBuilder.Entity("BikePOS.Models.StoreUser", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
-                    b.Property<int>("AppUserId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("AppUserId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
@@ -685,8 +820,10 @@ namespace BikePOS.Migrations
                     b.Property<int>("Role")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("StoreId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("StoreId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -700,18 +837,22 @@ namespace BikePOS.Migrations
 
             modelBuilder.Entity("BikePOS.Models.TicketProduct", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
-                    b.Property<int>("ProductId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("ProductId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("Quantity")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("ServiceTicketId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("ServiceTicketId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("TEXT");
 
                     b.Property<decimal>("UnitPrice")
                         .HasColumnType("decimal(18, 2)");
@@ -849,6 +990,36 @@ namespace BikePOS.Migrations
                         .IsRequired();
 
                     b.Navigation("Conglomerate");
+                });
+
+            modelBuilder.Entity("BikePOS.Models.PaymentSession", b =>
+                {
+                    b.HasOne("BikePOS.Models.Charge", "Charge")
+                        .WithMany()
+                        .HasForeignKey("ChargeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BikePOS.Models.PaymentTerminal", "Terminal")
+                        .WithMany()
+                        .HasForeignKey("TerminalId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Charge");
+
+                    b.Navigation("Terminal");
+                });
+
+            modelBuilder.Entity("BikePOS.Models.PaymentTerminal", b =>
+                {
+                    b.HasOne("BikePOS.Models.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
                 });
 
             modelBuilder.Entity("BikePOS.Models.Product", b =>

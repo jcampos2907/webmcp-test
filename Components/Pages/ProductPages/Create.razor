@@ -5,6 +5,7 @@
 @using BikePOS.Models
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
+@inject TenantContext Tenant
 
 <PageTitle>Create</PageTitle>
 
@@ -62,6 +63,7 @@
     private async Task AddProduct()
     {
         using var context = DbFactory.CreateDbContext();
+        Product.StoreId = Tenant.StoreId;
         context.Product.Add(Product);
         await context.SaveChangesAsync();
         NavigationManager.NavigateTo("/products");

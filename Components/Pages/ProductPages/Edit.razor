@@ -62,7 +62,7 @@ else
 
 @code {
     [SupplyParameterFromQuery]
-    private int Id { get; set; }
+    private string Id { get; set; } = "";
 
     [SupplyParameterFromForm]
     private Product? Product { get; set; }
@@ -104,7 +104,7 @@ else
         NavigationManager.NavigateTo("/products");
     }
 
-    private bool ProductExists(int id)
+    private bool ProductExists(string id)
     {
         using var context = DbFactory.CreateDbContext();
         return context.Product.Any(e => e.Id == id);

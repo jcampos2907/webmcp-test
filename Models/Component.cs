@@ -5,9 +5,12 @@ namespace BikePOS.Models;
 
 public class Component
 {
-    public int Id { get; set; }
+    [MaxLength(36)]
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+
     [Required]
     public string? Name { get; set; }
+
     [RegularExpression(@"^[A-Z0-9]+$", ErrorMessage = "SKU must be alphanumeric and uppercase.")]
     public string Sku { get; set; } = null!;
 
@@ -22,9 +25,11 @@ public class Component
     [Column(TypeName = "decimal(18, 2)")]
     public decimal Price { get; set; }
 
-    public int? CustomerId { get; set; }
+    [MaxLength(36)]
+    public string? CustomerId { get; set; }
     public Customer? Customer { get; set; }
 
-    public int? StoreId { get; set; }
+    [MaxLength(36)]
+    public string? StoreId { get; set; }
     public Store? Store { get; set; }
 }

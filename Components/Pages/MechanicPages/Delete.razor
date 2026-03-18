@@ -48,7 +48,7 @@
     private Mechanic? mechanic;
 
     [SupplyParameterFromQuery]
-    private int Id { get; set; }
+    private string Id { get; set; } = "";
 
     protected override async Task OnInitializedAsync()
     {

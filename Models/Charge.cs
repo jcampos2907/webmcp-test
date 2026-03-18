@@ -7,15 +7,27 @@ public enum PaymentMethod
 {
     Cash,
     Card,
+    Transfer,
+    Mixed,
     Pending
+}
+
+public enum PaymentStatus
+{
+    Pending,
+    Completed,
+    Cancelled,
+    Failed
 }
 
 public class Charge
 {
-    public int Id { get; set; }
+    [MaxLength(36)]
+    public string Id { get; set; } = Guid.NewGuid().ToString();
 
     [Required]
-    public int ServiceTicketId { get; set; }
+    [MaxLength(36)]
+    public string ServiceTicketId { get; set; } = null!;
     public ServiceTicket ServiceTicket { get; set; } = null!;
 
     [Required]
@@ -34,7 +46,13 @@ public class Charge
 
     public string? Notes { get; set; }
 
-    public int? StoreId { get; set; }
+    [Required]
+    public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Pending;
+
+    public DateTime? CompletedAt { get; set; }
+
+    [MaxLength(36)]
+    public string? StoreId { get; set; }
     public Store? Store { get; set; }
 
     [MaxLength(500)]

@@ -5,7 +5,8 @@ namespace BikePOS.Models;
 
 public class Service
 {
-    public int Id { get; set; }
+    [MaxLength(36)]
+    public string Id { get; set; } = Guid.NewGuid().ToString();
 
     [Required]
     public string Name { get; set; } = null!;
@@ -18,6 +19,7 @@ public class Service
 
     public int? EstimatedMinutes { get; set; }
 
-    public int? StoreId { get; set; }
+    [MaxLength(36)]
+    public string? StoreId { get; set; }
     public Store? Store { get; set; }
 }

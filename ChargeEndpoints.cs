@@ -27,7 +27,7 @@ public static class ChargeEndpoints
         })
         .WithName("GetRecentCharges");
 
-        group.MapGet("/{id}", async Task<Results<Ok<Charge>, NotFound>> (int id, BikePosContext db) =>
+        group.MapGet("/{id}", async Task<Results<Ok<Charge>, NotFound>> (string id, BikePosContext db) =>
         {
             return await db.Charge.AsNoTracking()
                 .FirstOrDefaultAsync(model => model.Id == id)
@@ -37,7 +37,7 @@ public static class ChargeEndpoints
         })
         .WithName("GetChargeById");
 
-        group.MapPut("/{id}", async Task<Results<Ok, NotFound>> (int id, Charge charge, BikePosContext db) =>
+        group.MapPut("/{id}", async Task<Results<Ok, NotFound>> (string id, Charge charge, BikePosContext db) =>
         {
             var affected = await db.Charge
                 .Where(model => model.Id == id)
@@ -64,7 +64,7 @@ public static class ChargeEndpoints
         })
         .WithName("CreateCharge");
 
-        group.MapDelete("/{id}", async Task<Results<Ok, NotFound>> (int id, BikePosContext db) =>
+        group.MapDelete("/{id}", async Task<Results<Ok, NotFound>> (string id, BikePosContext db) =>
         {
             var affected = await db.Charge
                 .Where(model => model.Id == id)
