@@ -14,4 +14,7 @@ public class Mechanic
     public string? Email { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    public int? StoreId { get; set; }
+    public Store? Store { get; set; }
 }

@@ -20,4 +20,7 @@ public class Product
     public int QuantityInStock { get; set; }
 
     public string? Category { get; set; }
+
+    public int? StoreId { get; set; }
+    public Store? Store { get; set; }
 }

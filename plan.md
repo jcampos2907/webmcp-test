@@ -128,63 +128,193 @@ A complete bike service shop POS system. Handles the full lifecycle: customer wa
 
 ---
 
-## Phase 4: Authentication & Authorization
+## Phase 4: Authentication, Authorization & Multi-Tenancy
 
-**Goal**: ASP.NET Core Identity with roles: Admin, Mechanic, Cashier. Auth comes before payment terminal because payment endpoints must be secured.
+**Goal**: Secure the app with external OAuth/OIDC and support multi-tenant operations. A conglomerate can own multiple companies (each in a different country with its own currency), and each company can have multiple stores/locations. Users are assigned roles per store. All data is row-filtered by StoreId in a shared database.
 
-### Setup
-- Add `Microsoft.AspNetCore.Identity.EntityFrameworkCore`
-- `Models/ApplicationUser.cs` — extends `IdentityUser`, adds `DisplayName`, optional `MechanicId` FK
-- Change `BikePosContext` base to `IdentityDbContext<ApplicationUser>`
-- Register Identity services in `Program.cs`, add middleware
+### Design Decisions
+- **OIDC for authentication** — IdP (Keycloak, Authentik, Azure AD, etc.) handles identity. No local passwords.
+- **No ASP.NET Core Identity** — no IdentityUser, no password hashing, no Identity tables.
+- **Row-level multi-tenancy** — all data tables get a `StoreId` FK. EF Core global query filters scope all queries to the current store. One database, one deployment.
+- **Store assignment is local** — `StoreUser` table maps (UserId → StoreId → Role). The IdP authenticates; the app determines store access and roles. A user can be `admin` at Store A and `mechanic` at Store B.
+- **Currency/locale is company-level** — a conglomerate may operate companies in different countries (e.g. Costa Rica uses ₡, Chile uses $). Each company has its own currency/locale settings.
+- **Cashier = logged-in user** — POS terminal uses the authenticated user's name, no manual cashier input.
 
-### Pages
-- `Components/Pages/Account/` — Login, Register (admin-only), Logout, AccessDenied
+### Tenant Hierarchy
+```
+Conglomerate (optional top level — e.g. "FamCR Group")
+  └─ Company (legal/financial entity — e.g. "BikePOS Costa Rica S.A.")
+      ├─ Currency, locale, tax settings (company-wide)
+      └─ Store / Location (physical site — e.g. "Sucursal Escazú")
+          ├─ All operational data scoped here (tickets, customers, products, etc.)
+          └─ StoreUser (userId + role per store)
+```
+
+### New Models
+- **Conglomerate**: `Id`, `Name`, `CreatedAt`
+- **Company**: `Id`, `ConglomerateId`, `Name`, `Locale` (e.g. "es-CR"), `Currency` (e.g. "CRC"), `TaxId`, `CreatedAt`
+- **Store**: `Id`, `CompanyId`, `Name`, `Address`, `Phone`, `Email`, `IsActive`, `CreatedAt`
+- **AppUser**: `Id`, `ExternalSubjectId` (from IdP `sub` claim), `DisplayName`, `Email`, `LastLoginAt`
+- **StoreUser**: `Id`, `AppUserId`, `StoreId`, `Role` (enum: SuperAdmin, Admin, Mechanic, Cashier)
+
+### Implementation Steps (one at a time, testable independently)
+
+#### Step 1: OIDC plumbing + login/logout — DONE
+- [x] OIDC config in `appsettings.json`, Authentication + Cookie + OpenIdConnect in `Program.cs`
+- [x] Auth middleware, `CascadingAuthenticationState`, `AuthorizeRouteView`
+- [x] Login/logout HTTP endpoints, user initials + logout in NavMenu
+- [x] FallbackPolicy requires authenticated users on all pages
+
+#### Step 2: Tenant models + migration — DONE
+- [x] Create models: `Conglomerate`, `Company`, `Store`, `AppUser`, `StoreUser`
+- [x] Create `StoreRole` enum: `SuperAdmin`, `Admin`, `Mechanic`, `Cashier`
+- [x] Add `StoreId` FK (nullable) to all existing data models
+- [x] Add `CreatedBy`/`UpdatedBy` to ServiceTicket and Charge
+- [x] Register DbSets, create + apply `AddMultiTenancy` migration
+- [x] Seed default conglomerate + company + store, all sample data gets StoreId=1
+
+#### Step 3: Tenant resolution + scoped context — DONE
+- [x] `TenantContext` scoped service populated from cookie claims
+- [x] `OnTokenValidated` upserts `AppUser`, resolves `StoreUser`, adds tenant claims to cookie
+- [x] Auto-assigns SuperAdmin if IdP `roles` claim contains `superadmin` or first user ever
+- [x] `TenantInitializer` wrapper redirects users without store access to `/account/no-access`
+- [x] `TenantDbContextFactory` wrapper auto-sets `CurrentStoreId` on created contexts
+- [x] EF Core global query filters on all 9 tenant-scoped entities
+- [x] `ShopCultureService` reads locale from `Company` model (falls back to `ShopSetting`)
+
+#### Step 4: Role-based authorization — DONE
+- [x] Role from `StoreUser` added as `ClaimTypes.Role` claim during `OnTokenValidated`
+- [x] `[Authorize(Roles = "...")]` on all 25 pages per authorization matrix
+- [x] NavMenu: show/hide links based on `TenantContext.Role`
+- [x] `AccessDenied` page for authenticated users without required role
+- [x] POS Terminal: cashier = logged-in user from `TenantContext.DisplayName` (removed manual cashier modal)
+
+#### Step 5: Superadmin management UI — DONE
+- [x] Settings > Companies: superadmin can create/edit/delete companies (name, locale, currency, tax ID)
+- [x] Settings > Stores: superadmin can create/edit/activate/deactivate stores within a company
+- [x] Settings > Users: view all users, expand to see/edit store assignments, add/remove roles per store
+- [x] Admin section divider in Settings vertical nav (Companies, Stores, Users)
+- [x] `ConglomerateId` added to `TenantContext` + populated from claims in `OnTokenValidated`
+- [x] Locale dropdown removed from Shop Info — shows read-only note pointing to Companies section
+- [x] Locale-to-currency auto-mapping in Companies section (es-CR→CRC, en-US→USD, etc.)
+- [x] Safety: cannot delete company with stores, cannot remove last SuperAdmin assignment
+- [x] ~40 new i18n keys in both `Text.en.json` and `Text.es.json`
+- **Test**: Superadmin creates a new company + store → can assign users to it → locale/currency set at company level.
+
+#### Step 6: Store switcher + audit trail — DONE
+- [x] Store switcher "Switch to" button in Organization diagram (SuperAdmin only)
+- [x] Cookie-based store override with JS interop + TenantInitializer dual-path (HttpContext + JS)
+- [x] `TenantContext.SwitchContext` + `IsOverridden` flag prevents `PopulateFromClaims` overwrite
+- [x] `TenantDbContextFactory` decorator auto-sets `CurrentStoreId` on all DbContext instances
+- [x] Global interactive render mode (`Routes @rendermode="InteractiveServer"`) for shared DI scope
+- [x] URL-routed settings tabs (`/settings/{section}`) — tab persists on refresh and store switch
+- [x] `CreatedBy`/`UpdatedBy` populated via `Tenant.UserIdentifier` on all ticket/charge save operations
+- [x] Audit trail displayed in ticket detail view (created by, updated by with timestamps)
+- **Test**: SuperAdmin switches stores in Organization → sees different data, stays on org tab. Ticket shows creator/updater.
+
+#### Step 7: OAuth GUI setup + Developer role — DONE
+- [x] `Developer` role added to `StoreRole` enum (can access Settings + OAuth config)
+- [x] `OidcConfig` model: stores OIDC provider settings per conglomerate (authority, client ID/secret, scopes, etc.)
+- [x] Client ID and Client Secret encrypted at rest via ASP.NET Data Protection API (`SecretProtector` service)
+- [x] OAuth settings section in Settings page with: provider name, authority URL, client ID/secret (masked), response type, scopes, advanced toggles
+- [x] Read-only callback URLs panel for easy IdP configuration copy-paste
+- [x] Connection status indicator (configured / not configured)
+- [x] OAuth tab visible only to SuperAdmin and Developer roles
+- [x] i18n keys for all OAuth UI strings (en + es)
+- **Test**: Developer user sees OAuth tab, configures provider → secrets stored encrypted in DB. Regular admin cannot see the tab.
 
 ### Authorization Matrix
 
-| Area | Admin | Mechanic | Cashier |
-|------|-------|----------|---------|
-| All CRUD | Yes | — | — |
-| Tickets read/write | Yes | Own only | No |
-| POS Terminal | Yes | No | Yes |
-| Settings | Yes | No | No |
-| Customer CRUD | Yes | Read only | Read only |
+| Area | superadmin | developer | admin | mechanic | cashier |
+|------|------------|-----------|-------|----------|---------|
+| Companies & Stores (create/edit/delete) | Yes | — | — | — | — |
+| User management (assign roles per store) | Yes | — | — | — | — |
+| Settings (meta fields, component types) | Yes | — | — | — | — |
+| OAuth / OIDC configuration | Yes | Yes | — | — | — |
+| Services CRUD | Yes | — | Read/Write | — | — |
+| Products CRUD | Yes | — | Read/Write | — | — |
+| Mechanics CRUD | Yes | — | Read/Write | — | — |
+| Components CRUD | Yes | — | Read/Write | — | — |
+| Tickets read/write | Yes | — | Read/Write | Own only | — |
+| Customer CRUD | Yes | — | Read/Write | Read only | Read only |
+| POS Terminal | Yes | — | Yes | — | Yes |
+| Home dashboard | Yes | Yes | Yes | Yes | Yes |
 
-### Audit Trail
-- Add `CreatedBy`/`UpdatedBy` (UserId) to ServiceTicket, Charge
-- Log status changes with timestamp and user
+### Role Descriptions
+- **superadmin**: Conglomerate owner. Creates/manages companies and stores. Manages user access. Configures system-wide settings (meta fields, component types, OAuth). Full access to all operational data across all stores.
+- **developer**: Technical integration role. Can configure OAuth/OIDC provider settings and view system configuration. No access to operational data (tickets, customers, etc.).
+- **admin**: Store manager. Can read and write all operational data within their assigned store(s). Uses POS terminal. Cannot create companies/stores or change system configuration.
+- **mechanic**: Workshop staff. Views and works on their own assigned tickets. Read-only access to customers. Scoped to their assigned store.
+- **cashier**: Front desk / POS operator. Uses the POS terminal (cashier = their own identity). Can look up customers. Scoped to their assigned store.
 
-### Seed Data
-- Seed roles and default admin user (`admin@bikepos.local` / changeable password)
+### IdP Configuration (admin responsibility, not app code)
+- Create OIDC client with Authorization Code flow
+- Set redirect URI: `https://localhost:7245/signin-oidc`
+- Set post-logout redirect: `https://localhost:7245/signout-callback-oidc`
+- No role claims needed from IdP — roles are managed per-store in the app
+
+### Config Shape
+```json
+{
+  "Oidc": {
+    "Authority": "https://keycloak.example/realms/master",
+    "ClientId": "bikepos",
+    "ClientSecret": "..."
+  }
+}
+```
+
+**Files**: `Program.cs`, `appsettings.json`, `Models/AppUser.cs`, `Components/Pages/Account/`, `Components/Layout/NavMenu.razor`, `Components/App.razor`
 
 ---
 
 ## Phase 5: Payment Terminal Integration
 
-**Goal**: Integrate with physical payment terminals via an abstracted service interface.
+**Goal**: Integrate with network-connected payment terminals via a vendor-agnostic abstraction. Terminals are physical devices on the local network (IP-based) that handle card data on-device (no PCI scope for the app).
 
-### New Files
-- `Services/IPaymentTerminalService.cs` — interface: CreateCheckout, GetStatus, Cancel, ListDevices
-- `Services/SquareTerminalService.cs` — Square Terminal API via HttpClient
-- `Services/ManualPaymentService.cs` — fallback for Cash/transfer
+### Architecture
+- `IPaymentTerminalProvider` — vendor-agnostic interface for terminal communication
+- `ManualPaymentProvider` — built-in fallback for Cash/Transfer (no terminal needed)
+- Future vendor adapters plug in via the same interface (e.g. Ingenico, Verifone, PAX, Nexgo)
 
-### Charge Model Updates
-- Add `PaymentStatus` (Pending/Completed/Cancelled/Failed)
-- Add `TerminalCheckoutId`, `CompletedAt`
-- Support multiple payment methods: Cash, Card (terminal), Transfer
-
-### POS Terminal Updates
-- "Terminal" payment method shows "Waiting for customer..." with polling
-- Device selector if multiple terminals
-- Partial payments support (deposit now, rest on pickup)
-
-### Configuration
-```json
-{ "Square": { "AccessToken": "", "LocationId": "", "Environment": "sandbox" } }
+### IPaymentTerminalProvider Interface
+```csharp
+Task<TerminalDevice[]> DiscoverDevicesAsync();           // Network discovery or configured devices
+Task<PaymentSession> CreatePaymentAsync(PaymentRequest);  // Send amount to terminal
+Task<PaymentSession> GetStatusAsync(string sessionId);    // Poll terminal for result
+Task<bool> CancelAsync(string sessionId);                 // Cancel in-progress payment
+Task<bool> PingAsync(string deviceId);                    // Health check
 ```
 
-No PCI scope — Square Terminal handles card data on-device.
+### New Models
+- **PaymentTerminal**: `Id`, `StoreId`, `Name`, `IpAddress`, `Port`, `Provider` (enum), `IsActive`, `LastSeenAt`
+- **PaymentSession**: `Id`, `ChargeId`, `TerminalId`, `Status` (Pending/Processing/Completed/Failed/Cancelled), `ExternalRef`, `CreatedAt`, `CompletedAt`
+
+### Charge Model Updates
+- Add `PaymentStatus` enum (Pending/Completed/Cancelled/Failed)
+- Add `PaymentSessionId` FK, `CompletedAt`
+- Support multiple payment methods: Cash, Card (terminal), Transfer, Mixed
+
+### POS Terminal Updates
+- Terminal selector dropdown (configured devices for this store)
+- "Card" payment method → sends amount to selected terminal → "Waiting for customer..." with polling
+- Partial payments support (deposit now, rest on pickup)
+- Terminal management in Settings (add/edit/remove devices per store, test connection)
+
+### Settings > Terminals (new section, Admin+ access)
+- List configured terminals for current store
+- Add terminal: name, IP address, port, provider type
+- Test connection button (ping)
+- Device status indicator (online/offline based on last ping)
+
+### Implementation Steps
+1. Models + migration (PaymentTerminal, PaymentSession, Charge updates)
+2. `IPaymentTerminalProvider` interface + `ManualPaymentProvider`
+3. Terminal management UI in Settings
+4. POS Terminal integration (device selector, payment flow, polling)
+5. Partial payments support
+
+No PCI scope — terminals handle card data on-device. The app only sends the amount and receives success/failure.
 
 ---
 

@@ -1,0 +1,349 @@
+@using Microsoft.EntityFrameworkCore
+@using BikePOS.Models
+@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject I18nText I18nText
+@inject TenantContext Tenant
+@inject SecretProtector Secrets
+@inject IConfiguration Configuration
+
+<h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_OAuth</h1>
+<p class="text-sm text-gray-500 mb-6">@L.Settings_OAuthSubtitle</p>
+
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    @if (!loaded)
+    {
+        <p class="text-sm text-gray-400">Loading...</p>
+    }
+    else
+    {
+        @* Connection status indicator *@
+        <div class="flex items-center gap-3 mb-6 p-3 rounded-lg @(IsConfigured ? "bg-green-50 border border-green-200" : "bg-yellow-50 border border-yellow-200")">
+            <div class="w-3 h-3 rounded-full @(IsConfigured ? "bg-green-500" : "bg-yellow-500")"></div>
+            <div>
+                <span class="text-sm font-medium @(IsConfigured ? "text-green-800" : "text-yellow-800")">
+                    @if (config is not null && config.IsActive)
+                    {
+                        @L.Settings_OAuthConnected
+                    }
+                    else if (fromAppSettings)
+                    {
+                        @L.Settings_OAuthFromConfig
+                    }
+                    else
+                    {
+                        @L.Settings_OAuthNotConfigured
+                    }
+                </span>
+                @if (config is not null && !string.IsNullOrEmpty(config.ProviderName))
+                {
+                    <span class="text-xs text-gray-500 ml-2">@config.ProviderName</span>
+                }
+                @if (fromAppSettings)
+                {
+                    <span class="text-xs text-gray-500 ml-2">(appsettings.json)</span>
+                }
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 mb-6">
+            <div>
+                <label class="block text-sm text-gray-600 mb-1">@L.Settings_OAuthProvider</label>
+                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                       placeholder="Keycloak, Azure AD, Authentik..."
+                       @bind="formProviderName" />
+            </div>
+            <div>
+                <label class="block text-sm text-gray-600 mb-1">
+                    @L.Settings_OAuthAuthority <span class="text-red-500">*</span>
+                </label>
+                <input type="url" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                       placeholder="https://keycloak.example/realms/master"
+                       @bind="formAuthority" />
+                <p class="text-xs text-gray-400 mt-1">@L.Settings_OAuthAuthorityHint</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div>
+                <label class="block text-sm text-gray-600 mb-1">
+                    @L.Settings_OAuthClientId <span class="text-red-500">*</span>
+                </label>
+                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                       placeholder="bikepos"
+                       @bind="formClientId" />
+            </div>
+            <div>
+                <label class="block text-sm text-gray-600 mb-1">
+                    @L.Settings_OAuthClientSecret <span class="text-red-500">*</span>
+                </label>
+                <div class="relative">
+                    <input type="@(showSecret ? "text" : "password")"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300 pr-10"
+                           placeholder="@(config is not null && !string.IsNullOrEmpty(config.ClientSecret) ? "••••••••" : "")"
+                           @bind="formClientSecret" />
+                    <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            @onclick="() => showSecret = !showSecret">
+                        <i class="fa-solid @(showSecret ? "fa-eye-slash" : "fa-eye") text-sm"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        @* Advanced settings (collapsible) *@
+        <details class="mb-6">
+            <summary class="text-sm font-medium text-gray-600 cursor-pointer hover:text-indigo-600 select-none">
+                <i class="fa-solid fa-gear text-xs mr-1"></i> @L.Settings_OAuthAdvanced
+            </summary>
+            <div class="mt-4 grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">@L.Settings_OAuthResponseType</label>
+                    <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            @bind="formResponseType">
+                        <option value="code">Authorization Code (code)</option>
+                        <option value="code id_token">Hybrid (code id_token)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">@L.Settings_OAuthScopes</label>
+                    <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                           @bind="formScopes" />
+                    <p class="text-xs text-gray-400 mt-1">@L.Settings_OAuthScopesHint</p>
+                </div>
+                <div class="col-span-2 flex flex-wrap gap-6">
+                    <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input type="checkbox" class="rounded border-gray-300" @bind="formSaveTokens" />
+                        @L.Settings_OAuthSaveTokens
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input type="checkbox" class="rounded border-gray-300" @bind="formGetClaims" />
+                        @L.Settings_OAuthGetClaims
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input type="checkbox" class="rounded border-gray-300" @bind="formMapInbound" />
+                        @L.Settings_OAuthMapInbound
+                    </label>
+                </div>
+            </div>
+        </details>
+
+        @* Callback URLs (read-only, for copy-paste into IdP) *@
+        <div class="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+            <p class="text-xs text-indigo-600 uppercase tracking-wide font-semibold mb-2">@L.Settings_OAuthCallbacks</p>
+            <div class="grid grid-cols-1 gap-2">
+                <div>
+                    <span class="text-xs text-gray-500">Redirect URI:</span>
+                    <code class="block text-sm text-indigo-800 bg-white rounded px-2 py-1 mt-0.5 select-all">@baseUrl/signin-oidc</code>
+                </div>
+                <div>
+                    <span class="text-xs text-gray-500">Post-Logout Redirect URI:</span>
+                    <code class="block text-sm text-indigo-800 bg-white rounded px-2 py-1 mt-0.5 select-all">@baseUrl/signout-callback-oidc</code>
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">@errorMessage</div>
+        }
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="text-sm text-green-600 bg-green-50 rounded-lg px-3 py-2 mb-3">@successMessage</div>
+        }
+
+        <div class="flex gap-2">
+            <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
+                    @onclick="SaveConfig">
+                @L.Common_Save
+            </button>
+            @if (config is not null)
+            {
+                <button class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2" @onclick="ResetForm">
+                    @L.Common_Cancel
+                </button>
+            }
+        </div>
+
+        @* Warning about restart *@
+        <p class="text-xs text-gray-400 mt-4">
+            <i class="fa-solid fa-triangle-exclamation text-yellow-500 mr-1"></i>
+            @L.Settings_OAuthRestartWarning
+        </p>
+    }
+</div>
+
+@code {
+    Text L = new();
+    private OidcConfig? config;
+    private bool loaded;
+    private bool showSecret;
+    private bool hasExistingSecret;
+    private string baseUrl = "";
+
+    // Form fields
+    private string formProviderName = "";
+    private string formAuthority = "";
+    private string formClientId = "";
+    private string formClientSecret = "";
+    private string formResponseType = "code";
+    private string formScopes = "openid profile email";
+    private bool formSaveTokens = true;
+    private bool formGetClaims = true;
+    private bool formMapInbound = false;
+
+    private string? errorMessage;
+    private string? successMessage;
+
+    private bool IsConfigured => (config is not null && config.IsActive) || fromAppSettings;
+
+    protected override async Task OnInitializedAsync()
+    {
+        L = await I18nText.GetTextTableAsync<Text>(this);
+        await LoadConfig();
+        loaded = true;
+    }
+
+    private bool fromAppSettings;
+
+    private async Task LoadConfig()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var conglomerateId = Tenant.ConglomerateId ?? 1;
+        config = await context.OidcConfig
+            .Where(c => c.ConglomerateId == conglomerateId)
+            .OrderByDescending(c => c.IsActive)
+            .FirstOrDefaultAsync();
+
+        if (config is not null)
+        {
+            formProviderName = config.ProviderName ?? "";
+            formAuthority = config.Authority;
+            formClientId = Secrets.Unprotect(config.ClientId) ?? config.ClientId;
+            formClientSecret = ""; // Never pre-fill secret — user must re-enter to change
+            formResponseType = config.ResponseType;
+            formScopes = config.Scopes;
+            formSaveTokens = config.SaveTokens;
+            formGetClaims = config.GetClaimsFromUserInfoEndpoint;
+            formMapInbound = config.MapInboundClaims;
+            hasExistingSecret = !string.IsNullOrEmpty(config.ClientSecret);
+            fromAppSettings = false;
+        }
+        else
+        {
+            // Fall back to appsettings.json so the user sees the current running config
+            var oidc = Configuration.GetSection("Oidc");
+            var authority = oidc["Authority"];
+            if (!string.IsNullOrEmpty(authority))
+            {
+                formAuthority = authority;
+                formClientId = oidc["ClientId"] ?? "";
+                formClientSecret = ""; // Don't expose the secret from config
+                hasExistingSecret = !string.IsNullOrEmpty(oidc["ClientSecret"]);
+                fromAppSettings = true;
+            }
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        // Build base URL from NavigationManager would require injection,
+        // but we can derive it from the well-known OIDC paths
+        baseUrl = "https://<your-domain>";
+    }
+
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var uri = new Uri(Navigation.BaseUri);
+            baseUrl = $"{uri.Scheme}://{uri.Authority}";
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveConfig()
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        if (string.IsNullOrWhiteSpace(formAuthority))
+        {
+            errorMessage = L.Settings_OAuthAuthority + " is required.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(formClientId))
+        {
+            errorMessage = L.Settings_OAuthClientId + " is required.";
+            return;
+        }
+
+        using var context = DbFactory.CreateDbContext();
+        var conglomerateId = Tenant.ConglomerateId ?? 1;
+
+        var existing = await context.OidcConfig
+            .Where(c => c.ConglomerateId == conglomerateId)
+            .FirstOrDefaultAsync();
+
+        if (existing is not null)
+        {
+            existing.ProviderName = NullIfEmpty(formProviderName);
+            existing.Authority = formAuthority.Trim();
+            existing.ClientId = Secrets.Protect(formClientId.Trim());
+            if (!string.IsNullOrWhiteSpace(formClientSecret))
+                existing.ClientSecret = Secrets.Protect(formClientSecret.Trim());
+            existing.ResponseType = formResponseType;
+            existing.Scopes = formScopes.Trim();
+            existing.SaveTokens = formSaveTokens;
+            existing.GetClaimsFromUserInfoEndpoint = formGetClaims;
+            existing.MapInboundClaims = formMapInbound;
+            existing.IsActive = true;
+            existing.UpdatedAt = DateTime.UtcNow;
+            existing.UpdatedBy = Tenant.UserIdentifier;
+        }
+        else
+        {
+            var newConfig = new OidcConfig
+            {
+                ConglomerateId = conglomerateId,
+                ProviderName = NullIfEmpty(formProviderName),
+                Authority = formAuthority.Trim(),
+                ClientId = Secrets.Protect(formClientId.Trim()),
+                ClientSecret = string.IsNullOrWhiteSpace(formClientSecret) ? null : Secrets.Protect(formClientSecret.Trim()),
+                ResponseType = formResponseType,
+                Scopes = formScopes.Trim(),
+                SaveTokens = formSaveTokens,
+                GetClaimsFromUserInfoEndpoint = formGetClaims,
+                MapInboundClaims = formMapInbound,
+                IsActive = true,
+                UpdatedBy = Tenant.UserIdentifier
+            };
+            context.OidcConfig.Add(newConfig);
+        }
+
+        await context.SaveChangesAsync();
+        await LoadConfig();
+        successMessage = L.Common_SavedSuccess;
+    }
+
+    private void ResetForm()
+    {
+        if (config is not null)
+        {
+            formProviderName = config.ProviderName ?? "";
+            formAuthority = config.Authority;
+            formClientId = Secrets.Unprotect(config.ClientId) ?? config.ClientId;
+            formClientSecret = "";
+            formResponseType = config.ResponseType;
+            formScopes = config.Scopes;
+            formSaveTokens = config.SaveTokens;
+            formGetClaims = config.GetClaimsFromUserInfoEndpoint;
+            formMapInbound = config.MapInboundClaims;
+        }
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private static string? NullIfEmpty(string? s) =>
+        string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+}

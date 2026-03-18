@@ -1,21 +1,28 @@
 @page "/customers/create"
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
 @inject NavigationManager NavigationManager
 @inject I18nText I18nText
+@inject TenantContext Tenant
 
 <PageTitle>@L.Customers_Create</PageTitle>
 
 <div class="p-6 max-w-2xl mx-auto">
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <CustomerForm OnSaved="HandleSaved" OnCancelled="HandleCancelled" />
+        <CustomerForm OnSaved="HandleSaved" OnCancelled="HandleCancelled" CompanyId="Tenant.CompanyId" />
     </div>
 </div>
 
 @code {
     Text L = new();
 
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
+        if (AuthState != null) { var s = await AuthState; Tenant.PopulateFromClaims(s.User); }
         L = await I18nText.GetTextTableAsync<Text>(this);
     }
     private void HandleSaved(BikePOS.Models.Customer customer)

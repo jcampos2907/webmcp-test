@@ -1,12 +1,39 @@
 @inherits LayoutComponentBase
+@inject TenantContext Tenant
+@implements IDisposable
 
-<div class="flex h-screen bg-gray-100">
-    <NavMenu />
+<TenantInitializer>
+    <div class="flex h-screen bg-gray-100">
+        <NavMenu />
 
-    <main class="flex-1 overflow-y-auto">
-        @Body
-    </main>
-</div>
+        <div class="flex-1 flex flex-col min-h-0">
+            <TopBar />
+            <main class="flex-1 overflow-y-auto" @key="contextKey">
+                @Body
+            </main>
+        </div>
+    </div>
+</TenantInitializer>
+
+@code {
+    private int contextKey;
+
+    protected override void OnInitialized()
+    {
+        Tenant.OnContextChanged += HandleContextChanged;
+    }
+
+    private void HandleContextChanged()
+    {
+        contextKey++;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Tenant.OnContextChanged -= HandleContextChanged;
+    }
+}
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.

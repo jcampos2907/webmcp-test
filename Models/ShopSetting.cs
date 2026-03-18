@@ -11,4 +11,7 @@ public class ShopSetting
 
     [MaxLength(500)]
     public string Value { get; set; } = "";
+
+    public int? StoreId { get; set; }
+    public Store? Store { get; set; }
 }

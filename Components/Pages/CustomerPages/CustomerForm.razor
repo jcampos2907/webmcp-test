@@ -137,6 +137,7 @@
     [Parameter] public EventCallback<Customer> OnSaved { get; set; }
     [Parameter] public EventCallback OnCancelled { get; set; }
     [Parameter] public bool ShowCancelButton { get; set; } = true;
+    [Parameter] public int? CompanyId { get; set; }
 
     private bool IsEditMode => ExistingCustomer is not null;
 
@@ -160,7 +161,7 @@
         L = await I18nText.GetTextTableAsync<Text>(this);
         using var context = DbFactory.CreateDbContext();
         metaFields = await context.MetaFieldDefinition
-            .Where(f => f.IsActive)
+            .Where(f => f.IsActive && f.EntityType == "Customer" && f.CompanyId == CompanyId)
             .OrderBy(f => f.SortOrder)
             .ToListAsync();
 

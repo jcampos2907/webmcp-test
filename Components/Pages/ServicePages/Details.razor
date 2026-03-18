@@ -1,4 +1,6 @@
 @page "/services/details"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
 @using Microsoft.EntityFrameworkCore
 @using BikePOS.Models
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory

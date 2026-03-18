@@ -1,0 +1,846 @@
+@using Microsoft.EntityFrameworkCore
+@using BikePOS.Models
+@using System.Text.RegularExpressions
+@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject I18nText I18nText
+@inject TenantContext Tenant
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_Organization</h1>
+<p class="text-sm text-gray-500 mb-6">@L.Settings_OrganizationSubtitle</p>
+
+@if (conglomerate is not null)
+{
+    <div class="relative">
+        @* ====== Conglomerate (root node) ====== *@
+        <div class="flex items-center gap-3 mb-2">
+            <div class="bg-indigo-600 text-white rounded-xl shadow-md px-5 py-3 flex items-center gap-3 min-w-[280px]">
+                <i class="fa-solid fa-city text-lg"></i>
+                <div class="flex-1">
+                    @if (editingConglomerate)
+                    {
+                        <input type="text" class="bg-indigo-500 text-white placeholder-indigo-300 border border-indigo-400 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-2 focus:ring-white/50"
+                               @bind="conglomerateName" placeholder="@L.Settings_GroupName" />
+                    }
+                    else
+                    {
+                        <span class="font-bold text-sm">@conglomerate.Name</span>
+                    }
+                    <span class="block text-indigo-200 text-[10px] uppercase tracking-wider">@L.Settings_Group</span>
+                </div>
+                @if (editingConglomerate)
+                {
+                    <button class="text-indigo-200 hover:text-white text-xs" @onclick="SaveConglomerate">
+                        <i class="fa-solid fa-check"></i>
+                    </button>
+                    <button class="text-indigo-200 hover:text-white text-xs" @onclick="() => editingConglomerate = false">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                }
+                else
+                {
+                    <button class="text-indigo-300 hover:text-white text-xs" @onclick="StartEditConglomerate" title="@L.Settings_EditGroup">
+                        <i class="fa-solid fa-pen text-xs"></i>
+                    </button>
+                }
+            </div>
+
+            @* Conglomerate meta fields (shown below the card when editing) *@
+            @if (editingConglomerate && conglomerateMetaFields.Any())
+            {
+                <div class="bg-indigo-50 rounded-lg border border-indigo-200 p-4 mt-2 min-w-[280px]">
+                    <p class="text-[10px] text-indigo-400 uppercase tracking-wide mb-2">@L.Customers_AdditionalFields</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        @foreach (var field in conglomerateMetaFields)
+                        {
+                            @if (IsFieldVisible(field))
+                            {
+                                <div>
+                                    <label class="block text-[10px] text-gray-500 uppercase mb-1">
+                                        @field.Label
+                                        @if (field.IsRequired) { <span class="text-red-500">*</span> }
+                                    </label>
+                                    @RenderMetaInput(field)
+                                    @if (fieldErrors.TryGetValue(field.Id, out var err))
+                                    {
+                                        <p class="text-xs text-red-500 mt-1">@err</p>
+                                    }
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        @* ====== Companies ====== *@
+        <div class="ml-8 border-l-2 border-gray-200">
+            @foreach (var company in companies)
+            {
+                <div class="relative pl-8 pb-4">
+                    @* Connector line *@
+                    <div class="absolute left-0 top-5 w-8 border-t-2 border-gray-200"></div>
+
+                    @* Company node *@
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 min-w-[320px] inline-block">
+                        @if (editingCompanyId == company.Id)
+                        {
+                            @RenderCompanyEditForm(company)
+                        }
+                        else
+                        {
+                            @* Display mode *@
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <i class="fa-solid fa-building text-blue-600"></i>
+                                    </div>
+                                    <div>
+                                        <span class="text-sm font-semibold text-gray-800">@company.Name</span>
+                                        @if (!string.IsNullOrEmpty(company.TaxId))
+                                        {
+                                            <span class="text-xs text-gray-400 ml-2">@company.TaxId</span>
+                                        }
+                                        <div class="flex items-center gap-1.5 mt-1">
+                                            @if (!string.IsNullOrEmpty(company.CountryCode))
+                                            {
+                                                <span class="text-[10px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded font-medium">@GetCountryDisplay(company.CountryCode)</span>
+                                            }
+                                            <span class="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-medium">@company.Locale</span>
+                                            <span class="text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded font-medium">@company.Currency</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button class="text-gray-400 hover:text-indigo-600 text-xs p-1" @onclick="() => StartEditCompany(company)">
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                            </div>
+                        }
+
+                        @* ====== Stores under this company ====== *@
+                        <div class="mt-4 pt-4 border-t border-gray-100">
+                            <span class="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">@L.Settings_Stores</span>
+
+                            <div class="mt-2 ml-4 border-l-2 border-gray-200 space-y-2">
+                                @foreach (var store in company.Stores)
+                                {
+                                    <div class="relative pl-6">
+                                        <div class="absolute left-0 top-4 w-6 border-t-2 border-gray-200"></div>
+
+                                        @if (editingStoreId == store.Id)
+                                        {
+                                            @RenderStoreEditForm()
+                                        }
+                                        else
+                                        {
+                                            @* Store display mode *@
+                                            <div class="rounded-lg border px-4 py-3 flex items-center gap-3 @(store.Id == Tenant.StoreId ? "bg-indigo-50 border-indigo-300" : "bg-gray-50 border-gray-200")">
+                                                <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 @(store.Id == Tenant.StoreId ? "bg-indigo-100" : store.IsActive ? "bg-green-100" : "bg-gray-200")">
+                                                    <i class="fa-solid fa-shop text-sm @(store.Id == Tenant.StoreId ? "text-indigo-600" : store.IsActive ? "text-green-600" : "text-gray-400")"></i>
+                                                </div>
+                                                <div class="flex-1 min-w-0">
+                                                    <div class="flex items-center gap-2">
+                                                        <span class="text-sm font-medium text-gray-800">@store.Name</span>
+                                                        @if (store.Id == Tenant.StoreId)
+                                                        {
+                                                            <span class="text-[10px] bg-indigo-200 text-indigo-700 px-1.5 py-0.5 rounded font-medium">@L.Settings_CurrentStore</span>
+                                                        }
+                                                        else if (!store.IsActive)
+                                                        {
+                                                            <span class="text-[10px] bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded">@L.Common_Inactive</span>
+                                                        }
+                                                    </div>
+                                                    @if (!string.IsNullOrEmpty(store.Address) || !string.IsNullOrEmpty(store.Phone))
+                                                    {
+                                                        <div class="text-xs text-gray-400 mt-0.5">
+                                                            @if (!string.IsNullOrEmpty(store.Address)) { <span>@store.Address</span> }
+                                                            @if (!string.IsNullOrEmpty(store.Phone)) { <span class="ml-2">@store.Phone</span> }
+                                                        </div>
+                                                    }
+                                                </div>
+                                                <div class="flex items-center gap-1">
+                                                    @if (store.Id != Tenant.StoreId)
+                                                    {
+                                                        <button class="text-indigo-500 hover:text-indigo-700 text-xs px-2 py-1 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                                                                @onclick="() => SwitchToStore(store)" title="@L.Settings_SwitchStore">
+                                                            <i class="fa-solid fa-arrow-right-to-bracket text-[10px] mr-1"></i>@L.Settings_SwitchStore
+                                                        </button>
+                                                    }
+                                                    <button class="text-gray-400 hover:text-indigo-600 text-xs px-2 py-1"
+                                                            @onclick="() => StartEditStore(store)">
+                                                        <i class="fa-solid fa-pen"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+
+                                @* New store form (when adding to this company) *@
+                                @if (editingStoreId == 0 && addStoreForCompanyId == company.Id)
+                                {
+                                    <div class="relative pl-6">
+                                        <div class="absolute left-0 top-4 w-6 border-t-2 border-gray-200"></div>
+                                        @RenderStoreEditForm()
+                                    </div>
+                                }
+
+                                @* Add store button *@
+                                @if (!(editingStoreId == 0 && addStoreForCompanyId == company.Id))
+                                {
+                                    <div class="relative pl-6">
+                                        <div class="absolute left-0 top-3 w-6 border-t-2 border-gray-200"></div>
+                                        <button class="text-xs text-indigo-500 hover:text-indigo-700 flex items-center gap-1.5 py-2"
+                                                @onclick="() => StartAddStore(company.Id)">
+                                            <i class="fa-solid fa-plus text-[10px]"></i> @L.Settings_AddStore
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @* New company form *@
+            @if (editingCompanyId == 0)
+            {
+                <div class="relative pl-8 pb-4">
+                    <div class="absolute left-0 top-5 w-8 border-t-2 border-gray-200"></div>
+                    <div class="bg-white rounded-xl shadow-sm border border-indigo-200 p-4 min-w-[320px] inline-block">
+                        @RenderCompanyEditForm()
+                    </div>
+                </div>
+            }
+
+            @* Add company button *@
+            @if (editingCompanyId != 0)
+            {
+                <div class="relative pl-8 pb-2">
+                    <div class="absolute left-0 top-4 w-8 border-t-2 border-gray-200"></div>
+                    <button class="text-sm text-indigo-500 hover:text-indigo-700 flex items-center gap-1.5 py-2"
+                            @onclick="StartAddCompany">
+                        <i class="fa-solid fa-plus text-xs"></i> @L.Settings_AddCompany
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mt-3">@errorMessage</div>
+}
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="text-sm text-green-600 bg-green-50 rounded-lg px-3 py-2 mt-3">@successMessage</div>
+}
+
+@code {
+    Text L = new();
+
+    private Conglomerate? conglomerate;
+    private List<Company> companies = new();
+
+    // Meta fields per entity type
+    private List<MetaFieldDefinition> conglomerateMetaFields = new();
+    private List<MetaFieldDefinition> companyMetaFields = new();
+    private List<MetaFieldDefinition> storeMetaFields = new();
+    private Dictionary<int, string> metaValues = new(); // fieldDefId -> value
+    private Dictionary<int, string> fieldErrors = new();
+
+    // Conglomerate edit
+    private bool editingConglomerate;
+    private string conglomerateName = "";
+
+    // Company edit
+    private int? editingCompanyId;
+    private string formCompanyName = "";
+    private string formCompanyTaxId = "";
+    private string formCompanyLocale = "es-CR";
+    private string formCompanyCountry = "";
+
+    // Store edit
+    private int? editingStoreId;
+    private int addStoreForCompanyId;
+    private string formStoreName = "";
+    private string formStoreAddress = "";
+    private string formStorePhone = "";
+    private string formStoreEmail = "";
+    private bool formStoreIsActive = true;
+
+    private string? errorMessage;
+    private string? successMessage;
+
+    private static readonly Dictionary<string, string> LocaleOptions = new()
+    {
+        ["es-CR"] = "Costa Rica (CRC ₡)",
+        ["es-CL"] = "Chile (CLP $)",
+        ["es-MX"] = "Mexico (MXN $)",
+        ["es-CO"] = "Colombia (COP $)",
+        ["es-AR"] = "Argentina (ARS $)",
+        ["en-US"] = "United States (USD $)"
+    };
+
+    private static readonly Dictionary<string, string> LocaleCurrencyMap = new()
+    {
+        ["es-CR"] = "CRC", ["es-CL"] = "CLP", ["es-MX"] = "MXN",
+        ["es-CO"] = "COP", ["es-AR"] = "ARS", ["en-US"] = "USD"
+    };
+
+    private static readonly SortedDictionary<string, string> Countries = new()
+    {
+        ["AR"] = "🇦🇷 Argentina",
+        ["BO"] = "🇧🇴 Bolivia",
+        ["BR"] = "🇧🇷 Brazil",
+        ["CA"] = "🇨🇦 Canada",
+        ["CL"] = "🇨🇱 Chile",
+        ["CO"] = "🇨🇴 Colombia",
+        ["CR"] = "🇨🇷 Costa Rica",
+        ["CU"] = "🇨🇺 Cuba",
+        ["DO"] = "🇩🇴 Dominican Republic",
+        ["EC"] = "🇪🇨 Ecuador",
+        ["SV"] = "🇸🇻 El Salvador",
+        ["GT"] = "🇬🇹 Guatemala",
+        ["HN"] = "🇭🇳 Honduras",
+        ["MX"] = "🇲🇽 Mexico",
+        ["NI"] = "🇳🇮 Nicaragua",
+        ["PA"] = "🇵🇦 Panama",
+        ["PY"] = "🇵🇾 Paraguay",
+        ["PE"] = "🇵🇪 Peru",
+        ["PR"] = "🇵🇷 Puerto Rico",
+        ["ES"] = "🇪🇸 Spain",
+        ["US"] = "🇺🇸 United States",
+        ["UY"] = "🇺🇾 Uruguay",
+        ["VE"] = "🇻🇪 Venezuela"
+    };
+
+    private static string GetCountryDisplay(string? code) =>
+        !string.IsNullOrEmpty(code) && Countries.TryGetValue(code, out var name) ? name : "";
+
+    private static string GetCountryFlag(string? code) =>
+        !string.IsNullOrEmpty(code) && Countries.TryGetValue(code, out var name) ? name[..2] : "";
+
+    private static string GetCurrencyForLocale(string locale) =>
+        LocaleCurrencyMap.GetValueOrDefault(locale, "USD");
+
+    protected override async Task OnInitializedAsync()
+    {
+        L = await I18nText.GetTextTableAsync<Text>(this);
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var conglomerateId = Tenant.ConglomerateId ?? 1;
+
+        conglomerate = await context.Conglomerate.FindAsync(conglomerateId);
+        companies = await context.Company
+            .Include(c => c.Stores.OrderBy(s => s.Name))
+            .Where(c => c.ConglomerateId == conglomerateId)
+            .OrderBy(c => c.Name)
+            .ToListAsync();
+
+        // Load meta field definitions per entity type
+        var allFields = await context.MetaFieldDefinition
+            .Where(f => f.IsActive && (f.EntityType == "Conglomerate" || f.EntityType == "Company" || f.EntityType == "Store"))
+            .OrderBy(f => f.SortOrder)
+            .ToListAsync();
+
+        conglomerateMetaFields = allFields.Where(f => f.EntityType == "Conglomerate").ToList();
+        companyMetaFields = allFields.Where(f => f.EntityType == "Company").ToList();
+        storeMetaFields = allFields.Where(f => f.EntityType == "Store").ToList();
+    }
+
+    // ===== Conglomerate =====
+
+    private async Task StartEditConglomerate()
+    {
+        conglomerateName = conglomerate?.Name ?? "";
+        editingConglomerate = true;
+        ClearMessages();
+        await LoadMetaValues("Conglomerate", conglomerate!.Id);
+    }
+
+    private async Task SaveConglomerate()
+    {
+        if (string.IsNullOrWhiteSpace(conglomerateName)) return;
+
+        if (!ValidateMetaFields(conglomerateMetaFields)) return;
+
+        using var context = DbFactory.CreateDbContext();
+        var entity = await context.Conglomerate.FindAsync(conglomerate!.Id);
+        if (entity != null)
+        {
+            entity.Name = conglomerateName.Trim();
+            await context.SaveChangesAsync();
+            await SaveMetaValues(context, "Conglomerate", entity.Id, conglomerateMetaFields);
+        }
+        editingConglomerate = false;
+        successMessage = L.Common_SavedSuccess;
+        await LoadData();
+    }
+
+    // ===== Company =====
+
+    private void StartAddCompany()
+    {
+        editingCompanyId = 0; // 0 = new
+        formCompanyName = "";
+        formCompanyTaxId = "";
+        formCompanyLocale = "es-CR";
+        formCompanyCountry = "";
+        metaValues.Clear();
+        fieldErrors.Clear();
+        ClearMessages();
+    }
+
+    private async Task StartEditCompany(Company company)
+    {
+        editingCompanyId = company.Id;
+        formCompanyName = company.Name;
+        formCompanyTaxId = company.TaxId ?? "";
+        formCompanyLocale = company.Locale;
+        formCompanyCountry = company.CountryCode ?? "";
+        ClearMessages();
+        await LoadMetaValues("Company", company.Id);
+    }
+
+    private void CancelCompanyEdit() => editingCompanyId = null;
+
+    private async Task SaveCompany()
+    {
+        ClearMessages();
+        if (string.IsNullOrWhiteSpace(formCompanyName))
+        {
+            errorMessage = L.Settings_CompanyName + " is required.";
+            return;
+        }
+
+        if (!ValidateMetaFields(companyMetaFields)) return;
+
+        using var context = DbFactory.CreateDbContext();
+        var currency = GetCurrencyForLocale(formCompanyLocale);
+
+        int entityId;
+        if (editingCompanyId is > 0)
+        {
+            var entity = await context.Company.FindAsync(editingCompanyId.Value);
+            if (entity != null)
+            {
+                entity.Name = formCompanyName.Trim();
+                entity.Locale = formCompanyLocale;
+                entity.Currency = currency;
+                entity.TaxId = NullIfEmpty(formCompanyTaxId);
+                entity.CountryCode = NullIfEmpty(formCompanyCountry);
+            }
+            entityId = editingCompanyId.Value;
+        }
+        else
+        {
+            var newCompany = new Company
+            {
+                ConglomerateId = Tenant.ConglomerateId ?? 1,
+                Name = formCompanyName.Trim(),
+                Locale = formCompanyLocale,
+                Currency = currency,
+                TaxId = NullIfEmpty(formCompanyTaxId),
+                CountryCode = NullIfEmpty(formCompanyCountry)
+            };
+            context.Company.Add(newCompany);
+            await context.SaveChangesAsync();
+            entityId = newCompany.Id;
+        }
+
+        if (editingCompanyId is > 0)
+            await context.SaveChangesAsync();
+
+        await SaveMetaValues(context, "Company", entityId, companyMetaFields);
+        editingCompanyId = null;
+        successMessage = L.Common_SavedSuccess;
+        await LoadData();
+    }
+
+    private async Task DeleteCompany(Company company)
+    {
+        ClearMessages();
+        if (company.Stores.Any())
+        {
+            errorMessage = L.Settings_CompanyHasStores;
+            return;
+        }
+
+        using var context = DbFactory.CreateDbContext();
+        var entity = await context.Company.FindAsync(company.Id);
+        if (entity != null)
+        {
+            context.Company.Remove(entity);
+            await context.SaveChangesAsync();
+        }
+        editingCompanyId = null;
+        await LoadData();
+    }
+
+    // ===== Store =====
+
+    private void StartAddStore(int companyId)
+    {
+        addStoreForCompanyId = companyId;
+        editingStoreId = 0; // 0 = new
+        formStoreName = "";
+        formStoreAddress = "";
+        formStorePhone = "";
+        formStoreEmail = "";
+        formStoreIsActive = true;
+        metaValues.Clear();
+        fieldErrors.Clear();
+        ClearMessages();
+    }
+
+    private async Task StartEditStore(Store store)
+    {
+        addStoreForCompanyId = store.CompanyId;
+        editingStoreId = store.Id;
+        formStoreName = store.Name;
+        formStoreAddress = store.Address ?? "";
+        formStorePhone = store.Phone ?? "";
+        formStoreEmail = store.Email ?? "";
+        formStoreIsActive = store.IsActive;
+        ClearMessages();
+        await LoadMetaValues("Store", store.Id);
+    }
+
+    private void CancelStoreEdit() => editingStoreId = null;
+
+    private async Task SwitchToStore(Store store)
+    {
+        // Set cookie via JS (can't use HttpContext in interactive server mode — response already sent)
+        await JS.InvokeVoidAsync("eval", $"document.cookie='store_override={store.Id};path=/;max-age=2592000;samesite=lax'");
+        Navigation.NavigateTo("/settings/organization", forceLoad: true);
+    }
+
+    private async Task SaveStore()
+    {
+        ClearMessages();
+        if (string.IsNullOrWhiteSpace(formStoreName))
+        {
+            errorMessage = L.Settings_StoreName + " is required.";
+            return;
+        }
+
+        if (!ValidateMetaFields(storeMetaFields)) return;
+
+        using var context = DbFactory.CreateDbContext();
+
+        int entityId;
+        if (editingStoreId is > 0)
+        {
+            var entity = await context.Store.FindAsync(editingStoreId.Value);
+            if (entity != null)
+            {
+                entity.Name = formStoreName.Trim();
+                entity.Address = NullIfEmpty(formStoreAddress);
+                entity.Phone = NullIfEmpty(formStorePhone);
+                entity.Email = NullIfEmpty(formStoreEmail);
+                entity.IsActive = formStoreIsActive;
+            }
+            entityId = editingStoreId.Value;
+        }
+        else
+        {
+            var newStore = new Store
+            {
+                CompanyId = addStoreForCompanyId,
+                Name = formStoreName.Trim(),
+                Address = NullIfEmpty(formStoreAddress),
+                Phone = NullIfEmpty(formStorePhone),
+                Email = NullIfEmpty(formStoreEmail),
+                IsActive = formStoreIsActive
+            };
+            context.Store.Add(newStore);
+            await context.SaveChangesAsync();
+            entityId = newStore.Id;
+        }
+
+        if (editingStoreId is > 0)
+            await context.SaveChangesAsync();
+
+        await SaveMetaValues(context, "Store", entityId, storeMetaFields);
+        editingStoreId = null;
+        successMessage = L.Common_SavedSuccess;
+        await LoadData();
+    }
+
+    // ===== Meta Field Helpers =====
+
+    private string GetMetaValue(int fieldId) =>
+        metaValues.TryGetValue(fieldId, out var val) ? val : "";
+
+    private void SetMetaValue(int fieldId, string? value)
+    {
+        metaValues[fieldId] = value ?? "";
+        fieldErrors.Remove(fieldId);
+    }
+
+    private bool IsFieldVisible(MetaFieldDefinition field)
+    {
+        if (!field.ConditionalOnFieldId.HasValue) return true;
+        var parentValue = GetMetaValue(field.ConditionalOnFieldId.Value);
+        return string.Equals(parentValue, field.ConditionalOnValue, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task LoadMetaValues(string entityType, int entityId)
+    {
+        metaValues.Clear();
+        fieldErrors.Clear();
+        using var context = DbFactory.CreateDbContext();
+        var existing = await context.EntityMetaValue
+            .Where(mv => mv.EntityType == entityType && mv.EntityId == entityId)
+            .ToListAsync();
+        foreach (var mv in existing)
+            metaValues[mv.MetaFieldDefinitionId] = mv.Value ?? "";
+    }
+
+    private bool ValidateMetaFields(List<MetaFieldDefinition> fields)
+    {
+        fieldErrors.Clear();
+        foreach (var field in fields.Where(IsFieldVisible))
+        {
+            var val = GetMetaValue(field.Id);
+
+            if (field.IsRequired && string.IsNullOrWhiteSpace(val))
+            {
+                fieldErrors[field.Id] = string.Format(L.Validation_FieldRequired, field.Label);
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(val) && !string.IsNullOrWhiteSpace(field.RegexPattern))
+            {
+                try
+                {
+                    if (!Regex.IsMatch(val, field.RegexPattern))
+                        fieldErrors[field.Id] = field.RegexMessage ?? string.Format(L.Validation_InvalidFormat, field.Label);
+                }
+                catch { /* invalid regex — skip */ }
+            }
+        }
+
+        if (fieldErrors.Any())
+        {
+            errorMessage = L.Validation_FixErrors;
+            return false;
+        }
+        return true;
+    }
+
+    private async Task SaveMetaValues(BikePOS.Data.BikePosContext context, string entityType, int entityId, List<MetaFieldDefinition> fields)
+    {
+        var existing = await context.EntityMetaValue
+            .Where(mv => mv.EntityType == entityType && mv.EntityId == entityId)
+            .ToListAsync();
+
+        foreach (var field in fields)
+        {
+            var isVisible = IsFieldVisible(field);
+            var val = metaValues.TryGetValue(field.Id, out var v) ? v : null;
+            var record = existing.FirstOrDefault(mv => mv.MetaFieldDefinitionId == field.Id);
+
+            if (!isVisible)
+            {
+                if (record is not null) record.Value = null;
+                continue;
+            }
+
+            if (record is not null)
+            {
+                record.Value = val;
+            }
+            else if (!string.IsNullOrWhiteSpace(val))
+            {
+                context.EntityMetaValue.Add(new EntityMetaValue
+                {
+                    EntityType = entityType,
+                    EntityId = entityId,
+                    MetaFieldDefinitionId = field.Id,
+                    Value = val
+                });
+            }
+        }
+
+        await context.SaveChangesAsync();
+    }
+
+    private RenderFragment RenderMetaInput(MetaFieldDefinition field) => __builder =>
+    {
+        if (field.FieldType == "select" && !string.IsNullOrEmpty(field.Options))
+        {
+            <select class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    value="@GetMetaValue(field.Id)"
+                    @onchange="e => SetMetaValue(field.Id, e.Value?.ToString())">
+                <option value="">@L.Common_Select</option>
+                @foreach (var opt in field.Options.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                {
+                    <option value="@opt">@opt</option>
+                }
+            </select>
+        }
+        else
+        {
+            <input type="@field.FieldType"
+                   class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                   value="@GetMetaValue(field.Id)"
+                   placeholder="@(field.FormatMask ?? "")"
+                   @oninput="e => SetMetaValue(field.Id, e.Value?.ToString())" />
+        }
+    };
+
+    // ===== Form Render Fragments =====
+
+    private RenderFragment RenderCompanyEditForm(Company? company = null) => __builder =>
+    {
+        <div class="grid grid-cols-2 gap-3 mb-3">
+            <div>
+                <label class="block text-[10px] text-gray-400 uppercase mb-1">@L.Settings_CompanyName</label>
+                <input type="text" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                       @bind="formCompanyName" />
+            </div>
+            <div>
+                <label class="block text-[10px] text-gray-400 uppercase mb-1">@L.Settings_CompanyTaxId</label>
+                <input type="text" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                       @bind="formCompanyTaxId" />
+            </div>
+            <div>
+                <label class="block text-[10px] text-gray-400 uppercase mb-1">@L.Settings_CompanyLocale</label>
+                <select class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                        @bind="formCompanyLocale">
+                    @foreach (var kv in LocaleOptions)
+                    {
+                        <option value="@kv.Key">@kv.Value</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] text-gray-400 uppercase mb-1">@L.Settings_CompanyCurrency</label>
+                <input type="text" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-gray-50 text-gray-500"
+                       value="@GetCurrencyForLocale(formCompanyLocale)" disabled />
+            </div>
+            <div class="col-span-2">
+                <label class="block text-[10px] text-gray-400 uppercase mb-1">@L.Common_Country</label>
+                <select class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                        @bind="formCompanyCountry">
+                    <option value="">@L.Common_Select</option>
+                    @foreach (var kv in Countries)
+                    {
+                        <option value="@kv.Key">@kv.Value</option>
+                    }
+                </select>
+            </div>
+        </div>
+        @if (companyMetaFields.Any())
+        {
+            <div class="mt-3 pt-3 border-t border-gray-100">
+                <p class="text-[10px] text-gray-400 uppercase tracking-wide mb-2">@L.Customers_AdditionalFields</p>
+                <div class="grid grid-cols-2 gap-3">
+                    @foreach (var field in companyMetaFields)
+                    {
+                        @if (IsFieldVisible(field))
+                        {
+                            <div>
+                                <label class="block text-[10px] text-gray-400 uppercase mb-1">
+                                    @field.Label
+                                    @if (field.IsRequired) { <span class="text-red-500">*</span> }
+                                </label>
+                                @RenderMetaInput(field)
+                                @if (fieldErrors.TryGetValue(field.Id, out var err))
+                                {
+                                    <p class="text-xs text-red-500 mt-1">@err</p>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        }
+        <div class="flex gap-2 mt-3">
+            <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg" @onclick="SaveCompany">@L.Common_Save</button>
+            <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs px-3 py-1.5 rounded-lg" @onclick="CancelCompanyEdit">@L.Common_Cancel</button>
+            @if (company is not null && !company.Stores.Any())
+            {
+                <button class="text-red-400 hover:text-red-600 text-xs ml-auto" @onclick="() => DeleteCompany(company)">@L.Common_Delete</button>
+            }
+        </div>
+    };
+
+    private RenderFragment RenderStoreEditForm() => __builder =>
+    {
+        <div class="bg-white rounded-lg border border-indigo-200 shadow-sm p-4">
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                    <label class="block text-[10px] text-gray-400 uppercase mb-1">@L.Settings_StoreName</label>
+                    <input type="text" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                           @bind="formStoreName" />
+                </div>
+                <div>
+                    <label class="block text-[10px] text-gray-400 uppercase mb-1">@L.Common_Phone</label>
+                    <input type="tel" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                           @bind="formStorePhone" />
+                </div>
+                <div>
+                    <label class="block text-[10px] text-gray-400 uppercase mb-1">@L.Common_Email</label>
+                    <input type="email" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                           @bind="formStoreEmail" />
+                </div>
+                <div>
+                    <label class="block text-[10px] text-gray-400 uppercase mb-1">@L.Common_Address</label>
+                    <input type="text" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                           @bind="formStoreAddress" />
+                </div>
+            </div>
+            @if (storeMetaFields.Any())
+            {
+                <div class="mt-3 pt-3 border-t border-gray-100">
+                    <p class="text-[10px] text-gray-400 uppercase tracking-wide mb-2">@L.Customers_AdditionalFields</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        @foreach (var field in storeMetaFields)
+                        {
+                            @if (IsFieldVisible(field))
+                            {
+                                <div>
+                                    <label class="block text-[10px] text-gray-400 uppercase mb-1">
+                                        @field.Label
+                                        @if (field.IsRequired) { <span class="text-red-500">*</span> }
+                                    </label>
+                                    @RenderMetaInput(field)
+                                    @if (fieldErrors.TryGetValue(field.Id, out var err))
+                                    {
+                                        <p class="text-xs text-red-500 mt-1">@err</p>
+                                    }
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            }
+            <div class="flex items-center gap-2 mt-3">
+                <label class="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                    <input type="checkbox" class="rounded border-gray-300" @bind="formStoreIsActive" />
+                    @L.Common_Active
+                </label>
+                <div class="ml-auto flex gap-2">
+                    <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg" @onclick="SaveStore">@L.Common_Save</button>
+                    <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs px-3 py-1.5 rounded-lg" @onclick="CancelStoreEdit">@L.Common_Cancel</button>
+                </div>
+            </div>
+        </div>
+    };
+
+    // ===== General Helpers =====
+
+    private void ClearMessages() { errorMessage = null; successMessage = null; }
+
+    private static string? NullIfEmpty(string? s) =>
+        string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+}

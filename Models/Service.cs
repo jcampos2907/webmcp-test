@@ -17,4 +17,7 @@ public class Service
     public decimal DefaultPrice { get; set; }
 
     public int? EstimatedMinutes { get; set; }
+
+    public int? StoreId { get; set; }
+    public Store? Store { get; set; }
 }
