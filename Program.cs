@@ -56,7 +56,12 @@ builder.Services.AddAuthentication(options =>
     options.Scope.Add("email");
 });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 builder.Services.AddCascadingAuthenticationState();
 
 builder.Services.AddOpenApi();
@@ -100,19 +105,19 @@ app.MapGet("/account/login", (string? returnUrl) =>
     Results.Challenge(new AuthenticationProperties
     {
         RedirectUri = returnUrl ?? "/"
-    }));
+    })).AllowAnonymous();
 
 app.MapGet("/account/logout", async (HttpContext httpContext) =>
 {
     await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
     await httpContext.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme);
-});
+}).AllowAnonymous();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-// Minimal API endpoints for WebMCP tools
-var componentApi = app.MapGroup("/api/components");
+// Minimal API endpoints for WebMCP tools (anonymous for now — secure in Step 3)
+var componentApi = app.MapGroup("/api/components").AllowAnonymous();
 
 componentApi.MapGet("/", async (IDbContextFactory<BikePosContext> dbFactory) =>
 {
@@ -143,7 +148,7 @@ componentApi.MapGet("/search", async (string? query, IDbContextFactory<BikePosCo
 });
 
 // Ticket API endpoints
-var ticketApi = app.MapGroup("/api/tickets");
+var ticketApi = app.MapGroup("/api/tickets").AllowAnonymous();
 
 ticketApi.MapGet("/", async (IDbContextFactory<BikePosContext> dbFactory) =>
 {
@@ -198,7 +203,7 @@ ticketApi.MapGet("/open", async (IDbContextFactory<BikePosContext> dbFactory) =>
 });
 
 // Mechanic API endpoints
-var mechanicApi = app.MapGroup("/api/mechanics");
+var mechanicApi = app.MapGroup("/api/mechanics").AllowAnonymous();
 
 mechanicApi.MapGet("/", async (IDbContextFactory<BikePosContext> dbFactory) =>
 {
@@ -207,7 +212,7 @@ mechanicApi.MapGet("/", async (IDbContextFactory<BikePosContext> dbFactory) =>
 });
 
 // Service API endpoints
-var serviceApi = app.MapGroup("/api/services");
+var serviceApi = app.MapGroup("/api/services").AllowAnonymous();
 
 serviceApi.MapGet("/", async (IDbContextFactory<BikePosContext> dbFactory) =>
 {
@@ -216,7 +221,7 @@ serviceApi.MapGet("/", async (IDbContextFactory<BikePosContext> dbFactory) =>
 });
 
 // Product API endpoints
-var productApi = app.MapGroup("/api/products");
+var productApi = app.MapGroup("/api/products").AllowAnonymous();
 
 productApi.MapGet("/", async (IDbContextFactory<BikePosContext> dbFactory) =>
 {
