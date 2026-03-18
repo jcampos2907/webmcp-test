@@ -667,11 +667,19 @@
 
     // ===== Meta Fields =====
 
+    private static readonly HashSet<string> OrgEntityTypes = new() { "Company", "Conglomerate", "Store" };
+
     private async Task LoadMetaFields()
     {
         using var context = DbFactory.CreateDbContext();
-        metaFields = await context.MetaFieldDefinition
-            .Where(f => f.EntityType == selectedEntityType)
+        var query = context.MetaFieldDefinition
+            .Where(f => f.EntityType == selectedEntityType);
+
+        // Customer fields are company-scoped; org-level types are conglomerate-wide
+        if (!OrgEntityTypes.Contains(selectedEntityType))
+            query = query.Where(f => f.CompanyId == Tenant.CompanyId);
+
+        metaFields = await query
             .OrderBy(f => f.SortOrder).ThenBy(f => f.Label)
             .ToListAsync();
     }
@@ -725,8 +733,12 @@
 
         using var context = DbFactory.CreateDbContext();
 
-        var duplicate = await context.MetaFieldDefinition
-            .AnyAsync(f => f.Key == fieldKey.Trim() && f.Id != (editingFieldId ?? 0));
+        var isOrgType = OrgEntityTypes.Contains(selectedEntityType);
+        var dupQuery = context.MetaFieldDefinition
+            .Where(f => f.Key == fieldKey.Trim() && f.EntityType == selectedEntityType && f.Id != (editingFieldId ?? 0));
+        if (!isOrgType)
+            dupQuery = dupQuery.Where(f => f.CompanyId == Tenant.CompanyId);
+        var duplicate = await dupQuery.AnyAsync();
         if (duplicate) { fieldError = string.Format(L.Validation_DuplicateKey, fieldKey.Trim()); return; }
 
         int? conditionalId = int.TryParse(fieldConditionalOnId, out var cid) ? cid : null;
@@ -747,6 +759,8 @@
         {
             context.MetaFieldDefinition.Add(new MetaFieldDefinition
             {
+                EntityType = selectedEntityType,
+                CompanyId = isOrgType ? null : Tenant.CompanyId,
                 Label = fieldLabel.Trim(), Key = fieldKey.Trim(), FieldType = fieldType,
                 IsRequired = fieldIsRequired, SortOrder = fieldSortOrder, IsActive = true,
                 RegexPattern = NullIfEmpty(fieldRegex), RegexMessage = NullIfEmpty(fieldRegexMessage),

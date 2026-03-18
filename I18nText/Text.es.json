@@ -304,6 +304,9 @@
   "Settings_EntityCompany": "Empresa",
   "Settings_EntityConglomerate": "Grupo",
   "Settings_EntityStore": "Sucursal",
+  "Settings_SwitchStore": "Cambiar a",
+  "Settings_CurrentStore": "Actual",
+  "Settings_SwitchedTo": "Cambiado a \"{0}\".",
   "NotFound_Title": "No Encontrado",
   "NotFound_Message": "Lo sentimos, el contenido que buscas no existe.",
   "Component_Type": "Tipo"

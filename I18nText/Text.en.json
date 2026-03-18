@@ -304,6 +304,9 @@
   "Settings_EntityCompany": "Company",
   "Settings_EntityConglomerate": "Group",
   "Settings_EntityStore": "Store",
+  "Settings_SwitchStore": "Switch to",
+  "Settings_CurrentStore": "Current",
+  "Settings_SwitchedTo": "Switched to \"{0}\".",
   "NotFound_Title": "Not Found",
   "NotFound_Message": "Sorry, the content you are looking for does not exist.",
   "Component_Type": "Type"

@@ -22,6 +22,9 @@ public class Company
     [MaxLength(100)]
     public string? TaxId { get; set; }
 
+    [MaxLength(2)]
+    public string? CountryCode { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public List<Store> Stores { get; set; } = new();

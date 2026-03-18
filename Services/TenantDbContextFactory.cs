@@ -4,10 +4,11 @@ using Microsoft.EntityFrameworkCore;
 namespace BikePOS.Services;
 
 /// <summary>
-/// Wraps IDbContextFactory to automatically set CurrentStoreId on created contexts.
-/// Inject this instead of IDbContextFactory for tenant-scoped data access.
+/// Wraps the real IDbContextFactory to automatically set CurrentStoreId
+/// from TenantContext on every created context. Registered as the primary
+/// IDbContextFactory so all injection points get tenant-scoped contexts.
 /// </summary>
-public class TenantDbContextFactory
+public class TenantDbContextFactory : IDbContextFactory<BikePosContext>
 {
     private readonly IDbContextFactory<BikePosContext> _inner;
     private readonly TenantContext _tenant;

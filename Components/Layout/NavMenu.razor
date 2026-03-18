@@ -35,15 +35,6 @@
 
         <AuthorizeView>
             <Authorized>
-                @* Store indicator *@
-                @if (Tenant.IsResolved)
-                {
-                    <div class="w-16 text-center px-1 py-1" title="@Tenant.CompanyName — @Tenant.StoreName (@Tenant.Role)">
-                        <i class="fa-solid fa-store text-gray-500 text-xs"></i>
-                        <p class="text-gray-400 text-[9px] leading-tight truncate">@Tenant.StoreName</p>
-                    </div>
-                }
-
                 @* User avatar *@
                 <div class="w-12 h-12 flex items-center justify-center" title="@Tenant.DisplayName">
                     <div class="w-8 h-8 bg-indigo-400 rounded-full flex items-center justify-center text-white text-xs font-bold">

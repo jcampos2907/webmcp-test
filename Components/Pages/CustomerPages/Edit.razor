@@ -7,6 +7,7 @@
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
 @inject I18nText I18nText
+@inject TenantContext Tenant
 
 <PageTitle>@L.Customers_Edit</PageTitle>
 
@@ -18,7 +19,7 @@
     else
     {
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <CustomerForm ExistingCustomer="customer" OnSaved="HandleSaved" OnCancelled="HandleCancelled" />
+            <CustomerForm ExistingCustomer="customer" OnSaved="HandleSaved" OnCancelled="HandleCancelled" CompanyId="Tenant.CompanyId" />
         </div>
     }
 </div>
@@ -28,10 +29,14 @@
     [SupplyParameterFromQuery]
     private int Id { get; set; }
 
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
     private Customer? customer;
 
     protected override async Task OnInitializedAsync()
     {
+        if (AuthState != null) { var s = await AuthState; Tenant.PopulateFromClaims(s.User); }
         L = await I18nText.GetTextTableAsync<Text>(this);
         using var context = DbFactory.CreateDbContext();
         customer = await context.Customer.FirstOrDefaultAsync(c => c.Id == Id);

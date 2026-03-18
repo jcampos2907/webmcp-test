@@ -34,10 +34,30 @@ builder.Services.AddRazorComponents()
 
 
 
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddI18nText();
 builder.Services.AddScoped<ShopCultureService>();
 builder.Services.AddScoped<TenantContext>();
-builder.Services.AddScoped<TenantDbContextFactory>();
+
+// Decorate IDbContextFactory so every DbContext automatically gets CurrentStoreId from TenantContext
+{
+    var original = builder.Services.Single(d =>
+        d.ServiceType == typeof(IDbContextFactory<BikePosContext>));
+    builder.Services.Remove(original);
+
+    // Re-register the EF factory under its concrete type so we can resolve it
+    builder.Services.Add(new ServiceDescriptor(
+        original.ImplementationType!,
+        original.ImplementationType!,
+        original.Lifetime));
+
+    builder.Services.AddScoped<IDbContextFactory<BikePosContext>>(sp =>
+    {
+        var inner = (IDbContextFactory<BikePosContext>)sp.GetRequiredService(original.ImplementationType!);
+        var tenant = sp.GetRequiredService<TenantContext>();
+        return new TenantDbContextFactory(inner, tenant);
+    });
+}
 
 // Authentication: OIDC with external IdP
 builder.Services.AddAuthentication(options =>
@@ -192,6 +212,7 @@ app.MapGet("/account/logout", async (HttpContext httpContext) =>
     await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
     await httpContext.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme);
 }).AllowAnonymous();
+
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

@@ -130,7 +130,8 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
                 .HasForeignKey(f => f.ConditionalOnFieldId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            entity.HasIndex(f => new { f.EntityType, f.Key, f.StoreId }).IsUnique();
+            entity.HasOne(f => f.Company).WithMany().HasForeignKey(f => f.CompanyId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(f => new { f.EntityType, f.Key, f.CompanyId }).IsUnique();
         });
 
         modelBuilder.Entity<EntityMetaValue>(entity =>
@@ -194,6 +195,6 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
         modelBuilder.Entity<Product>().HasQueryFilter(e => CurrentStoreId == null || e.StoreId == CurrentStoreId);
         modelBuilder.Entity<Charge>().HasQueryFilter(e => CurrentStoreId == null || e.StoreId == CurrentStoreId);
         modelBuilder.Entity<ShopSetting>().HasQueryFilter(e => CurrentStoreId == null || e.StoreId == CurrentStoreId);
-        modelBuilder.Entity<MetaFieldDefinition>().HasQueryFilter(e => CurrentStoreId == null || e.StoreId == CurrentStoreId);
+        // MetaFieldDefinition: no global query filter — scoped explicitly by CompanyId (company-wide) or ConglomerateId (org-level)
     }
 }

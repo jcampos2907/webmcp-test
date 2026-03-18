@@ -1,5 +1,10 @@
+@using Microsoft.EntityFrameworkCore
+@using BikePOS.Models
 @inject TenantContext Tenant
 @inject NavigationManager Navigation
+@inject IHttpContextAccessor HttpContextAccessor
+@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject IJSRuntime JS
 
 @if (_initialized)
 {
@@ -29,9 +34,67 @@
                     Navigation.NavigateTo("/account/no-access", forceLoad: true);
                     return;
                 }
+
+                // Try server-side cookie reading (works during SSR/prerender)
+                await ApplyStoreOverrideFromHttpContext();
             }
         }
 
         _initialized = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && Tenant.IsResolved && !Tenant.IsOverridden && Tenant.Role == StoreRole.SuperAdmin)
+        {
+            // Circuit phase: HttpContext is unavailable, read cookie via JS interop
+            await ApplyStoreOverrideFromJs();
+        }
+    }
+
+    private async Task ApplyStoreOverrideFromHttpContext()
+    {
+        var httpContext = HttpContextAccessor.HttpContext;
+        if (httpContext == null) return;
+
+        if (!httpContext.Request.Cookies.TryGetValue("store_override", out var overrideValue)) return;
+        if (!int.TryParse(overrideValue, out var overrideStoreId)) return;
+        if (overrideStoreId == Tenant.StoreId) return;
+
+        if (Tenant.Role != StoreRole.SuperAdmin) return;
+
+        await ApplyOverride(overrideStoreId);
+    }
+
+    private async Task ApplyStoreOverrideFromJs()
+    {
+        try
+        {
+            var cookieValue = await JS.InvokeAsync<string>("eval",
+                "(document.cookie.split('; ').find(c => c.startsWith('store_override=')) || '').split('=')[1] || ''");
+
+            if (!int.TryParse(cookieValue, out var overrideStoreId)) return;
+            if (overrideStoreId == Tenant.StoreId) return;
+
+            await ApplyOverride(overrideStoreId);
+            StateHasChanged();
+        }
+        catch
+        {
+            // JS interop not available (e.g. during SSR prerender)
+        }
+    }
+
+    private async Task ApplyOverride(int overrideStoreId)
+    {
+        using var context = DbFactory.CreateDbContext();
+        var store = await context.Store.Include(s => s.Company)
+            .FirstOrDefaultAsync(s => s.Id == overrideStoreId);
+
+        if (store != null)
+        {
+            Tenant.SwitchContext(store.Id, store.Name, store.CompanyId, store.Company.Name, store.Company.ConglomerateId);
+            Tenant.NotifyContextChanged();
+        }
     }
 }

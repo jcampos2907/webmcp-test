@@ -49,6 +49,11 @@ public class MetaFieldDefinition
     [MaxLength(200)]
     public string? ConditionalOnValue { get; set; }
 
+    /// <summary>Company-scoped fields (e.g. Customer). Null for org-level types (Company, Conglomerate, Store).</summary>
+    public int? CompanyId { get; set; }
+    public Company? Company { get; set; }
+
+    /// <summary>Legacy store scope — no longer used for scoping. Kept for migration compatibility.</summary>
     public int? StoreId { get; set; }
     public Store? Store { get; set; }
 }

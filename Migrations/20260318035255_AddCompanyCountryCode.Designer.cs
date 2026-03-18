@@ -3,6 +3,7 @@ using System;
 using BikePOS.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BikePOS.Migrations
 {
     [DbContext(typeof(BikePosContext))]
-    partial class BikePosContextModelSnapshot : ModelSnapshot
+    [Migration("20260318035255_AddCompanyCountryCode")]
+    partial class AddCompanyCountryCode
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.4");
@@ -343,9 +346,6 @@ namespace BikePOS.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("CompanyId")
-                        .HasColumnType("INTEGER");
-
                     b.Property<int?>("ConditionalOnFieldId")
                         .HasColumnType("INTEGER");
 
@@ -403,13 +403,11 @@ namespace BikePOS.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CompanyId");
-
                     b.HasIndex("ConditionalOnFieldId");
 
                     b.HasIndex("StoreId");
 
-                    b.HasIndex("EntityType", "Key", "CompanyId")
+                    b.HasIndex("EntityType", "Key", "StoreId")
                         .IsUnique();
 
                     b.ToTable("MetaFieldDefinition");
@@ -753,11 +751,6 @@ namespace BikePOS.Migrations
 
             modelBuilder.Entity("BikePOS.Models.MetaFieldDefinition", b =>
                 {
-                    b.HasOne("BikePOS.Models.Company", "Company")
-                        .WithMany()
-                        .HasForeignKey("CompanyId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
                     b.HasOne("BikePOS.Models.MetaFieldDefinition", "ConditionalOnField")
                         .WithMany()
                         .HasForeignKey("ConditionalOnFieldId")
@@ -766,8 +759,6 @@ namespace BikePOS.Migrations
                     b.HasOne("BikePOS.Models.Store", "Store")
                         .WithMany()
                         .HasForeignKey("StoreId");
-
-                    b.Navigation("Company");
 
                     b.Navigation("ConditionalOnField");
 

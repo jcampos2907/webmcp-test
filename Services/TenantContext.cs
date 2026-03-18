@@ -21,6 +21,9 @@ public class TenantContext
     public string? ExternalSubjectId { get; private set; }
     public string? PreferredUsername { get; private set; }
 
+    /// <summary>True when a SuperAdmin has manually switched store context.</summary>
+    public bool IsOverridden { get; private set; }
+
     /// <summary>
     /// Stable user identifier for audit fields: "sub:{ExternalSubjectId}" (IdP subject).
     /// Falls back to "uid:{AppUserId}" or "unknown".
@@ -32,26 +35,51 @@ public class TenantContext
 
     public bool IsResolved => StoreId.HasValue;
 
+    /// <summary>
+    /// Runtime context switch for SuperAdmins — overrides store/company/conglomerate
+    /// without re-authenticating. Once set, PopulateFromClaims won't overwrite
+    /// store/company/conglomerate fields.
+    /// </summary>
+    public void SwitchContext(int storeId, string storeName, int companyId, string companyName, int conglomerateId)
+    {
+        StoreId = storeId;
+        StoreName = storeName;
+        CompanyId = companyId;
+        CompanyName = companyName;
+        ConglomerateId = conglomerateId;
+        IsOverridden = true;
+    }
+
+    public event Action? OnContextChanged;
+    public void NotifyContextChanged() => OnContextChanged?.Invoke();
+
     public void PopulateFromClaims(ClaimsPrincipal user)
     {
         if (user.Identity?.IsAuthenticated != true) return;
 
+        // Always read user-identity fields (these don't change with store switch)
         if (int.TryParse(user.FindFirstValue("app_user_id"), out var uid))
             AppUserId = uid;
-        if (int.TryParse(user.FindFirstValue("store_id"), out var sid))
-            StoreId = sid;
-        if (int.TryParse(user.FindFirstValue("company_id"), out var cid))
-            CompanyId = cid;
-        if (int.TryParse(user.FindFirstValue("conglomerate_id"), out var congId))
-            ConglomerateId = congId;
         if (Enum.TryParse<StoreRole>(user.FindFirstValue("store_role"), out var role))
             Role = role;
 
-        StoreName = user.FindFirstValue("store_name");
-        CompanyName = user.FindFirstValue("company_name");
         DisplayName = user.FindFirstValue("name") ?? user.FindFirstValue("preferred_username");
         Email = user.FindFirstValue("email") ?? user.FindFirstValue(ClaimTypes.Email);
         ExternalSubjectId = user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
         PreferredUsername = user.FindFirstValue("preferred_username");
+
+        // Only set store/company from claims if not manually overridden
+        if (!IsOverridden)
+        {
+            if (int.TryParse(user.FindFirstValue("store_id"), out var sid))
+                StoreId = sid;
+            if (int.TryParse(user.FindFirstValue("company_id"), out var cid))
+                CompanyId = cid;
+            if (int.TryParse(user.FindFirstValue("conglomerate_id"), out var congId))
+                ConglomerateId = congId;
+
+            StoreName = user.FindFirstValue("store_name");
+            CompanyName = user.FindFirstValue("company_name");
+        }
     }
 }
