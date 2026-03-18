@@ -14,8 +14,21 @@ public class TenantContext
     public string? StoreName { get; private set; }
     public int? CompanyId { get; private set; }
     public string? CompanyName { get; private set; }
+    public int? ConglomerateId { get; private set; }
     public StoreRole? Role { get; private set; }
     public string? DisplayName { get; private set; }
+    public string? Email { get; private set; }
+    public string? ExternalSubjectId { get; private set; }
+    public string? PreferredUsername { get; private set; }
+
+    /// <summary>
+    /// Stable user identifier for audit fields: "sub:{ExternalSubjectId}" (IdP subject).
+    /// Falls back to "uid:{AppUserId}" or "unknown".
+    /// </summary>
+    public string UserIdentifier =>
+        !string.IsNullOrEmpty(ExternalSubjectId) ? $"sub:{ExternalSubjectId}" :
+        AppUserId.HasValue ? $"uid:{AppUserId}" :
+        "unknown";
 
     public bool IsResolved => StoreId.HasValue;
 
@@ -29,11 +42,16 @@ public class TenantContext
             StoreId = sid;
         if (int.TryParse(user.FindFirstValue("company_id"), out var cid))
             CompanyId = cid;
+        if (int.TryParse(user.FindFirstValue("conglomerate_id"), out var congId))
+            ConglomerateId = congId;
         if (Enum.TryParse<StoreRole>(user.FindFirstValue("store_role"), out var role))
             Role = role;
 
         StoreName = user.FindFirstValue("store_name");
         CompanyName = user.FindFirstValue("company_name");
         DisplayName = user.FindFirstValue("name") ?? user.FindFirstValue("preferred_username");
+        Email = user.FindFirstValue("email") ?? user.FindFirstValue(ClaimTypes.Email);
+        ExternalSubjectId = user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
+        PreferredUsername = user.FindFirstValue("preferred_username");
     }
 }

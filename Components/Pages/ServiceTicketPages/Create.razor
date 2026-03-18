@@ -1,11 +1,14 @@
 @page "/tickets/create"
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
 @using Microsoft.EntityFrameworkCore
 @using BikePOS.Models
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
 @inject I18nText I18nText
 @inject ShopCultureService CultureService
+@inject TenantContext Tenant
 @using BikePOS.Components.Pages.CustomerPages
 
 <PageTitle>@L.Tickets_Create_Title</PageTitle>
@@ -353,6 +356,10 @@
 @code {
     Text L = new();
     CultureInfo culture = CultureInfo.CurrentCulture;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
     private int step = 1;
 
     // Step 1 — Customer
@@ -395,6 +402,12 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (AuthState != null)
+        {
+            var state = await AuthState;
+            Tenant.PopulateFromClaims(state.User);
+        }
+
         L = await I18nText.GetTextTableAsync<Text>(this);
         culture = await CultureService.GetCultureAsync();
         await LoadCustomers();
@@ -581,6 +594,7 @@
             Status = TicketStatus.Open,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
+            CreatedBy = Tenant.UserIdentifier,
         };
         context.ServiceTicket.Add(ticket);
         await context.SaveChangesAsync();

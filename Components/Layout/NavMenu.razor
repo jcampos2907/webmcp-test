@@ -1,3 +1,4 @@
+@using BikePOS.Models
 @inject NavigationManager NavigationManager
 @inject I18nText I18nText
 @inject TenantContext Tenant
@@ -10,23 +11,34 @@
     </a>
 
     <NavButton Href="/" Icon="fa-house" Label="@L.Nav_Home" Match="NavLinkMatch.All" />
-    <NavButton Href="/tickets" Icon="fa-ticket" Label="@L.Nav_Tickets" />
-    <NavButton Href="/customers" Icon="fa-users" Label="@L.Nav_Customers" />
-    <hr class="w-10 border-gray-600 my-2" />
 
-    <NavButton Href="/mechanics" Icon="fa-wrench" Label="@L.Nav_Mechanics" />
-    <NavButton Href="/services" Icon="fa-gears" Label="@L.Nav_Services" />
-    <NavButton Href="/products" Icon="fa-box-open" Label="@L.Nav_Products" />
+    @if (HasRole(StoreRole.SuperAdmin, StoreRole.Admin, StoreRole.Mechanic))
+    {
+        <NavButton Href="/tickets" Icon="fa-ticket" Label="@L.Nav_Tickets" />
+    }
+
+    <NavButton Href="/customers" Icon="fa-users" Label="@L.Nav_Customers" />
+
+    @if (HasRole(StoreRole.SuperAdmin, StoreRole.Admin))
+    {
+        <hr class="w-10 border-gray-600 my-2" />
+        <NavButton Href="/mechanics" Icon="fa-wrench" Label="@L.Nav_Mechanics" />
+        <NavButton Href="/services" Icon="fa-gears" Label="@L.Nav_Services" />
+        <NavButton Href="/products" Icon="fa-box-open" Label="@L.Nav_Products" />
+    }
 
     <div class="mt-auto flex flex-col items-center gap-1">
-        <NavButton Href="/settings" Icon="fa-gear" Label="@L.Nav_Settings" />
+        @if (HasRole(StoreRole.SuperAdmin))
+        {
+            <NavButton Href="/settings" Icon="fa-gear" Label="@L.Nav_Settings" />
+        }
 
         <AuthorizeView>
             <Authorized>
                 @* Store indicator *@
                 @if (Tenant.IsResolved)
                 {
-                    <div class="w-16 text-center px-1 py-1" title="@Tenant.CompanyName — @Tenant.StoreName">
+                    <div class="w-16 text-center px-1 py-1" title="@Tenant.CompanyName — @Tenant.StoreName (@Tenant.Role)">
                         <i class="fa-solid fa-store text-gray-500 text-xs"></i>
                         <p class="text-gray-400 text-[9px] leading-tight truncate">@Tenant.StoreName</p>
                     </div>
@@ -64,6 +76,9 @@
             Tenant.PopulateFromClaims(state.User);
         }
     }
+
+    private bool HasRole(params StoreRole[] roles) =>
+        Tenant.Role.HasValue && roles.Contains(Tenant.Role.Value);
 
     private static string GetInitials(string? name)
     {

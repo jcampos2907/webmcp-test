@@ -1,5 +1,7 @@
 @page "/customers/create"
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
 @inject NavigationManager NavigationManager
 @inject I18nText I18nText
 

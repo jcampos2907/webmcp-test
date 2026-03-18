@@ -1,0 +1,23 @@
+@page "/account/access-denied"
+@layout EmptyLayout
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+
+<PageTitle>Access Denied</PageTitle>
+
+<div class="flex items-center justify-center h-screen bg-gray-100">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 max-w-md text-center">
+        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-lock text-red-500 text-2xl"></i>
+        </div>
+        <h1 class="text-xl font-bold text-gray-800 mb-2">Access Denied</h1>
+        <p class="text-sm text-gray-500 mb-6">
+            You don't have permission to access this page.
+            Contact your administrator if you believe this is an error.
+        </p>
+        <a href="/"
+           class="inline-block bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors">
+            Go Home
+        </a>
+    </div>
+</div>

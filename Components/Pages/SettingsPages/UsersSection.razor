@@ -1,0 +1,261 @@
+@using Microsoft.EntityFrameworkCore
+@using BikePOS.Models
+@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject I18nText I18nText
+@inject TenantContext Tenant
+
+<h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_Users</h1>
+<p class="text-sm text-gray-500 mb-6">@L.Settings_UsersSubtitle</p>
+
+@if (users.Any())
+{
+    <div class="space-y-3">
+        @foreach (var user in users)
+        {
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                @* User header — click to expand *@
+                <div class="flex items-center justify-between cursor-pointer" @onclick="() => ToggleExpand(user.Id)">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 text-xs font-bold">
+                            @GetInitials(user.DisplayName)
+                        </div>
+                        <div>
+                            <span class="text-sm font-semibold text-gray-800">@(user.DisplayName ?? "—")</span>
+                            <span class="text-xs text-gray-400 ml-2">@user.Email</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs text-gray-400">
+                            @if (user.LastLoginAt.HasValue)
+                            {
+                                @user.LastLoginAt.Value.ToLocalTime().ToString("g")
+                            }
+                        </span>
+                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                            @user.StoreUsers.Count assignment(s)
+                        </span>
+                        <i class="fa-solid @(expandedUserId == user.Id ? "fa-chevron-up" : "fa-chevron-down") text-gray-400 text-xs"></i>
+                    </div>
+                </div>
+
+                @* Expanded: store assignments *@
+                @if (expandedUserId == user.Id)
+                {
+                    <div class="mt-4 border-t border-gray-100 pt-4">
+                        <h5 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">@L.Settings_StoreAssignments</h5>
+
+                        @if (user.StoreUsers.Any())
+                        {
+                            <div class="space-y-2 mb-4">
+                                @foreach (var su in user.StoreUsers)
+                                {
+                                    <div class="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2">
+                                        <div>
+                                            <span class="text-sm text-gray-800">@su.Store.Company.Name</span>
+                                            <span class="text-gray-400 mx-1">/</span>
+                                            <span class="text-sm font-medium text-gray-800">@su.Store.Name</span>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <select class="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                                    value="@su.Role"
+                                                    @onchange="e => ChangeRole(su, e)">
+                                                @foreach (var role in Enum.GetValues<StoreRole>())
+                                                {
+                                                    <option value="@role">@GetRoleLabel(role)</option>
+                                                }
+                                            </select>
+                                            <button class="text-red-400 hover:text-red-600 text-xs" @onclick="() => RemoveAssignment(su)">
+                                                @L.Settings_RemoveAssignment
+                                            </button>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-sm text-gray-400 mb-4">@L.Settings_NoAssignments</p>
+                        }
+
+                        @* Add new assignment *@
+                        <div class="flex items-end gap-2">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_Stores</label>
+                                <select class="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                        @bind="newAssignStoreId">
+                                    <option value="0">@L.Settings_SelectCompany...</option>
+                                    @foreach (var store in allStores)
+                                    {
+                                        <option value="@store.Id">@store.Company.Name / @store.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_Role</label>
+                                <select class="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                        @bind="newAssignRole">
+                                    @foreach (var role in Enum.GetValues<StoreRole>())
+                                    {
+                                        <option value="@role">@GetRoleLabel(role)</option>
+                                    }
+                                </select>
+                            </div>
+                            <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg"
+                                    @onclick="() => AddAssignment(user)">
+                                @L.Settings_AddAssignment
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+        <i class="fa-solid fa-user-gear text-gray-300 text-3xl mb-3"></i>
+        <p class="text-sm text-gray-400">@L.Settings_NoUsers</p>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mt-3">@errorMessage</div>
+}
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="text-sm text-green-600 bg-green-50 rounded-lg px-3 py-2 mt-3">@successMessage</div>
+}
+
+@code {
+    Text L = new();
+    private List<AppUser> users = new();
+    private List<Store> allStores = new();
+    private int? expandedUserId;
+    private int newAssignStoreId;
+    private StoreRole newAssignRole = StoreRole.Cashier;
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        L = await I18nText.GetTextTableAsync<Text>(this);
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var conglomerateId = Tenant.ConglomerateId;
+
+        users = await context.AppUser
+            .Include(u => u.StoreUsers).ThenInclude(su => su.Store).ThenInclude(s => s.Company)
+            .OrderBy(u => u.DisplayName)
+            .ToListAsync();
+
+        allStores = await context.Store
+            .Include(s => s.Company)
+            .Where(s => conglomerateId == null || s.Company.ConglomerateId == conglomerateId)
+            .OrderBy(s => s.Company.Name).ThenBy(s => s.Name)
+            .ToListAsync();
+    }
+
+    private void ToggleExpand(int userId)
+    {
+        expandedUserId = expandedUserId == userId ? null : userId;
+        errorMessage = null;
+        successMessage = null;
+        newAssignStoreId = 0;
+        newAssignRole = StoreRole.Cashier;
+    }
+
+    private async Task AddAssignment(AppUser user)
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        if (newAssignStoreId <= 0) return;
+
+        // Check if already exists
+        if (user.StoreUsers.Any(su => su.StoreId == newAssignStoreId))
+        {
+            errorMessage = L.Settings_AssignmentExists;
+            return;
+        }
+
+        using var context = DbFactory.CreateDbContext();
+        context.StoreUser.Add(new StoreUser
+        {
+            AppUserId = user.Id,
+            StoreId = newAssignStoreId,
+            Role = newAssignRole
+        });
+        await context.SaveChangesAsync();
+        successMessage = L.Common_SavedSuccess;
+        await LoadData();
+    }
+
+    private async Task ChangeRole(StoreUser storeUser, ChangeEventArgs e)
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        if (!Enum.TryParse<StoreRole>(e.Value?.ToString(), out var newRole)) return;
+
+        using var context = DbFactory.CreateDbContext();
+        var entity = await context.StoreUser.FindAsync(storeUser.Id);
+        if (entity != null)
+        {
+            entity.Role = newRole;
+            await context.SaveChangesAsync();
+            successMessage = L.Common_SavedSuccess;
+            await LoadData();
+        }
+    }
+
+    private async Task RemoveAssignment(StoreUser storeUser)
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        // Prevent removing the last SuperAdmin
+        using var context = DbFactory.CreateDbContext();
+        if (storeUser.Role == StoreRole.SuperAdmin)
+        {
+            var superAdminCount = await context.StoreUser.CountAsync(su => su.Role == StoreRole.SuperAdmin);
+            if (superAdminCount <= 1)
+            {
+                errorMessage = L.Settings_CannotRemoveLastSuperAdmin;
+                return;
+            }
+        }
+
+        var entity = await context.StoreUser.FindAsync(storeUser.Id);
+        if (entity != null)
+        {
+            context.StoreUser.Remove(entity);
+            await context.SaveChangesAsync();
+            successMessage = L.Common_SavedSuccess;
+            await LoadData();
+        }
+    }
+
+    private string GetRoleLabel(StoreRole role) => role switch
+    {
+        StoreRole.SuperAdmin => L.Settings_RoleSuperAdmin,
+        StoreRole.Admin => L.Settings_RoleAdmin,
+        StoreRole.Mechanic => L.Settings_RoleMechanic,
+        StoreRole.Cashier => L.Settings_RoleCashier,
+        _ => role.ToString()
+    };
+
+    private static string GetInitials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2
+            ? $"{parts[0][0]}{parts[1][0]}".ToUpper()
+            : parts[0][..1].ToUpper();
+    }
+}

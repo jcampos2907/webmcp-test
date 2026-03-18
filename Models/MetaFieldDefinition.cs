@@ -6,6 +6,10 @@ public class MetaFieldDefinition
 {
     public int Id { get; set; }
 
+    /// <summary>Which entity type this field applies to: Customer, Company, Conglomerate, Store</summary>
+    [Required, MaxLength(50)]
+    public string EntityType { get; set; } = "Customer";
+
     [Required, MaxLength(100)]
     public string Key { get; set; } = null!;
 

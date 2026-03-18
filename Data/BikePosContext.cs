@@ -5,6 +5,9 @@ namespace BikePOS.Data;
 
 public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContext(options)
 {
+    /// <summary>Set after creation to enable tenant query filters. Null = no filtering (superadmin/system).</summary>
+    public int? CurrentStoreId { get; set; }
+
     // Tenant hierarchy
     public DbSet<Conglomerate> Conglomerate { get; set; } = default!;
     public DbSet<Company> Company { get; set; } = default!;
@@ -23,6 +26,7 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
     public DbSet<Customer> Customer { get; set; } = default!;
     public DbSet<MetaFieldDefinition> MetaFieldDefinition { get; set; } = default!;
     public DbSet<CustomerMetaValue> CustomerMetaValue { get; set; } = default!;
+    public DbSet<EntityMetaValue> EntityMetaValue { get; set; } = default!;
     public DbSet<ShopSetting> ShopSetting { get; set; } = default!;
 
     public override int SaveChanges()
@@ -125,6 +129,18 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
                 .WithMany()
                 .HasForeignKey(f => f.ConditionalOnFieldId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(f => new { f.EntityType, f.Key, f.StoreId }).IsUnique();
+        });
+
+        modelBuilder.Entity<EntityMetaValue>(entity =>
+        {
+            entity.HasOne(mv => mv.MetaFieldDefinition)
+                .WithMany()
+                .HasForeignKey(mv => mv.MetaFieldDefinitionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(mv => new { mv.EntityType, mv.EntityId, mv.MetaFieldDefinitionId }).IsUnique();
         });
 
         modelBuilder.Entity<ShopSetting>(entity =>
@@ -168,5 +184,16 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
         {
             entity.HasIndex(u => u.ExternalSubjectId).IsUnique();
         });
+
+        // Global tenant query filters — when CurrentStoreId is set, only return data for that store
+        modelBuilder.Entity<Customer>().HasQueryFilter(e => CurrentStoreId == null || e.StoreId == CurrentStoreId);
+        modelBuilder.Entity<Component>().HasQueryFilter(e => CurrentStoreId == null || e.StoreId == CurrentStoreId);
+        modelBuilder.Entity<ServiceTicket>().HasQueryFilter(e => CurrentStoreId == null || e.StoreId == CurrentStoreId);
+        modelBuilder.Entity<Mechanic>().HasQueryFilter(e => CurrentStoreId == null || e.StoreId == CurrentStoreId);
+        modelBuilder.Entity<Service>().HasQueryFilter(e => CurrentStoreId == null || e.StoreId == CurrentStoreId);
+        modelBuilder.Entity<Product>().HasQueryFilter(e => CurrentStoreId == null || e.StoreId == CurrentStoreId);
+        modelBuilder.Entity<Charge>().HasQueryFilter(e => CurrentStoreId == null || e.StoreId == CurrentStoreId);
+        modelBuilder.Entity<ShopSetting>().HasQueryFilter(e => CurrentStoreId == null || e.StoreId == CurrentStoreId);
+        modelBuilder.Entity<MetaFieldDefinition>().HasQueryFilter(e => CurrentStoreId == null || e.StoreId == CurrentStoreId);
     }
 }

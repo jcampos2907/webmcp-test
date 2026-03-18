@@ -1,5 +1,7 @@
 @page "/customers"
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin,Mechanic,Cashier")]
 @using Microsoft.EntityFrameworkCore
 @using BikePOS.Models
 @implements IAsyncDisposable

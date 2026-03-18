@@ -165,39 +165,41 @@ Conglomerate (optional top level — e.g. "FamCR Group")
 - [x] Login/logout HTTP endpoints, user initials + logout in NavMenu
 - [x] FallbackPolicy requires authenticated users on all pages
 
-#### Step 2: Tenant models + migration
-- [ ] Create models: `Conglomerate`, `Company`, `Store`, `AppUser`, `StoreUser`
-- [ ] Create `Role` enum: `SuperAdmin`, `Admin`, `Mechanic`, `Cashier`
-- [ ] Add `StoreId` FK (nullable initially) to all existing data models (Customer, Component, ServiceTicket, Mechanic, Service, Product, Charge, ShopSetting, MetaFieldDefinition)
-- [ ] Add `CreatedBy`/`UpdatedBy` (string, nullable) to ServiceTicket and Charge
-- [ ] Register DbSets in `BikePosContext`, create migration
-- [ ] Seed a default conglomerate + company + store so existing data continues to work
-- **Test**: Migration runs, app starts, existing data still loads.
+#### Step 2: Tenant models + migration — DONE
+- [x] Create models: `Conglomerate`, `Company`, `Store`, `AppUser`, `StoreUser`
+- [x] Create `StoreRole` enum: `SuperAdmin`, `Admin`, `Mechanic`, `Cashier`
+- [x] Add `StoreId` FK (nullable) to all existing data models
+- [x] Add `CreatedBy`/`UpdatedBy` to ServiceTicket and Charge
+- [x] Register DbSets, create + apply `AddMultiTenancy` migration
+- [x] Seed default conglomerate + company + store, all sample data gets StoreId=1
 
-#### Step 3: Tenant resolution + scoped context
-- [ ] Create `TenantContext` service (scoped) — holds current `AppUser`, `Store`, `Company`, `Role`
-- [ ] In OIDC `OnTokenValidated`, upsert `AppUser` row
-- [ ] After login, resolve user's store(s) from `StoreUser` table
-- [ ] If user has one store → auto-select. If multiple → show store picker.
-- [ ] Add EF Core global query filters: `.HasQueryFilter(x => x.StoreId == currentStoreId)` on all tenant-scoped entities
-- [ ] `ShopCultureService` reads locale from `Company` instead of `ShopSetting`
-- **Test**: Login → tenant resolves → data filtered to current store. No data leaks across stores.
+#### Step 3: Tenant resolution + scoped context — DONE
+- [x] `TenantContext` scoped service populated from cookie claims
+- [x] `OnTokenValidated` upserts `AppUser`, resolves `StoreUser`, adds tenant claims to cookie
+- [x] Auto-assigns SuperAdmin if IdP `roles` claim contains `superadmin` or first user ever
+- [x] `TenantInitializer` wrapper redirects users without store access to `/account/no-access`
+- [x] `TenantDbContextFactory` wrapper auto-sets `CurrentStoreId` on created contexts
+- [x] EF Core global query filters on all 9 tenant-scoped entities
+- [x] `ShopCultureService` reads locale from `Company` model (falls back to `ShopSetting`)
 
-#### Step 4: Role-based authorization
-- [ ] Read role from `StoreUser` for the current store (not from IdP claims)
-- [ ] Add role as claim via custom middleware or `ClaimsTransformation`
-- [ ] Add `[Authorize(Roles = "...")]` attributes to pages per authorization matrix
-- [ ] NavMenu: show/hide links based on user role in current store
-- [ ] POS Terminal: cashier = logged-in user from `AuthenticationState` (remove manual cashier input)
-- **Test**: Login as mechanic at Store A → only see Tickets + Customers. Switch to Store B where you're admin → see more.
+#### Step 4: Role-based authorization — DONE
+- [x] Role from `StoreUser` added as `ClaimTypes.Role` claim during `OnTokenValidated`
+- [x] `[Authorize(Roles = "...")]` on all 25 pages per authorization matrix
+- [x] NavMenu: show/hide links based on `TenantContext.Role`
+- [x] `AccessDenied` page for authenticated users without required role
+- [x] POS Terminal: cashier = logged-in user from `TenantContext.DisplayName` (removed manual cashier modal)
 
-#### Step 5: Superadmin management UI
-- [ ] Settings > Companies: superadmin can create/edit/delete companies (name, locale, currency, tax ID)
-- [ ] Settings > Stores: superadmin can create/edit/delete stores within a company
-- [ ] Settings > Users: superadmin can view users, assign roles per store
-- [ ] Move existing Settings sections (meta fields, component types) under store-scoped config
-- [ ] Currency/locale settings move from `ShopSetting` to `Company` model
-- **Test**: Superadmin creates a new company + store → can switch to it → empty data, correct currency.
+#### Step 5: Superadmin management UI — DONE
+- [x] Settings > Companies: superadmin can create/edit/delete companies (name, locale, currency, tax ID)
+- [x] Settings > Stores: superadmin can create/edit/activate/deactivate stores within a company
+- [x] Settings > Users: view all users, expand to see/edit store assignments, add/remove roles per store
+- [x] Admin section divider in Settings vertical nav (Companies, Stores, Users)
+- [x] `ConglomerateId` added to `TenantContext` + populated from claims in `OnTokenValidated`
+- [x] Locale dropdown removed from Shop Info — shows read-only note pointing to Companies section
+- [x] Locale-to-currency auto-mapping in Companies section (es-CR→CRC, en-US→USD, etc.)
+- [x] Safety: cannot delete company with stores, cannot remove last SuperAdmin assignment
+- [x] ~40 new i18n keys in both `Text.en.json` and `Text.es.json`
+- **Test**: Superadmin creates a new company + store → can assign users to it → locale/currency set at company level.
 
 #### Step 6: Store switcher + audit trail
 - [ ] Store switcher in NavMenu or header (for users with access to multiple stores)

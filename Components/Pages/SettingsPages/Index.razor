@@ -1,10 +1,13 @@
 @page "/settings"
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin")]
 @using Microsoft.EntityFrameworkCore
 @using BikePOS.Models
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject I18nText I18nText
 @inject ShopCultureService CultureService
+@inject TenantContext Tenant
 
 <PageTitle>@L.Settings_Title</PageTitle>
 
@@ -14,39 +17,56 @@
         <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">@L.Settings_Title</h2>
         <ul class="space-y-1">
             <li>
-                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "profile" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("profile")"
                         @onclick='() => activeSection = "profile"'>
                     <i class="fa-solid fa-user w-5 text-center mr-2"></i>@L.Settings_Profile
                 </button>
             </li>
             <li>
-                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "components" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("components")"
                         @onclick='() => activeSection = "components"'>
                     <i class="fa-solid fa-cubes w-5 text-center mr-2"></i>@L.Settings_ComponentTypes
                 </button>
             </li>
             <li>
-                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "meta" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("meta")"
                         @onclick='() => activeSection = "meta"'>
-                    <i class="fa-solid fa-sliders w-5 text-center mr-2"></i>@L.Settings_ClientFields
+                    <i class="fa-solid fa-sliders w-5 text-center mr-2"></i>@L.Settings_MetaFields
                 </button>
             </li>
             <li>
-                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "shop" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("shop")"
                         @onclick='() => activeSection = "shop"'>
                     <i class="fa-solid fa-store w-5 text-center mr-2"></i>@L.Settings_ShopInfo
                 </button>
             </li>
             <li>
-                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "billing" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("billing")"
                         @onclick='() => activeSection = "billing"'>
                     <i class="fa-solid fa-file-invoice w-5 text-center mr-2"></i>@L.Settings_Billing
                 </button>
             </li>
             <li>
-                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "notifications" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("notifications")"
                         @onclick='() => activeSection = "notifications"'>
                     <i class="fa-solid fa-bell w-5 text-center mr-2"></i>@L.Settings_Notifications
+                </button>
+            </li>
+
+            @* Admin section divider *@
+            <li class="mt-4 pt-3 border-t border-gray-200">
+                <span class="text-[10px] text-gray-400 uppercase tracking-wider px-3">@L.Settings_AdminSection</span>
+            </li>
+            <li>
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("organization")"
+                        @onclick='() => activeSection = "organization"'>
+                    <i class="fa-solid fa-sitemap w-5 text-center mr-2"></i>@L.Settings_Organization
+                </button>
+            </li>
+            <li>
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("users")"
+                        @onclick='() => activeSection = "users"'>
+                    <i class="fa-solid fa-user-gear w-5 text-center mr-2"></i>@L.Settings_Users
                 </button>
             </li>
         </ul>
@@ -68,21 +88,21 @@
                             <i class="fa-solid fa-user text-indigo-400 text-2xl"></i>
                         </div>
                         <div>
-                            <p class="text-gray-800 font-semibold">@(string.IsNullOrEmpty(profileName) ? L.Settings_NoName : profileName)</p>
-                            <p class="text-sm text-gray-500">@(string.IsNullOrEmpty(profileEmail) ? L.Settings_NoEmail : profileEmail)</p>
+                            <p class="text-gray-800 font-semibold">@(string.IsNullOrEmpty(Tenant.DisplayName) ? L.Settings_NoName : Tenant.DisplayName)</p>
+                            <p class="text-sm text-gray-500">@(string.IsNullOrEmpty(Tenant.Email) ? L.Settings_NoEmail : Tenant.Email)</p>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm text-gray-600 mb-1">@L.Settings_FullName</label>
-                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                   @bind="profileName" placeholder="@L.Settings_YourName" />
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500"
+                                   value="@Tenant.DisplayName" disabled />
                         </div>
                         <div>
                             <label class="block text-sm text-gray-600 mb-1">@L.Common_Email</label>
-                            <input type="email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                   @bind="profileEmail" placeholder="@L.Settings_YourEmail" />
+                            <input type="email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500"
+                                   value="@Tenant.Email" disabled />
                         </div>
                         <div>
                             <label class="block text-sm text-gray-600 mb-1">@L.Common_Phone</label>
@@ -91,13 +111,13 @@
                         </div>
                         <div>
                             <label class="block text-sm text-gray-600 mb-1">@L.Settings_Role</label>
-                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500" value="@L.Settings_Admin" disabled />
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500" value="@Tenant.Role" disabled />
                         </div>
                         <div>
                             <label class="block text-sm text-gray-600 mb-1">@L.Settings_Language</label>
                             <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                                     @bind="selectedLanguage">
-                                <option value="es">Español</option>
+                                <option value="es">Espanol</option>
                                 <option value="en">English</option>
                             </select>
                         </div>
@@ -122,7 +142,6 @@
                 <p class="text-sm text-gray-500 mb-6">@L.Settings_ComponentTypesSubtitle</p>
 
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    @* Existing types *@
                     @if (componentTypes.Any())
                     {
                         <div class="space-y-2 mb-4">
@@ -140,7 +159,6 @@
                         <p class="text-sm text-gray-400 mb-4">@L.Settings_NoTypes</p>
                     }
 
-                    @* Add new type *@
                     <div class="flex items-center gap-2">
                         <input type="text" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                                placeholder="@L.Settings_NewTypePlaceholder" @bind="newComponentType" @bind:event="oninput"
@@ -155,7 +173,6 @@
                     {
                         <div class="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mt-3">@componentTypeError</div>
                     }
-
                     @if (!string.IsNullOrEmpty(componentTypeSaveMessage))
                     {
                         <div class="text-sm text-green-600 bg-green-50 rounded-lg px-3 py-2 mt-3">@componentTypeSaveMessage</div>
@@ -166,10 +183,10 @@
             @* ==================== Meta Field Definitions ==================== *@
             @if (activeSection == "meta")
             {
-                <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center justify-between mb-4">
                     <div>
-                        <h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_ClientFields</h1>
-                        <p class="text-sm text-gray-500">@L.Settings_ClientFieldsSubtitle</p>
+                        <h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_MetaFields</h1>
+                        <p class="text-sm text-gray-500">@L.Settings_MetaFieldsSubtitle</p>
                     </div>
                     <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex-shrink-0"
                             @onclick="ShowAddField">
@@ -177,13 +194,22 @@
                     </button>
                 </div>
 
-                @* Add / Edit form *@
+                @* Entity type tabs *@
+                <div class="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1">
+                    @foreach (var et in EntityTypes)
+                    {
+                        <button class="flex-1 text-sm px-3 py-2 rounded-md transition-colors @(selectedEntityType == et.Key ? "bg-white text-indigo-700 font-semibold shadow-sm" : "text-gray-600 hover:text-gray-800")"
+                                @onclick="() => SwitchEntityType(et.Key)">
+                            @et.Value
+                        </button>
+                    }
+                </div>
+
                 @if (showFieldForm)
                 {
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
                         <h4 class="text-sm font-semibold text-gray-800 mb-4">@(editingFieldId.HasValue ? L.Settings_EditField : L.Settings_NewField)</h4>
 
-                        @* Basic info *@
                         <div class="grid grid-cols-3 gap-3 mb-4">
                             <div>
                                 <label class="block text-xs text-gray-500 mb-1">@L.Settings_Label <span class="text-red-500">*</span></label>
@@ -202,7 +228,6 @@
                             </div>
                         </div>
 
-                        @* Type + Options *@
                         <div class="grid grid-cols-2 gap-3 mb-4">
                             <div>
                                 <label class="block text-xs text-gray-500 mb-1">@L.Settings_FieldType</label>
@@ -226,7 +251,6 @@
                             }
                         </div>
 
-                        @* Validation *@
                         <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">@L.Settings_Validation</p>
                         <div class="grid grid-cols-2 gap-3 mb-4">
                             <div>
@@ -241,7 +265,6 @@
                             </div>
                         </div>
 
-                        @* Format mask *@
                         <div class="grid grid-cols-2 gap-3 mb-4">
                             <div>
                                 <label class="block text-xs text-gray-500 mb-1">@L.Settings_FormatMask</label>
@@ -256,7 +279,6 @@
                             </div>
                         </div>
 
-                        @* Conditional visibility *@
                         <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">@L.Settings_ConditionalVisibility</p>
                         <div class="grid grid-cols-2 gap-3 mb-4">
                             <div>
@@ -302,7 +324,6 @@
                     </div>
                 }
 
-                @* Field list *@
                 @if (metaFields.Any())
                 {
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -326,10 +347,7 @@
                                         <td class="py-3 px-4">
                                             <span class="text-gray-800 font-medium">@field.Label</span>
                                             <span class="text-gray-400 text-xs font-mono ml-1">@field.Key</span>
-                                            @if (field.IsRequired)
-                                            {
-                                                <span class="text-red-500 ml-1">*</span>
-                                            }
+                                            @if (field.IsRequired) { <span class="text-red-500 ml-1">*</span> }
                                         </td>
                                         <td class="py-3 px-4 text-gray-500">
                                             @field.FieldType
@@ -427,15 +445,9 @@
                         </div>
                         <div class="col-span-2">
                             <label class="block text-sm text-gray-600 mb-1">@L.Settings_Locale</label>
-                            <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                    @bind="shopLocale">
-                                <option value="es-CR">Español - Costa Rica (₡)</option>
-                                <option value="es-CL">Español - Chile ($)</option>
-                                <option value="es-MX">Español - México ($)</option>
-                                <option value="es-CO">Español - Colombia ($)</option>
-                                <option value="es-AR">Español - Argentina ($)</option>
-                                <option value="en-US">English - United States ($)</option>
-                            </select>
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500"
+                                   value="@(Tenant.CompanyName ?? "—")" disabled />
+                            <p class="text-xs text-gray-400 mt-1">@L.Settings_LocaleManagedByCompany</p>
                         </div>
                     </div>
 
@@ -472,6 +484,16 @@
                 </div>
             }
 
+            @* ==================== Admin sections ==================== *@
+            @if (activeSection == "organization")
+            {
+                <OrganizationSection />
+            }
+
+            @if (activeSection == "users")
+            {
+                <UsersSection />
+            }
 
         </div>
     </div>
@@ -481,9 +503,10 @@
     Text L = new();
     private string activeSection = "profile";
 
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
     // --- Profile ---
-    private string profileName = "";
-    private string profileEmail = "";
     private string profilePhone = "";
     private string? profileSaveMessage;
 
@@ -496,6 +519,7 @@
     private static readonly string[] DefaultComponentTypes = ["Bicicleta", "Aro", "Pedal", "Marco", "Rueda", "Otro"];
 
     // --- Meta Fields ---
+    private string selectedEntityType = "Customer";
     private List<MetaFieldDefinition> metaFields = new();
     private bool showFieldForm = false;
     private int? editingFieldId;
@@ -519,14 +543,30 @@
     private string shopPhone = "";
     private string shopEmail = "";
     private string shopAddress = "";
-    private string shopLocale = "es-CR";
     private string? shopSaveMessage;
 
     // --- Language ---
     private string selectedLanguage = "es";
 
+    private string NavClass(string section) =>
+        activeSection == section ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50";
+
+    private Dictionary<string, string> EntityTypes => new()
+    {
+        ["Customer"] = L.Settings_EntityCustomer,
+        ["Company"] = L.Settings_EntityCompany,
+        ["Conglomerate"] = L.Settings_EntityConglomerate,
+        ["Store"] = L.Settings_EntityStore
+    };
+
     protected override async Task OnInitializedAsync()
     {
+        if (AuthState != null)
+        {
+            var state = await AuthState;
+            Tenant.PopulateFromClaims(state.User);
+        }
+
         await LoadComponentTypes();
         await LoadMetaFields();
         await LoadShopSettings();
@@ -542,8 +582,6 @@
     {
         using var context = DbFactory.CreateDbContext();
         var settings = await context.ShopSetting.ToListAsync();
-        profileName = settings.FirstOrDefault(s => s.Key == "user_name")?.Value ?? "";
-        profileEmail = settings.FirstOrDefault(s => s.Key == "user_email")?.Value ?? "";
         profilePhone = settings.FirstOrDefault(s => s.Key == "user_phone")?.Value ?? "";
     }
 
@@ -552,8 +590,6 @@
         profileSaveMessage = null;
         using var context = DbFactory.CreateDbContext();
         var settings = await context.ShopSetting.ToListAsync();
-        UpsertSetting(context, settings, "user_name", profileName);
-        UpsertSetting(context, settings, "user_email", profileEmail);
         UpsertSetting(context, settings, "user_phone", profilePhone);
         UpsertSetting(context, settings, "user_language", selectedLanguage);
         await context.SaveChangesAsync();
@@ -575,7 +611,6 @@
         }
         else
         {
-            // Initialize with defaults
             componentTypes = DefaultComponentTypes.ToList();
             await SaveComponentTypes();
         }
@@ -595,19 +630,18 @@
         componentTypeSaveMessage = null;
 
         var trimmed = newComponentType?.Trim() ?? "";
-        if (string.IsNullOrWhiteSpace(trimmed))
-            return;
+        if (string.IsNullOrWhiteSpace(trimmed)) return;
 
         if (componentTypes.Any(ct => ct.Equals(trimmed, StringComparison.OrdinalIgnoreCase)))
         {
-            componentTypeError = $"\"{trimmed}\" ya existe.";
+            componentTypeError = string.Format(L.Settings_TypeAlreadyExists, trimmed);
             return;
         }
 
         componentTypes.Add(trimmed);
         newComponentType = "";
         await SaveComponentTypes();
-        componentTypeSaveMessage = $"\"{trimmed}\" agregado.";
+        componentTypeSaveMessage = string.Format(L.Settings_TypeAdded, trimmed);
     }
 
     private async Task RemoveComponentType(string type)
@@ -617,21 +651,18 @@
 
         if (componentTypes.Count <= 1)
         {
-            componentTypeError = "Debe existir al menos un tipo de componente.";
+            componentTypeError = L.Settings_MinOneType;
             return;
         }
 
         componentTypes.Remove(type);
         await SaveComponentTypes();
-        componentTypeSaveMessage = $"\"{type}\" eliminado.";
+        componentTypeSaveMessage = string.Format(L.Settings_TypeRemoved, type);
     }
 
     private async Task HandleComponentTypeKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter")
-        {
-            await AddComponentType();
-        }
+        if (e.Key == "Enter") await AddComponentType();
     }
 
     // ===== Meta Fields =====
@@ -639,87 +670,64 @@
     private async Task LoadMetaFields()
     {
         using var context = DbFactory.CreateDbContext();
-        metaFields = await context.MetaFieldDefinition.OrderBy(f => f.SortOrder).ThenBy(f => f.Label).ToListAsync();
+        metaFields = await context.MetaFieldDefinition
+            .Where(f => f.EntityType == selectedEntityType)
+            .OrderBy(f => f.SortOrder).ThenBy(f => f.Label)
+            .ToListAsync();
+    }
+
+    private async Task SwitchEntityType(string entityType)
+    {
+        selectedEntityType = entityType;
+        showFieldForm = false;
+        await LoadMetaFields();
     }
 
     private void ShowAddField()
     {
         editingFieldId = null;
-        fieldLabel = "";
-        fieldKey = "";
-        fieldType = "text";
-        fieldIsRequired = false;
+        fieldLabel = ""; fieldKey = ""; fieldType = "text"; fieldIsRequired = false;
         fieldSortOrder = metaFields.Any() ? metaFields.Max(f => f.SortOrder) + 1 : 0;
-        fieldRegex = "";
-        fieldRegexMessage = "";
-        fieldFormatMask = "";
-        fieldOptions = "";
-        fieldConditionalOnId = "";
-        fieldConditionalOnValue = "";
-        fieldError = null;
+        fieldRegex = ""; fieldRegexMessage = ""; fieldFormatMask = ""; fieldOptions = "";
+        fieldConditionalOnId = ""; fieldConditionalOnValue = ""; fieldError = null;
         showFieldForm = true;
     }
 
     private void EditField(MetaFieldDefinition field)
     {
         editingFieldId = field.Id;
-        fieldLabel = field.Label;
-        fieldKey = field.Key;
-        fieldType = field.FieldType;
-        fieldIsRequired = field.IsRequired;
-        fieldSortOrder = field.SortOrder;
-        fieldRegex = field.RegexPattern ?? "";
-        fieldRegexMessage = field.RegexMessage ?? "";
-        fieldFormatMask = field.FormatMask ?? "";
-        fieldOptions = field.Options ?? "";
+        fieldLabel = field.Label; fieldKey = field.Key; fieldType = field.FieldType;
+        fieldIsRequired = field.IsRequired; fieldSortOrder = field.SortOrder;
+        fieldRegex = field.RegexPattern ?? ""; fieldRegexMessage = field.RegexMessage ?? "";
+        fieldFormatMask = field.FormatMask ?? ""; fieldOptions = field.Options ?? "";
         fieldConditionalOnId = field.ConditionalOnFieldId?.ToString() ?? "";
-        fieldConditionalOnValue = field.ConditionalOnValue ?? "";
-        fieldError = null;
+        fieldConditionalOnValue = field.ConditionalOnValue ?? ""; fieldError = null;
         showFieldForm = true;
     }
 
-    private void CancelFieldForm()
-    {
-        showFieldForm = false;
-        fieldError = null;
-    }
+    private void CancelFieldForm() { showFieldForm = false; fieldError = null; }
 
     private async Task SaveField()
     {
         fieldError = null;
 
         if (string.IsNullOrWhiteSpace(fieldLabel) || string.IsNullOrWhiteSpace(fieldKey))
-        {
-            fieldError = "La etiqueta y la clave son obligatorias.";
-            return;
-        }
+        { fieldError = L.Validation_LabelKeyRequired; return; }
 
         if (fieldType == "select" && string.IsNullOrWhiteSpace(fieldOptions))
-        {
-            fieldError = "Las listas desplegables requieren al menos una opción.";
-            return;
-        }
+        { fieldError = L.Validation_SelectOptionsRequired; return; }
 
-        // Validate regex if provided
         if (!string.IsNullOrWhiteSpace(fieldRegex))
         {
             try { System.Text.RegularExpressions.Regex.Match("", fieldRegex); }
-            catch
-            {
-                fieldError = "El patrón regex no es válido.";
-                return;
-            }
+            catch { fieldError = L.Validation_InvalidRegex; return; }
         }
 
         using var context = DbFactory.CreateDbContext();
 
         var duplicate = await context.MetaFieldDefinition
             .AnyAsync(f => f.Key == fieldKey.Trim() && f.Id != (editingFieldId ?? 0));
-        if (duplicate)
-        {
-            fieldError = $"Ya existe un campo con la clave \"{fieldKey.Trim()}\".";
-            return;
-        }
+        if (duplicate) { fieldError = string.Format(L.Validation_DuplicateKey, fieldKey.Trim()); return; }
 
         int? conditionalId = int.TryParse(fieldConditionalOnId, out var cid) ? cid : null;
 
@@ -728,35 +736,22 @@
             var field = await context.MetaFieldDefinition.FindAsync(editingFieldId.Value);
             if (field is not null)
             {
-                field.Label = fieldLabel.Trim();
-                field.Key = fieldKey.Trim();
-                field.FieldType = fieldType;
-                field.IsRequired = fieldIsRequired;
-                field.SortOrder = fieldSortOrder;
-                field.RegexPattern = NullIfEmpty(fieldRegex);
-                field.RegexMessage = NullIfEmpty(fieldRegexMessage);
-                field.FormatMask = NullIfEmpty(fieldFormatMask);
-                field.Options = NullIfEmpty(fieldOptions);
-                field.ConditionalOnFieldId = conditionalId;
-                field.ConditionalOnValue = NullIfEmpty(fieldConditionalOnValue);
+                field.Label = fieldLabel.Trim(); field.Key = fieldKey.Trim(); field.FieldType = fieldType;
+                field.IsRequired = fieldIsRequired; field.SortOrder = fieldSortOrder;
+                field.RegexPattern = NullIfEmpty(fieldRegex); field.RegexMessage = NullIfEmpty(fieldRegexMessage);
+                field.FormatMask = NullIfEmpty(fieldFormatMask); field.Options = NullIfEmpty(fieldOptions);
+                field.ConditionalOnFieldId = conditionalId; field.ConditionalOnValue = NullIfEmpty(fieldConditionalOnValue);
             }
         }
         else
         {
             context.MetaFieldDefinition.Add(new MetaFieldDefinition
             {
-                Label = fieldLabel.Trim(),
-                Key = fieldKey.Trim(),
-                FieldType = fieldType,
-                IsRequired = fieldIsRequired,
-                SortOrder = fieldSortOrder,
-                IsActive = true,
-                RegexPattern = NullIfEmpty(fieldRegex),
-                RegexMessage = NullIfEmpty(fieldRegexMessage),
-                FormatMask = NullIfEmpty(fieldFormatMask),
-                Options = NullIfEmpty(fieldOptions),
-                ConditionalOnFieldId = conditionalId,
-                ConditionalOnValue = NullIfEmpty(fieldConditionalOnValue),
+                Label = fieldLabel.Trim(), Key = fieldKey.Trim(), FieldType = fieldType,
+                IsRequired = fieldIsRequired, SortOrder = fieldSortOrder, IsActive = true,
+                RegexPattern = NullIfEmpty(fieldRegex), RegexMessage = NullIfEmpty(fieldRegexMessage),
+                FormatMask = NullIfEmpty(fieldFormatMask), Options = NullIfEmpty(fieldOptions),
+                ConditionalOnFieldId = conditionalId, ConditionalOnValue = NullIfEmpty(fieldConditionalOnValue),
             });
         }
 
@@ -789,7 +784,6 @@
         shopPhone = settings.FirstOrDefault(s => s.Key == "shop_phone")?.Value ?? "";
         shopEmail = settings.FirstOrDefault(s => s.Key == "shop_email")?.Value ?? "";
         shopAddress = settings.FirstOrDefault(s => s.Key == "shop_address")?.Value ?? "";
-        shopLocale = settings.FirstOrDefault(s => s.Key == "shop_locale")?.Value ?? "es-CR";
     }
 
     private async Task SaveShopSettings()
@@ -803,7 +797,6 @@
         UpsertSetting(context, settings, "shop_phone", shopPhone);
         UpsertSetting(context, settings, "shop_email", shopEmail);
         UpsertSetting(context, settings, "shop_address", shopAddress);
-        UpsertSetting(context, settings, "shop_locale", shopLocale);
         await context.SaveChangesAsync();
         CultureService.Invalidate();
         shopSaveMessage = L.Settings_ConfigSaved;
@@ -818,20 +811,15 @@
         selectedLanguage = setting?.Value ?? "es";
     }
 
-
     // ===== Helpers =====
 
     private void UpsertSetting(BikePOS.Data.BikePosContext context, List<ShopSetting> settings, string key, string value)
     {
         var existing = settings.FirstOrDefault(s => s.Key == key);
         if (existing is not null)
-        {
             existing.Value = value?.Trim() ?? "";
-        }
         else
-        {
             context.ShopSetting.Add(new ShopSetting { Key = key, Value = value?.Trim() ?? "" });
-        }
     }
 
     private static string? NullIfEmpty(string? s) =>

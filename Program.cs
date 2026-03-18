@@ -37,6 +37,7 @@ builder.Services.AddRazorComponents()
 builder.Services.AddI18nText();
 builder.Services.AddScoped<ShopCultureService>();
 builder.Services.AddScoped<TenantContext>();
+builder.Services.AddScoped<TenantDbContextFactory>();
 
 // Authentication: OIDC with external IdP
 builder.Services.AddAuthentication(options =>
@@ -127,6 +128,7 @@ builder.Services.AddAuthentication(options =>
                 identity.AddClaim(new Claim("store_name", storeUser.Store.Name));
                 identity.AddClaim(new Claim("company_id", storeUser.Store.CompanyId.ToString()));
                 identity.AddClaim(new Claim("company_name", storeUser.Store.Company.Name));
+                identity.AddClaim(new Claim("conglomerate_id", storeUser.Store.Company.ConglomerateId.ToString()));
                 identity.AddClaim(new Claim("store_role", storeUser.Role.ToString()));
                 identity.AddClaim(new Claim(ClaimTypes.Role, storeUser.Role.ToString()));
             }

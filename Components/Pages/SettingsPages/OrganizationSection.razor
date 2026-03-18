@@ -1,0 +1,487 @@
+@using Microsoft.EntityFrameworkCore
+@using BikePOS.Models
+@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject I18nText I18nText
+@inject TenantContext Tenant
+
+<h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_Organization</h1>
+<p class="text-sm text-gray-500 mb-6">@L.Settings_OrganizationSubtitle</p>
+
+@if (conglomerate is not null)
+{
+    <div class="relative">
+        @* ====== Conglomerate (root node) ====== *@
+        <div class="flex items-center gap-3 mb-2">
+            <div class="bg-indigo-600 text-white rounded-xl shadow-md px-5 py-3 flex items-center gap-3 min-w-[280px]">
+                <i class="fa-solid fa-city text-lg"></i>
+                <div class="flex-1">
+                    @if (editingConglomerate)
+                    {
+                        <input type="text" class="bg-indigo-500 text-white placeholder-indigo-300 border border-indigo-400 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-2 focus:ring-white/50"
+                               @bind="conglomerateName" placeholder="@L.Settings_GroupName" />
+                    }
+                    else
+                    {
+                        <span class="font-bold text-sm">@conglomerate.Name</span>
+                    }
+                    <span class="block text-indigo-200 text-[10px] uppercase tracking-wider">@L.Settings_Group</span>
+                </div>
+                @if (editingConglomerate)
+                {
+                    <button class="text-indigo-200 hover:text-white text-xs" @onclick="SaveConglomerate">
+                        <i class="fa-solid fa-check"></i>
+                    </button>
+                    <button class="text-indigo-200 hover:text-white text-xs" @onclick="() => editingConglomerate = false">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                }
+                else
+                {
+                    <button class="text-indigo-300 hover:text-white text-xs" @onclick="StartEditConglomerate" title="@L.Settings_EditGroup">
+                        <i class="fa-solid fa-pen text-xs"></i>
+                    </button>
+                }
+            </div>
+        </div>
+
+        @* ====== Companies ====== *@
+        <div class="ml-8 border-l-2 border-gray-200">
+            @foreach (var company in companies)
+            {
+                <div class="relative pl-8 pb-4">
+                    @* Connector line *@
+                    <div class="absolute left-0 top-5 w-8 border-t-2 border-gray-200"></div>
+
+                    @* Company node *@
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 min-w-[320px] inline-block">
+                        @if (editingCompanyId == company.Id)
+                        {
+                            @* Edit mode *@
+                            <div class="grid grid-cols-2 gap-3 mb-3">
+                                <div>
+                                    <label class="block text-[10px] text-gray-400 uppercase mb-1">@L.Settings_CompanyName</label>
+                                    <input type="text" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                           @bind="formCompanyName" />
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-gray-400 uppercase mb-1">@L.Settings_CompanyTaxId</label>
+                                    <input type="text" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                           @bind="formCompanyTaxId" />
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-gray-400 uppercase mb-1">@L.Settings_CompanyLocale</label>
+                                    <select class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                            @bind="formCompanyLocale">
+                                        @foreach (var kv in LocaleOptions)
+                                        {
+                                            <option value="@kv.Key">@kv.Value</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-gray-400 uppercase mb-1">@L.Settings_CompanyCurrency</label>
+                                    <input type="text" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-gray-50 text-gray-500"
+                                           value="@GetCurrencyForLocale(formCompanyLocale)" disabled />
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg" @onclick="SaveCompany">@L.Common_Save</button>
+                                <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs px-3 py-1.5 rounded-lg" @onclick="CancelCompanyEdit">@L.Common_Cancel</button>
+                                @if (!company.Stores.Any())
+                                {
+                                    <button class="text-red-400 hover:text-red-600 text-xs ml-auto" @onclick="() => DeleteCompany(company)">@L.Common_Delete</button>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            @* Display mode *@
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <i class="fa-solid fa-building text-blue-600"></i>
+                                    </div>
+                                    <div>
+                                        <span class="text-sm font-semibold text-gray-800">@company.Name</span>
+                                        @if (!string.IsNullOrEmpty(company.TaxId))
+                                        {
+                                            <span class="text-xs text-gray-400 ml-2">@company.TaxId</span>
+                                        }
+                                        <div class="flex items-center gap-1.5 mt-1">
+                                            <span class="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-medium">@company.Locale</span>
+                                            <span class="text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded font-medium">@company.Currency</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button class="text-gray-400 hover:text-indigo-600 text-xs p-1" @onclick="() => StartEditCompany(company)">
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                            </div>
+                        }
+
+                        @* ====== Stores under this company ====== *@
+                        <div class="mt-4 pt-4 border-t border-gray-100">
+                            <span class="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">@L.Settings_Stores</span>
+
+                            <div class="mt-2 ml-4 border-l-2 border-gray-200 space-y-2">
+                                @foreach (var store in company.Stores)
+                                {
+                                    <div class="relative pl-6">
+                                        <div class="absolute left-0 top-4 w-6 border-t-2 border-gray-200"></div>
+
+                                        @if (editingStoreId == store.Id)
+                                        {
+                                            @* Store edit mode *@
+                                            <div class="bg-white rounded-lg border border-indigo-200 shadow-sm p-4">
+                                                <div class="grid grid-cols-2 gap-3 mb-3">
+                                                    <div>
+                                                        <label class="block text-[10px] text-gray-400 uppercase mb-1">@L.Settings_StoreName</label>
+                                                        <input type="text" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                                               @bind="formStoreName" />
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-[10px] text-gray-400 uppercase mb-1">@L.Common_Phone</label>
+                                                        <input type="tel" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                                               @bind="formStorePhone" />
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-[10px] text-gray-400 uppercase mb-1">@L.Common_Email</label>
+                                                        <input type="email" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                                               @bind="formStoreEmail" />
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-[10px] text-gray-400 uppercase mb-1">@L.Common_Address</label>
+                                                        <input type="text" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                                               @bind="formStoreAddress" />
+                                                    </div>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <label class="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                                                        <input type="checkbox" class="rounded border-gray-300" @bind="formStoreIsActive" />
+                                                        @L.Common_Active
+                                                    </label>
+                                                    <div class="ml-auto flex gap-2">
+                                                        <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg" @onclick="SaveStore">@L.Common_Save</button>
+                                                        <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs px-3 py-1.5 rounded-lg" @onclick="CancelStoreEdit">@L.Common_Cancel</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            @* Store display mode *@
+                                            <div class="bg-gray-50 rounded-lg border border-gray-200 px-4 py-3 flex items-center gap-3">
+                                                <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 @(store.IsActive ? "bg-green-100" : "bg-gray-200")">
+                                                    <i class="fa-solid fa-shop text-sm @(store.IsActive ? "text-green-600" : "text-gray-400")"></i>
+                                                </div>
+                                                <div class="flex-1 min-w-0">
+                                                    <div class="flex items-center gap-2">
+                                                        <span class="text-sm font-medium text-gray-800">@store.Name</span>
+                                                        @if (!store.IsActive)
+                                                        {
+                                                            <span class="text-[10px] bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded">@L.Common_Inactive</span>
+                                                        }
+                                                    </div>
+                                                    @if (!string.IsNullOrEmpty(store.Address) || !string.IsNullOrEmpty(store.Phone))
+                                                    {
+                                                        <div class="text-xs text-gray-400 mt-0.5">
+                                                            @if (!string.IsNullOrEmpty(store.Address)) { <span>@store.Address</span> }
+                                                            @if (!string.IsNullOrEmpty(store.Phone)) { <span class="ml-2">@store.Phone</span> }
+                                                        </div>
+                                                    }
+                                                </div>
+                                                <button class="text-gray-400 hover:text-indigo-600 text-xs px-2 py-1"
+                                                        @onclick="() => StartEditStore(store)">
+                                                    <i class="fa-solid fa-pen"></i>
+                                                </button>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+
+                                @* Add store button *@
+                                <div class="relative pl-6">
+                                    <div class="absolute left-0 top-3 w-6 border-t-2 border-gray-200"></div>
+                                    <button class="text-xs text-indigo-500 hover:text-indigo-700 flex items-center gap-1.5 py-2"
+                                            @onclick="() => StartAddStore(company.Id)">
+                                        <i class="fa-solid fa-plus text-[10px]"></i> @L.Settings_AddStore
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @* Add company button *@
+            <div class="relative pl-8 pb-2">
+                <div class="absolute left-0 top-4 w-8 border-t-2 border-gray-200"></div>
+                <button class="text-sm text-indigo-500 hover:text-indigo-700 flex items-center gap-1.5 py-2"
+                        @onclick="StartAddCompany">
+                    <i class="fa-solid fa-plus text-xs"></i> @L.Settings_AddCompany
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mt-3">@errorMessage</div>
+}
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="text-sm text-green-600 bg-green-50 rounded-lg px-3 py-2 mt-3">@successMessage</div>
+}
+
+@code {
+    Text L = new();
+
+    private Conglomerate? conglomerate;
+    private List<Company> companies = new();
+
+    // Conglomerate edit
+    private bool editingConglomerate;
+    private string conglomerateName = "";
+
+    // Company edit
+    private int? editingCompanyId;
+    private string formCompanyName = "";
+    private string formCompanyTaxId = "";
+    private string formCompanyLocale = "es-CR";
+
+    // Store edit
+    private int? editingStoreId;
+    private int addStoreForCompanyId;
+    private string formStoreName = "";
+    private string formStoreAddress = "";
+    private string formStorePhone = "";
+    private string formStoreEmail = "";
+    private bool formStoreIsActive = true;
+
+    private string? errorMessage;
+    private string? successMessage;
+
+    private static readonly Dictionary<string, string> LocaleOptions = new()
+    {
+        ["es-CR"] = "Costa Rica (CRC ₡)",
+        ["es-CL"] = "Chile (CLP $)",
+        ["es-MX"] = "Mexico (MXN $)",
+        ["es-CO"] = "Colombia (COP $)",
+        ["es-AR"] = "Argentina (ARS $)",
+        ["en-US"] = "United States (USD $)"
+    };
+
+    private static readonly Dictionary<string, string> LocaleCurrencyMap = new()
+    {
+        ["es-CR"] = "CRC", ["es-CL"] = "CLP", ["es-MX"] = "MXN",
+        ["es-CO"] = "COP", ["es-AR"] = "ARS", ["en-US"] = "USD"
+    };
+
+    private static string GetCurrencyForLocale(string locale) =>
+        LocaleCurrencyMap.GetValueOrDefault(locale, "USD");
+
+    protected override async Task OnInitializedAsync()
+    {
+        L = await I18nText.GetTextTableAsync<Text>(this);
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var conglomerateId = Tenant.ConglomerateId ?? 1;
+
+        conglomerate = await context.Conglomerate.FindAsync(conglomerateId);
+        companies = await context.Company
+            .Include(c => c.Stores.OrderBy(s => s.Name))
+            .Where(c => c.ConglomerateId == conglomerateId)
+            .OrderBy(c => c.Name)
+            .ToListAsync();
+    }
+
+    // ===== Conglomerate =====
+
+    private void StartEditConglomerate()
+    {
+        conglomerateName = conglomerate?.Name ?? "";
+        editingConglomerate = true;
+        ClearMessages();
+    }
+
+    private async Task SaveConglomerate()
+    {
+        if (string.IsNullOrWhiteSpace(conglomerateName)) return;
+
+        using var context = DbFactory.CreateDbContext();
+        var entity = await context.Conglomerate.FindAsync(conglomerate!.Id);
+        if (entity != null)
+        {
+            entity.Name = conglomerateName.Trim();
+            await context.SaveChangesAsync();
+        }
+        editingConglomerate = false;
+        successMessage = L.Common_SavedSuccess;
+        await LoadData();
+    }
+
+    // ===== Company =====
+
+    private void StartAddCompany()
+    {
+        editingCompanyId = 0; // 0 = new
+        formCompanyName = "";
+        formCompanyTaxId = "";
+        formCompanyLocale = "es-CR";
+        ClearMessages();
+    }
+
+    private void StartEditCompany(Company company)
+    {
+        editingCompanyId = company.Id;
+        formCompanyName = company.Name;
+        formCompanyTaxId = company.TaxId ?? "";
+        formCompanyLocale = company.Locale;
+        ClearMessages();
+    }
+
+    private void CancelCompanyEdit() => editingCompanyId = null;
+
+    private async Task SaveCompany()
+    {
+        ClearMessages();
+        if (string.IsNullOrWhiteSpace(formCompanyName))
+        {
+            errorMessage = L.Settings_CompanyName + " is required.";
+            return;
+        }
+
+        using var context = DbFactory.CreateDbContext();
+        var currency = GetCurrencyForLocale(formCompanyLocale);
+
+        if (editingCompanyId is > 0)
+        {
+            var entity = await context.Company.FindAsync(editingCompanyId.Value);
+            if (entity != null)
+            {
+                entity.Name = formCompanyName.Trim();
+                entity.Locale = formCompanyLocale;
+                entity.Currency = currency;
+                entity.TaxId = NullIfEmpty(formCompanyTaxId);
+            }
+        }
+        else
+        {
+            context.Company.Add(new Company
+            {
+                ConglomerateId = Tenant.ConglomerateId ?? 1,
+                Name = formCompanyName.Trim(),
+                Locale = formCompanyLocale,
+                Currency = currency,
+                TaxId = NullIfEmpty(formCompanyTaxId)
+            });
+        }
+
+        await context.SaveChangesAsync();
+        editingCompanyId = null;
+        successMessage = L.Common_SavedSuccess;
+        await LoadData();
+    }
+
+    private async Task DeleteCompany(Company company)
+    {
+        ClearMessages();
+        if (company.Stores.Any())
+        {
+            errorMessage = L.Settings_CompanyHasStores;
+            return;
+        }
+
+        using var context = DbFactory.CreateDbContext();
+        var entity = await context.Company.FindAsync(company.Id);
+        if (entity != null)
+        {
+            context.Company.Remove(entity);
+            await context.SaveChangesAsync();
+        }
+        editingCompanyId = null;
+        await LoadData();
+    }
+
+    // ===== Store =====
+
+    private void StartAddStore(int companyId)
+    {
+        addStoreForCompanyId = companyId;
+        editingStoreId = 0; // 0 = new
+        formStoreName = "";
+        formStoreAddress = "";
+        formStorePhone = "";
+        formStoreEmail = "";
+        formStoreIsActive = true;
+        ClearMessages();
+    }
+
+    private void StartEditStore(Store store)
+    {
+        addStoreForCompanyId = store.CompanyId;
+        editingStoreId = store.Id;
+        formStoreName = store.Name;
+        formStoreAddress = store.Address ?? "";
+        formStorePhone = store.Phone ?? "";
+        formStoreEmail = store.Email ?? "";
+        formStoreIsActive = store.IsActive;
+        ClearMessages();
+    }
+
+    private void CancelStoreEdit() => editingStoreId = null;
+
+    private async Task SaveStore()
+    {
+        ClearMessages();
+        if (string.IsNullOrWhiteSpace(formStoreName))
+        {
+            errorMessage = L.Settings_StoreName + " is required.";
+            return;
+        }
+
+        using var context = DbFactory.CreateDbContext();
+
+        if (editingStoreId is > 0)
+        {
+            var entity = await context.Store.FindAsync(editingStoreId.Value);
+            if (entity != null)
+            {
+                entity.Name = formStoreName.Trim();
+                entity.Address = NullIfEmpty(formStoreAddress);
+                entity.Phone = NullIfEmpty(formStorePhone);
+                entity.Email = NullIfEmpty(formStoreEmail);
+                entity.IsActive = formStoreIsActive;
+            }
+        }
+        else
+        {
+            context.Store.Add(new Store
+            {
+                CompanyId = addStoreForCompanyId,
+                Name = formStoreName.Trim(),
+                Address = NullIfEmpty(formStoreAddress),
+                Phone = NullIfEmpty(formStorePhone),
+                Email = NullIfEmpty(formStoreEmail),
+                IsActive = formStoreIsActive
+            });
+        }
+
+        await context.SaveChangesAsync();
+        editingStoreId = null;
+        successMessage = L.Common_SavedSuccess;
+        await LoadData();
+    }
+
+    // ===== Helpers =====
+
+    private void ClearMessages() { errorMessage = null; successMessage = null; }
+
+    private static string? NullIfEmpty(string? s) =>
+        string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+}
