@@ -4,7 +4,7 @@
 <aside class="w-20 bg-gray-800 flex flex-col items-center py-4 gap-1 flex-shrink-0">
     <a href="/"
            class="w-12 h-12 bg-indigo-500 rounded-lg flex items-center justify-center mb-4 hover:bg-indigo-600 transition-colors"
-           title="@L["Nav.Home"]">
+           title="@L.Nav_Home">
         <i class="fa-solid fa-cash-register text-white text-lg"></i>
     </a>
 
@@ -17,8 +17,23 @@
     <NavButton Href="/services" Icon="fa-gears" Label="@L.Nav_Services" />
     <NavButton Href="/products" Icon="fa-box-open" Label="@L.Nav_Products" />
 
-    <div class="mt-auto">
+    <div class="mt-auto flex flex-col items-center gap-1">
         <NavButton Href="/settings" Icon="fa-gear" Label="@L.Nav_Settings" />
+
+        <AuthorizeView>
+            <Authorized>
+                <div class="w-12 h-12 flex items-center justify-center" title="@context.User.FindFirst("name")?.Value">
+                    <div class="w-8 h-8 bg-indigo-400 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                        @GetInitials(context.User.FindFirst("name")?.Value)
+                    </div>
+                </div>
+                <a href="/account/logout"
+                   class="w-12 h-12 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+                   title="Logout">
+                    <i class="fa-solid fa-right-from-bracket text-sm"></i>
+                </a>
+            </Authorized>
+        </AuthorizeView>
     </div>
 </aside>
 
@@ -29,5 +44,13 @@
     {
         L = await I18nText.GetTextTableAsync<Text>(this);
     }
-    private void Navigate(string url) => NavigationManager.NavigateTo(url);
+
+    private static string GetInitials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2
+            ? $"{parts[0][0]}{parts[1][0]}".ToUpper()
+            : parts[0][..1].ToUpper();
+    }
 }

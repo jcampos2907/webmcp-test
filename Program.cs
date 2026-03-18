@@ -4,6 +4,10 @@ using Microsoft.EntityFrameworkCore;
 using Blazorise;
 using Blazorise.Tailwind;
 using Blazorise.Icons.FontAwesome;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
 using Toolbelt.Blazor.Extensions.DependencyInjection;
 using BikePOS.Services;
@@ -31,6 +35,29 @@ builder.Services.AddRazorComponents()
 builder.Services.AddI18nText();
 builder.Services.AddScoped<ShopCultureService>();
 
+// Authentication: OIDC with external IdP
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
+})
+.AddCookie()
+.AddOpenIdConnect(options =>
+{
+    options.Authority = builder.Configuration["Oidc:Authority"];
+    options.ClientId = builder.Configuration["Oidc:ClientId"];
+    options.ClientSecret = builder.Configuration["Oidc:ClientSecret"];
+    options.ResponseType = OpenIdConnectResponseType.Code;
+    options.SaveTokens = true;
+    options.GetClaimsFromUserInfoEndpoint = true;
+    options.MapInboundClaims = false;
+    options.Scope.Add("openid");
+    options.Scope.Add("profile");
+    options.Scope.Add("email");
+});
+
+builder.Services.AddAuthorization();
+builder.Services.AddCascadingAuthenticationState();
 
 builder.Services.AddOpenApi();
 
@@ -61,9 +88,26 @@ if (app.Environment.IsDevelopment())
 ;
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+
+// Auth endpoints — OIDC requires full HTTP round-trips, not Blazor components
+app.MapGet("/account/login", (string? returnUrl) =>
+    Results.Challenge(new AuthenticationProperties
+    {
+        RedirectUri = returnUrl ?? "/"
+    }));
+
+app.MapGet("/account/logout", async (HttpContext httpContext) =>
+{
+    await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+    await httpContext.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme);
+});
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
