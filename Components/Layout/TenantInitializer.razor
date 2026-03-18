@@ -1,0 +1,37 @@
+@inject TenantContext Tenant
+@inject NavigationManager Navigation
+
+@if (_initialized)
+{
+    @ChildContent
+}
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private bool _initialized;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState != null)
+        {
+            var state = await AuthState;
+            if (state.User.Identity?.IsAuthenticated == true)
+            {
+                Tenant.PopulateFromClaims(state.User);
+
+                if (!Tenant.IsResolved)
+                {
+                    Navigation.NavigateTo("/account/no-access", forceLoad: true);
+                    return;
+                }
+            }
+        }
+
+        _initialized = true;
+    }
+}
