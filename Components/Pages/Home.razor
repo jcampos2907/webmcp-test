@@ -7,6 +7,7 @@
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
 @inject I18nText I18nText
+@inject ShopCultureService CultureService
 
 <PageTitle>@L.Pos_Title</PageTitle>
 
@@ -110,7 +111,7 @@
                     </div>
                     <div class="flex justify-between text-sm mt-1">
                         <span class="text-gray-600">@(selectedTicket.Mechanic?.Name ?? L.Common_Unassigned)</span>
-                        <span class="font-bold text-indigo-600">@selectedTicket.Price.ToString("C")</span>
+                        <span class="font-bold text-indigo-600">@selectedTicket.Price.ToString("C", culture)</span>
                     </div>
                 </div>
 
@@ -165,12 +166,12 @@
                     {
                         <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                             <div>
-                                <span class="text-sm font-medium text-gray-800">@charge.Amount.ToString("C")</span>
+                                <span class="text-sm font-medium text-gray-800">@charge.Amount.ToString("C", culture)</span>
                                 <span class="text-xs text-gray-400 ml-2">Ticket #@charge.ServiceTicketId</span>
                             </div>
                             <div class="text-right">
                                 <span class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">@charge.PaymentMethod</span>
-                                <div class="text-xs text-gray-400 mt-1">@charge.ChargedAt.ToLocalTime().ToString("g")</div>
+                                <div class="text-xs text-gray-400 mt-1">@charge.ChargedAt.ToLocalTime().ToString("g", culture)</div>
                             </div>
                         </div>
                     }
@@ -204,10 +205,12 @@
 
 @code {
     Text L = new();
+    CultureInfo culture = CultureInfo.CurrentCulture;
 
     protected override async Task OnInitializedAsync()
     {
         L = await I18nText.GetTextTableAsync<Text>(this);
+        culture = await CultureService.GetCultureAsync();
     }
     private IJSObjectReference? module;
     private DotNetObjectReference<Home>? dotNetRef;

@@ -4,6 +4,7 @@
 @using BikePOS.Models
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject I18nText I18nText
+@inject ShopCultureService CultureService
 
 <PageTitle>@L.Settings_Title</PageTitle>
 
@@ -424,6 +425,18 @@
                             <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                                    @bind="shopAddress" placeholder="@L.Settings_ShopAddress" />
                         </div>
+                        <div class="col-span-2">
+                            <label class="block text-sm text-gray-600 mb-1">@L.Settings_Locale</label>
+                            <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                    @bind="shopLocale">
+                                <option value="es-CR">Español - Costa Rica (₡)</option>
+                                <option value="es-CL">Español - Chile ($)</option>
+                                <option value="es-MX">Español - México ($)</option>
+                                <option value="es-CO">Español - Colombia ($)</option>
+                                <option value="es-AR">Español - Argentina ($)</option>
+                                <option value="en-US">English - United States ($)</option>
+                            </select>
+                        </div>
                     </div>
 
                     @if (!string.IsNullOrEmpty(shopSaveMessage))
@@ -506,6 +519,7 @@
     private string shopPhone = "";
     private string shopEmail = "";
     private string shopAddress = "";
+    private string shopLocale = "es-CR";
     private string? shopSaveMessage;
 
     // --- Language ---
@@ -775,6 +789,7 @@
         shopPhone = settings.FirstOrDefault(s => s.Key == "shop_phone")?.Value ?? "";
         shopEmail = settings.FirstOrDefault(s => s.Key == "shop_email")?.Value ?? "";
         shopAddress = settings.FirstOrDefault(s => s.Key == "shop_address")?.Value ?? "";
+        shopLocale = settings.FirstOrDefault(s => s.Key == "shop_locale")?.Value ?? "es-CR";
     }
 
     private async Task SaveShopSettings()
@@ -788,8 +803,10 @@
         UpsertSetting(context, settings, "shop_phone", shopPhone);
         UpsertSetting(context, settings, "shop_email", shopEmail);
         UpsertSetting(context, settings, "shop_address", shopAddress);
+        UpsertSetting(context, settings, "shop_locale", shopLocale);
         await context.SaveChangesAsync();
-        shopSaveMessage = "Configuración guardada.";
+        CultureService.Invalidate();
+        shopSaveMessage = L.Settings_ConfigSaved;
     }
 
     // ===== Language =====

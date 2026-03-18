@@ -6,6 +6,7 @@ using Blazorise.Tailwind;
 using Blazorise.Icons.FontAwesome;
 
 using Toolbelt.Blazor.Extensions.DependencyInjection;
+using BikePOS.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("BikePosContext") ?? throw new InvalidOperationException("Connection string 'BikePosContext' not found.");
@@ -28,6 +29,7 @@ builder.Services.AddRazorComponents()
 
 
 builder.Services.AddI18nText();
+builder.Services.AddScoped<ShopCultureService>();
 
 
 builder.Services.AddOpenApi();
