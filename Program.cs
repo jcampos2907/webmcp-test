@@ -39,6 +39,8 @@ builder.Services.AddI18nText();
 builder.Services.AddScoped<ShopCultureService>();
 builder.Services.AddScoped<TenantContext>();
 builder.Services.AddSingleton<SecretProtector>();
+builder.Services.AddSingleton<IPaymentTerminalProvider, ManualPaymentProvider>();
+builder.Services.AddSingleton<PaymentTerminalService>();
 
 // Decorate IDbContextFactory so every DbContext automatically gets CurrentStoreId from TenantContext
 {

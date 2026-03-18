@@ -7,7 +7,17 @@ public enum PaymentMethod
 {
     Cash,
     Card,
+    Transfer,
+    Mixed,
     Pending
+}
+
+public enum PaymentStatus
+{
+    Pending,
+    Completed,
+    Cancelled,
+    Failed
 }
 
 public class Charge
@@ -33,6 +43,11 @@ public class Charge
     public string? ExternalTransactionId { get; set; }
 
     public string? Notes { get; set; }
+
+    [Required]
+    public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Pending;
+
+    public DateTime? CompletedAt { get; set; }
 
     public int? StoreId { get; set; }
     public Store? Store { get; set; }
