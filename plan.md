@@ -130,33 +130,86 @@ A complete bike service shop POS system. Handles the full lifecycle: customer wa
 
 ## Phase 4: Authentication & Authorization
 
-**Goal**: ASP.NET Core Identity with roles: Admin, Mechanic, Cashier. Auth comes before payment terminal because payment endpoints must be secured.
+**Goal**: Secure the app with external OAuth/OIDC. No local passwords — identity and permissions are fully managed by the IdP (Keycloak, Authentik, Azure AD/Entra, etc.). The app reads claims from the token and enforces access. Auth comes before payment terminal because payment endpoints must be secured.
 
-### Setup
-- Add `Microsoft.AspNetCore.Identity.EntityFrameworkCore`
-- `Models/ApplicationUser.cs` — extends `IdentityUser`, adds `DisplayName`, optional `MechanicId` FK
-- Change `BikePosContext` base to `IdentityDbContext<ApplicationUser>`
-- Register Identity services in `Program.cs`, add middleware
+### Design Decisions
+- **Provider is the single source of truth** for identity and roles. No local role storage or management UI.
+- **No ASP.NET Core Identity** — no IdentityUser, no password hashing, no Identity tables. Just OIDC + cookie auth.
+- **`AppUser` table is audit-only** — records known users (external subject ID, display name, email, last login) for `CreatedBy`/`UpdatedBy` FKs. Not used for authorization.
+- **Roles come from the IdP** via a `roles` claim in the ID token. The IdP admin assigns users to roles (`superadmin`, `admin`, `mechanic`, `cashier`). The app maps this claim to .NET's role system automatically.
+- **Role hierarchy**: `superadmin` > `admin` > `mechanic`/`cashier`. Superadmin is the store owner — full control including store-wide settings and meta field configuration. Admin can read all data and write operational data (tickets, customers, products) but cannot change system configuration.
 
-### Pages
-- `Components/Pages/Account/` — Login, Register (admin-only), Logout, AccessDenied
+### Implementation Steps (one at a time, testable independently)
+
+#### Step 1: OIDC plumbing + login/logout
+- [ ] Add OIDC config to `appsettings.json` (`Oidc:Authority`, `Oidc:ClientId`, `Oidc:ClientSecret`)
+- [ ] Register Authentication + OpenIdConnect + Cookie in `Program.cs`
+- [ ] Add `UseAuthentication()` + `UseAuthorization()` middleware
+- [ ] Add `CascadingAuthenticationState` to `App.razor`
+- [ ] Create `Components/Pages/Account/Login.razor` — triggers OIDC challenge redirect
+- [ ] Create `Components/Pages/Account/Logout.razor` — signs out of cookie + IdP
+- [ ] Add login/logout button to NavMenu (show user name when authenticated)
+- **Test**: Click login → redirected to IdP → login → redirected back → see your name in nav. Click logout → session cleared.
+
+#### Step 2: Require authentication globally
+- [ ] Add `[Authorize]` as default policy (all pages require login)
+- [ ] Create `Components/Pages/Account/AccessDenied.razor` — friendly "not authorized" page
+- [ ] Unauthenticated users redirected to login automatically
+- **Test**: Open app in incognito → redirected to IdP login. After login → app loads normally.
+
+#### Step 3: Role-based authorization
+- [ ] Map IdP `roles` claim to .NET roles in OIDC `OnTokenValidated` event
+- [ ] Add `[Authorize(Roles = "...")]` attributes to pages per authorization matrix
+- [ ] NavMenu: show/hide links based on user role
+- **Test**: Login as mechanic → only see Tickets + Customers. Login as superadmin → see everything. Login as admin → see most things but not Settings. Login as cashier → see POS + Customers.
+
+#### Step 4: AppUser table + audit trail
+- [ ] Create `Models/AppUser.cs` — `Id`, `ExternalSubjectId`, `DisplayName`, `Email`, `LastLoginAt`
+- [ ] Migration: add `AppUser` table, add `CreatedBy`/`UpdatedBy` (string, nullable) to ServiceTicket and Charge
+- [ ] In `OnTokenValidated`, upsert `AppUser` row (create on first login, update LastLoginAt on subsequent)
+- [ ] Populate `CreatedBy`/`UpdatedBy` from `AuthenticationState` when saving tickets/charges
+- **Test**: Login → check DB for AppUser row. Create a ticket → `CreatedBy` has your subject ID.
 
 ### Authorization Matrix
 
-| Area | Admin | Mechanic | Cashier |
-|------|-------|----------|---------|
-| All CRUD | Yes | — | — |
-| Tickets read/write | Yes | Own only | No |
-| POS Terminal | Yes | No | Yes |
-| Settings | Yes | No | No |
-| Customer CRUD | Yes | Read only | Read only |
+| Area | superadmin | admin | mechanic | cashier |
+|------|------------|-------|----------|---------|
+| Settings (shop info, meta fields, component types) | Yes | — | — | — |
+| Services CRUD | Yes | Read/Write | — | — |
+| Products CRUD | Yes | Read/Write | — | — |
+| Mechanics CRUD | Yes | Read/Write | — | — |
+| Components CRUD | Yes | Read/Write | — | — |
+| Tickets read/write | Yes | Read/Write | Own only | — |
+| Customer CRUD | Yes | Read/Write | Read only | Read only |
+| POS Terminal | Yes | Yes | — | Yes |
+| Home dashboard | Yes | Yes | Yes | Yes |
 
-### Audit Trail
-- Add `CreatedBy`/`UpdatedBy` (UserId) to ServiceTicket, Charge
-- Log status changes with timestamp and user
+### Role Descriptions
+- **superadmin**: Store owner. Full access to everything including system configuration (Settings, meta fields, component types, shop info). The only role that can change how the system behaves.
+- **admin**: Store manager. Can read and write all operational data (tickets, customers, products, services, mechanics) and use the POS terminal. Cannot change system settings.
+- **mechanic**: Workshop staff. Can view and work on their own assigned tickets. Read-only access to customers. Cannot access POS, products, services, or settings.
+- **cashier**: Front desk / POS operator. Can use the POS terminal and look up customers. Cannot access tickets, products, services, or settings.
 
-### Seed Data
-- Seed roles and default admin user (`admin@bikepos.local` / changeable password)
+### IdP Configuration (admin responsibility, not app code)
+- Create client with Authorization Code flow + PKCE
+- Set redirect URI: `https://localhost:7245/signin-oidc`
+- Set post-logout redirect: `https://localhost:7245/signout-callback-oidc`
+- Create roles/groups: `superadmin`, `admin`, `mechanic`, `cashier`
+- Configure ID token to include `roles` claim
+- Assign users to roles
+
+### Config Shape
+```json
+{
+  "Oidc": {
+    "Authority": "https://keycloak.example/realms/bikepos",
+    "ClientId": "bikepos",
+    "ClientSecret": "..."
+  }
+}
+```
+
+**Files**: `Program.cs`, `appsettings.json`, `Models/AppUser.cs`, `Components/Pages/Account/`, `Components/Layout/NavMenu.razor`, `Components/App.razor`
 
 ---
 
