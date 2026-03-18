@@ -6,16 +6,16 @@
 @using BikePOS.Data
 @implements IAsyncDisposable
 @inject IDbContextFactory<BikePosContext> DbFactory
-@inject IStringLocalizer<SharedResource> L
+@inject I18nText I18nText
 
-<PageTitle>@L["Tickets_Title"]</PageTitle>
+<PageTitle>@L.Tickets_Title</PageTitle>
 
-<h1>@L["Tickets_Title"]</h1>
+<h1>@L.Tickets_Title</h1>
 
 <div class="mb-3">
-    <label class="form-label">@L["Tickets_FilterByStatus"]</label>
+    <label class="form-label">@L.Tickets_FilterByStatus</label>
     <select @bind="StatusFilter" @bind:event="onchange" class="form-select" style="width: 200px; display: inline-block;">
-        <option value="">@L["Status_All"]</option>
+        <option value="">@L.Status_All</option>
         @foreach (var status in Enum.GetValues<TicketStatus>())
         {
             <option value="@status">@status</option>
@@ -24,32 +24,38 @@
 </div>
 
 <p>
-    <a href="tickets/create">@L["Common_CreateNew"]</a>
+    <a href="tickets/create">@L.Common_CreateNew</a>
 </p>
 
 <QuickGrid Class="table" Items="FilteredTickets" Pagination="pagination">
     <PropertyColumn Property="t => t.Id" Title="#" />
     <PropertyColumn Property="t => t.Status" />
-    <TemplateColumn Title="@L["Tickets_Component"]" Context="ticket">
+    <TemplateColumn Title="@L.Tickets_Component" Context="ticket">
         @ticket.Component?.Name
         <span class="text-xs text-gray-400 ml-1">@ticket.Component?.ComponentType</span>
     </TemplateColumn>
-    <TemplateColumn Title="@L["Tickets_Mechanic"]" Context="ticket">
+    <TemplateColumn Title="@L.Tickets_Mechanic" Context="ticket">
         @ticket.Mechanic?.Name
     </TemplateColumn>
     <PropertyColumn Property="t => t.Price" Format="C" />
     <PropertyColumn Property="t => t.CreatedAt" Format="g" />
 
     <TemplateColumn Context="ticket">
-        <a href="@($"tickets/edit?id={ticket.Id}")">@L["Common_Edit"]</a> |
-        <a href="@($"tickets/details?id={ticket.Id}")">@L["Common_Details"]</a> |
-        <a href="@($"tickets/delete?id={ticket.Id}")">@L["Common_Delete"]</a>
+        <a href="@($"tickets/edit?id={ticket.Id}")">@L.Common_Edit</a> |
+        <a href="@($"tickets/details?id={ticket.Id}")">@L.Common_Details</a> |
+        <a href="@($"tickets/delete?id={ticket.Id}")">@L.Common_Delete</a>
     </TemplateColumn>
 </QuickGrid>
 
 <Paginator State="pagination" />
 
 @code {
+    Text L = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        L = await I18nText.GetTextTableAsync<Text>(this);
+    }
     private PaginationState pagination = new PaginationState { ItemsPerPage = 10 };
     private string StatusFilter = string.Empty;
     private BikePosContext context = default!;

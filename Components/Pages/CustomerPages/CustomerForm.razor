@@ -2,67 +2,67 @@
 @using BikePOS.Models
 @using System.Text.RegularExpressions
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
-@inject IStringLocalizer<SharedResource> L
+@inject I18nText I18nText
 
 <div class="space-y-4">
-    <h3 class="text-lg font-semibold text-gray-800">@(IsEditMode ? @L["Customers_Edit"] : @L["Customers_New"])</h3>
+    <h3 class="text-lg font-semibold text-gray-800">@(IsEditMode ? L.Customers_Edit : L.Customers_New)</h3>
 
     @* Name *@
     <div class="grid grid-cols-2 gap-3">
         <div>
-            <label class="block text-sm text-gray-600 mb-1">@L["Customers_FirstName"] <span class="text-red-500">*</span></label>
+            <label class="block text-sm text-gray-600 mb-1">@L.Customers_FirstName <span class="text-red-500">*</span></label>
             <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="firstName" placeholder="@L["Customers_FirstName"]" />
+                   @bind="firstName" placeholder="@L.Customers_FirstName" />
         </div>
         <div>
-            <label class="block text-sm text-gray-600 mb-1">@L["Customers_LastName"] <span class="text-red-500">*</span></label>
+            <label class="block text-sm text-gray-600 mb-1">@L.Customers_LastName <span class="text-red-500">*</span></label>
             <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="lastName" placeholder="@L["Customers_LastName"]" />
+                   @bind="lastName" placeholder="@L.Customers_LastName" />
         </div>
     </div>
 
     @* Contact *@
     <div class="grid grid-cols-2 gap-3">
         <div>
-            <label class="block text-sm text-gray-600 mb-1">@L["Common_Phone"]</label>
+            <label class="block text-sm text-gray-600 mb-1">@L.Common_Phone</label>
             <input type="tel" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="phone" placeholder="@L["Common_Phone"]" />
+                   @bind="phone" placeholder="@L.Common_Phone" />
         </div>
         <div>
-            <label class="block text-sm text-gray-600 mb-1">@L["Common_Email"]</label>
+            <label class="block text-sm text-gray-600 mb-1">@L.Common_Email</label>
             <input type="email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="email" placeholder="@L["Common_Email"]" />
+                   @bind="email" placeholder="@L.Common_Email" />
         </div>
     </div>
 
     @* Address *@
     <div>
-        <label class="block text-sm text-gray-600 mb-1">@L["Common_Address"]</label>
+        <label class="block text-sm text-gray-600 mb-1">@L.Common_Address</label>
         <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-               @bind="street" placeholder="@L["Customers_StreetPlaceholder"]" />
+               @bind="street" placeholder="@L.Customers_StreetPlaceholder" />
     </div>
     <div class="grid grid-cols-2 gap-3">
         <div>
-            <label class="block text-sm text-gray-600 mb-1">@L["Common_City"]</label>
+            <label class="block text-sm text-gray-600 mb-1">@L.Common_City</label>
             <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="city" placeholder="@L["Common_City"]" />
+                   @bind="city" placeholder="@L.Common_City" />
         </div>
         <div>
-            <label class="block text-sm text-gray-600 mb-1">@L["Common_State"]</label>
+            <label class="block text-sm text-gray-600 mb-1">@L.Common_State</label>
             <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="state" placeholder="@L["Common_State"]" />
+                   @bind="state" placeholder="@L.Common_State" />
         </div>
     </div>
     <div class="grid grid-cols-2 gap-3">
         <div>
-            <label class="block text-sm text-gray-600 mb-1">@L["Common_ZipCode"]</label>
+            <label class="block text-sm text-gray-600 mb-1">@L.Common_ZipCode</label>
             <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="zipCode" placeholder="@L["Common_ZipCode"]" />
+                   @bind="zipCode" placeholder="@L.Common_ZipCode" />
         </div>
         <div>
-            <label class="block text-sm text-gray-600 mb-1">@L["Common_Country"]</label>
+            <label class="block text-sm text-gray-600 mb-1">@L.Common_Country</label>
             <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="country" placeholder="@L["Common_Country"]" />
+                   @bind="country" placeholder="@L.Common_Country" />
         </div>
     </div>
 
@@ -70,7 +70,7 @@
     @if (metaFields.Any())
     {
         <hr class="border-gray-200" />
-        <p class="text-xs text-gray-400 uppercase tracking-wide">@L["Customers_AdditionalFields"]</p>
+        <p class="text-xs text-gray-400 uppercase tracking-wide">@L.Customers_AdditionalFields</p>
         <div class="grid grid-cols-2 gap-3">
             @foreach (var field in metaFields)
             {
@@ -87,7 +87,7 @@
                             <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                                     value="@GetMetaValue(field.Id)"
                                     @onchange="e => SetMetaValue(field.Id, e.Value?.ToString())">
-                                <option value="">@L["Common_Select"]</option>
+                                <option value="">@L.Common_Select</option>
                                 @foreach (var opt in field.Options.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                                 {
                                     <option value="@opt">@opt</option>
@@ -122,16 +122,17 @@
     @* Actions *@
     <div class="flex gap-3 pt-2">
         <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
-                @onclick="Save">@L["Common_Save"]</button>
+                @onclick="Save">@L.Common_Save</button>
         @if (ShowCancelButton)
         {
             <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm px-5 py-2 rounded-lg transition-colors"
-                    @onclick="Cancel">@L["Common_Cancel"]</button>
+                    @onclick="Cancel">@L.Common_Cancel</button>
         }
     </div>
 </div>
 
 @code {
+    Text L = new();
     [Parameter] public Customer? ExistingCustomer { get; set; }
     [Parameter] public EventCallback<Customer> OnSaved { get; set; }
     [Parameter] public EventCallback OnCancelled { get; set; }
@@ -156,6 +157,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        L = await I18nText.GetTextTableAsync<Text>(this);
         using var context = DbFactory.CreateDbContext();
         metaFields = await context.MetaFieldDefinition
             .Where(f => f.IsActive)
@@ -210,7 +212,7 @@
 
         if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
         {
-            validationError = L["Validation_NameRequired"];
+            validationError = L.Validation_NameRequired;
             return;
         }
 
@@ -221,7 +223,7 @@
 
             if (field.IsRequired && string.IsNullOrWhiteSpace(val))
             {
-                fieldErrors[field.Id] = string.Format(L["Validation_FieldRequired"], field.Label);
+                fieldErrors[field.Id] = string.Format(L.Validation_FieldRequired, field.Label);
                 continue;
             }
 
@@ -231,7 +233,7 @@
                 {
                     if (!Regex.IsMatch(val, field.RegexPattern))
                     {
-                        fieldErrors[field.Id] = field.RegexMessage ?? string.Format(L["Validation_InvalidFormat"], field.Label);
+                        fieldErrors[field.Id] = field.RegexMessage ?? string.Format(L.Validation_InvalidFormat, field.Label);
                     }
                 }
                 catch
@@ -243,7 +245,7 @@
 
         if (fieldErrors.Any())
         {
-            validationError = L["Validation_FixErrors"];
+            validationError = L.Validation_FixErrors;
             return;
         }
 

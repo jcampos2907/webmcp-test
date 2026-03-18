@@ -6,21 +6,21 @@
 @inject IJSRuntime JS
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
-@inject IStringLocalizer<SharedResource> L
+@inject I18nText I18nText
 
-<PageTitle>BikePOS</PageTitle>
+<PageTitle>@L.Pos_Title</PageTitle>
 
 <div class="p-6">
     @* Header *@
     <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold text-gray-800">@L["Pos_Title"]</h1>
+        <h1 class="text-2xl font-bold text-gray-800">@L.Pos_Title</h1>
         <div class="flex items-center gap-3">
-            <span class="inline-block w-3 h-3 rounded-full @(isOnline ? "bg-green-400" : "bg-red-400")" title="@(isOnline ? L["Pos_Online"] : L["Pos_Offline"])"></span>
+            <span class="inline-block w-3 h-3 rounded-full @(isOnline ? "bg-green-400" : "bg-red-400")" title="@(isOnline ? L.Pos_Online : L.Pos_Offline)"></span>
             @if (!string.IsNullOrEmpty(activeCashier))
             {
-                <span class="text-sm text-gray-500">@L["Pos_Cashier"]: <strong class="text-gray-800">@activeCashier</strong></span>
+                <span class="text-sm text-gray-500">@L.Pos_Cashier: <strong class="text-gray-800">@activeCashier</strong></span>
             }
-            <button class="text-sm text-indigo-600 hover:underline" @onclick="() => showCashierModal = true">@L["Pos_Change"]</button>
+            <button class="text-sm text-indigo-600 hover:underline" @onclick="() => showCashierModal = true">@L.Pos_Change</button>
         </div>
     </div>
 
@@ -32,8 +32,8 @@
                 <i class="fa-solid fa-file-circle-plus text-indigo-600 text-2xl"></i>
             </div>
             <div>
-                <h2 class="text-xl font-semibold text-gray-800">@L["Pos_CreateTicket"]</h2>
-                <p class="text-sm text-gray-500">@L["Pos_CreateTicketDesc"]</p>
+                <h2 class="text-xl font-semibold text-gray-800">@L.Pos_CreateTicket</h2>
+                <p class="text-sm text-gray-500">@L.Pos_CreateTicketDesc</p>
             </div>
         </div>
     </div>
@@ -42,10 +42,10 @@
     <div class="grid grid-cols-2 gap-6 mb-6">
         @* Search Tickets *@
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">@L["Pos_SearchTicket"]</h3>
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">@L.Pos_SearchTicket</h3>
             <div class="mb-3">
                 <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                       placeholder="@L["Pos_SearchTicketPlaceholder"]"
+                       placeholder="@L.Pos_SearchTicketPlaceholder"
                        @bind="ticketSearch" @bind:event="oninput" @onkeyup="SearchTickets" />
             </div>
             @if (searchResults.Any())
@@ -66,16 +66,16 @@
             }
             else if (!string.IsNullOrEmpty(ticketSearch))
             {
-                <p class="text-sm text-gray-400">@L["Pos_NoTicketsFound"]</p>
+                <p class="text-sm text-gray-400">@L.Pos_NoTicketsFound</p>
             }
         </div>
 
         @* Customer Lookup *@
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">@L["Pos_SearchCustomer"]</h3>
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">@L.Pos_SearchCustomer</h3>
             <div class="mb-3">
                 <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                       placeholder="@L["Pos_SearchCustomerPlaceholder"]"
+                       placeholder="@L.Pos_SearchCustomerPlaceholder"
                        @bind="customerSearch" @bind:event="oninput" @onkeyup="SearchCustomers" />
             </div>
             @if (customerResults.Any())
@@ -100,7 +100,7 @@
     <div class="grid grid-cols-2 gap-6">
         @* Process Charge *@
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">@L["Pos_ProcessCharge"]</h3>
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">@L.Pos_ProcessCharge</h3>
             @if (selectedTicket is not null)
             {
                 <div class="bg-indigo-50 rounded-lg p-3 mb-4">
@@ -109,30 +109,30 @@
                         <span class="font-semibold text-gray-800">@selectedTicket.Component?.Name</span>
                     </div>
                     <div class="flex justify-between text-sm mt-1">
-                        <span class="text-gray-600">@(selectedTicket.Mechanic?.Name ?? L["Common_Unassigned"])</span>
+                        <span class="text-gray-600">@(selectedTicket.Mechanic?.Name ?? L.Common_Unassigned)</span>
                         <span class="font-bold text-indigo-600">@selectedTicket.Price.ToString("C")</span>
                     </div>
                 </div>
 
                 <div class="mb-3">
-                    <label class="block text-sm text-gray-600 mb-1">@L["Pos_Amount"]</label>
+                    <label class="block text-sm text-gray-600 mb-1">@L.Pos_Amount</label>
                     <input type="number" step="0.01" min="0"
                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                            @bind="chargeAmount" />
                 </div>
 
                 <div class="mb-4">
-                    <label class="block text-sm text-gray-600 mb-1">@L["Pos_PaymentMethod"]</label>
+                    <label class="block text-sm text-gray-600 mb-1">@L.Pos_PaymentMethod</label>
                     <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                             @bind="selectedPaymentMethod">
-                        <option value="@PaymentMethod.Cash">@L["Pos_Cash"]</option>
-                        <option value="@PaymentMethod.Card">@L["Pos_Card"]</option>
+                        <option value="@PaymentMethod.Cash">@L.Pos_Cash</option>
+                        <option value="@PaymentMethod.Card">@L.Pos_Card</option>
                     </select>
                 </div>
 
                 <button class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition-colors disabled:opacity-50"
                         @onclick="ProcessCharge" disabled="@(!isOnline || chargeAmount <= 0)">
-                    @L["Pos_ProcessChargeButton"]
+                    @L.Pos_ProcessChargeButton
                 </button>
 
                 @if (chargeSuccess is not null)
@@ -140,24 +140,24 @@
                     <div class="mt-3 p-2 rounded-lg text-sm text-center @(chargeSuccess.Value ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")">
                         @if (chargeSuccess.Value)
                         {
-                            @L["Pos_ChargeSuccess"]
+                            @L.Pos_ChargeSuccess
                         }
                         else
                         {
-                            @(chargeError ?? L["Pos_ChargeFailed"])
+                            @(chargeError ?? L.Pos_ChargeFailed)
                         }
                     </div>
                 }
             }
             else
             {
-                <p class="text-sm text-gray-400">@L["Pos_SelectTicketHint"]</p>
+                <p class="text-sm text-gray-400">@L.Pos_SelectTicketHint</p>
             }
         </div>
 
         @* Recent Charges *@
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">@L["Pos_RecentCharges"]</h3>
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">@L.Pos_RecentCharges</h3>
             @if (recentCharges.Any())
             {
                 <div class="space-y-2 max-h-64 overflow-y-auto">
@@ -178,7 +178,7 @@
             }
             else
             {
-                <p class="text-sm text-gray-400">@L["Pos_NoCharges"]</p>
+                <p class="text-sm text-gray-400">@L.Pos_NoCharges</p>
             }
         </div>
     </div>
@@ -189,20 +189,26 @@
 {
     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white rounded-xl p-6 w-96 shadow-xl">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">@L["Pos_SetCashier"]</h3>
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">@L.Pos_SetCashier</h3>
             <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   placeholder="@L["Pos_CashierName"]" @bind="cashierName" />
+                   placeholder="@L.Pos_CashierName" @bind="cashierName" />
             <div class="flex gap-3">
                 <button class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm transition-colors"
-                        @onclick="SaveCashier">@L["Common_Save"]</button>
+                        @onclick="SaveCashier">@L.Common_Save</button>
                 <button class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg text-sm transition-colors"
-                        @onclick="() => showCashierModal = false">@L["Common_Cancel"]</button>
+                        @onclick="() => showCashierModal = false">@L.Common_Cancel</button>
             </div>
         </div>
     </div>
 }
 
 @code {
+    Text L = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        L = await I18nText.GetTextTableAsync<Text>(this);
+    }
     private IJSObjectReference? module;
     private DotNetObjectReference<Home>? dotNetRef;
 
@@ -326,7 +332,7 @@
         // Prevent charging cancelled tickets
         if (selectedTicket.Status == TicketStatus.Cancelled)
         {
-            chargeError = L["Pos_ErrorCancelled"];
+            chargeError = L.Pos_ErrorCancelled;
             chargeSuccess = false;
             return;
         }
@@ -334,7 +340,7 @@
         // Prevent charging already charged tickets
         if (selectedTicket.Status == TicketStatus.Charged)
         {
-            chargeError = L["Pos_ErrorAlreadyCharged"];
+            chargeError = L.Pos_ErrorAlreadyCharged;
             chargeSuccess = false;
             return;
         }
@@ -342,7 +348,7 @@
         // Prevent charging $0 tickets
         if (selectedTicket.Price <= 0)
         {
-            chargeError = L["Pos_ErrorZeroTotal"];
+            chargeError = L.Pos_ErrorZeroTotal;
             chargeSuccess = false;
             return;
         }

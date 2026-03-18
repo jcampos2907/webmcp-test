@@ -4,21 +4,22 @@
 @using BikePOS.Models
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
+@inject I18nText I18nText
 @using BikePOS.Components.Pages.CustomerPages
 
-<PageTitle>Crear Boleta de Servicio</PageTitle>
+<PageTitle>@L.Tickets_Create_Title</PageTitle>
 
 <div class="p-6 max-w-5xl mx-auto">
 
     @* Step indicator *@
     <div class="flex items-center gap-2 mb-6 text-sm text-gray-400">
-        <span class="@(step >= 1 ? "text-indigo-600 font-semibold" : "")">1. Cliente</span>
+        <span class="@(step >= 1 ? "text-indigo-600 font-semibold" : "")">@L.Tickets_Create_Step1</span>
         <span>&rsaquo;</span>
-        <span class="@(step >= 2 ? "text-indigo-600 font-semibold" : "")">2. Componente</span>
+        <span class="@(step >= 2 ? "text-indigo-600 font-semibold" : "")">@L.Tickets_Create_Step2</span>
         <span>&rsaquo;</span>
-        <span class="@(step >= 3 ? "text-indigo-600 font-semibold" : "")">3. Servicio</span>
+        <span class="@(step >= 3 ? "text-indigo-600 font-semibold" : "")">@L.Tickets_Create_Step3</span>
         <span>&rsaquo;</span>
-        <span class="@(step >= 4 ? "text-indigo-600 font-semibold" : "")">4. Resumen</span>
+        <span class="@(step >= 4 ? "text-indigo-600 font-semibold" : "")">@L.Tickets_Create_Step4</span>
     </div>
 
     @* Create Customer Modal *@
@@ -38,21 +39,21 @@
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-3 flex-1">
                     <input type="text" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                           placeholder="Buscar Cliente..."
+                           placeholder="@L.Tickets_Create_SearchCustomer"
                            @bind="customerSearch" @bind:event="oninput" @onkeyup="SearchCustomers" />
                 </div>
                 <button class="ml-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
                         @onclick="() => showCreateCustomer = true">
-                    Crear Cliente
+                    @L.Tickets_Create_CreateCustomer
                 </button>
             </div>
 
             <table class="w-full text-sm">
                 <thead>
                     <tr class="border-b border-gray-200 text-left text-gray-500">
-                        <th class="py-2 font-medium">Nombre</th>
-                        <th class="py-2 font-medium">Teléfono</th>
-                        <th class="py-2 font-medium">Email</th>
+                        <th class="py-2 font-medium">@L.Common_Name</th>
+                        <th class="py-2 font-medium">@L.Common_Phone</th>
+                        <th class="py-2 font-medium">@L.Common_Email</th>
                         <th class="py-2"></th>
                     </tr>
                 </thead>
@@ -65,7 +66,7 @@
                             <td class="py-2 text-gray-500">@customer.Email</td>
                             <td class="py-2 text-right">
                                 <button class="bg-white border border-gray-300 hover:bg-indigo-50 hover:border-indigo-300 text-sm px-3 py-1 rounded-md transition-colors"
-                                        @onclick="() => SelectCustomer(customer)">Utilizar</button>
+                                        @onclick="() => SelectCustomer(customer)">@L.Common_Use</button>
                             </td>
                         </tr>
                     }
@@ -74,7 +75,7 @@
 
             @if (!customerResults.Any() && !string.IsNullOrEmpty(customerSearch))
             {
-                <p class="text-sm text-gray-400 mt-4 text-center">No se encontraron clientes</p>
+                <p class="text-sm text-gray-400 mt-4 text-center">@L.Tickets_Create_NoCustomers</p>
             }
         </div>
     }
@@ -86,24 +87,24 @@
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-3 flex-1">
                     <input type="text" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                           placeholder="Buscar Componente..."
+                           placeholder="@L.Tickets_Create_SearchComponent"
                            @bind="componentSearch" @bind:event="oninput" @onkeyup="SearchComponents" />
                 </div>
                 <button class="ml-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
                         @onclick="() => showCreateComponent = true">
-                    Crear Componente
+                    @L.Tickets_Create_CreateComponent
                 </button>
             </div>
 
             @if (showCreateComponent)
             {
                 <div class="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
-                    <h4 class="text-sm font-semibold text-gray-700 mb-3">Nuevo Componente</h4>
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3">@L.Tickets_Create_NewComponent</h4>
                     <div class="grid grid-cols-2 gap-3">
-                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Nombre" @bind="newComponentName" />
-                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="SKU (mayúsculas)" @bind="newComponentSku" />
-                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Color" @bind="newComponentColor" />
-                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Marca" @bind="newComponentBrand" />
+                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="@L.Tickets_Create_NamePlaceholder" @bind="newComponentName" />
+                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="@L.Tickets_Create_SkuPlaceholder" @bind="newComponentSku" />
+                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="@L.Tickets_Create_ColorPlaceholder" @bind="newComponentColor" />
+                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="@L.Tickets_Create_BrandPlaceholder" @bind="newComponentBrand" />
                         <select class="border border-gray-300 rounded-lg px-3 py-2 text-sm" @bind="newComponentType">
                             @foreach (var ct in availableComponentTypes)
                             {
@@ -112,8 +113,8 @@
                         </select>
                     </div>
                     <div class="flex gap-2 mt-3">
-                        <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-1.5 rounded-lg" @onclick="CreateComponent">Guardar</button>
-                        <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm px-4 py-1.5 rounded-lg" @onclick="() => showCreateComponent = false">Cancelar</button>
+                        <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-1.5 rounded-lg" @onclick="CreateComponent">@L.Common_Save</button>
+                        <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm px-4 py-1.5 rounded-lg" @onclick="() => showCreateComponent = false">@L.Common_Cancel</button>
                     </div>
                 </div>
             }
@@ -121,11 +122,11 @@
             <table class="w-full text-sm">
                 <thead>
                     <tr class="border-b border-gray-200 text-left text-gray-500">
-                        <th class="py-2 font-medium">Nombre</th>
-                        <th class="py-2 font-medium">Tipo</th>
-                        <th class="py-2 font-medium">SKU</th>
-                        <th class="py-2 font-medium">Marca</th>
-                        <th class="py-2 font-medium">Color</th>
+                        <th class="py-2 font-medium">@L.Common_Name</th>
+                        <th class="py-2 font-medium">@L.Component_Type</th>
+                        <th class="py-2 font-medium">@L.Common_SKU</th>
+                        <th class="py-2 font-medium">@L.Common_Brand</th>
+                        <th class="py-2 font-medium">@L.Common_Color</th>
                         <th class="py-2"></th>
                     </tr>
                 </thead>
@@ -140,7 +141,7 @@
                             <td class="py-2 text-gray-500">@component.Color</td>
                             <td class="py-2 text-right">
                                 <button class="bg-white border border-gray-300 hover:bg-indigo-50 hover:border-indigo-300 text-sm px-3 py-1 rounded-md transition-colors"
-                                        @onclick="() => SelectComponent(component)">Utilizar</button>
+                                        @onclick="() => SelectComponent(component)">@L.Common_Use</button>
                             </td>
                         </tr>
                     }
@@ -149,11 +150,11 @@
 
             @if (!componentResults.Any() && !string.IsNullOrEmpty(componentSearch))
             {
-                <p class="text-sm text-gray-400 mt-4 text-center">No se encontraron componentes</p>
+                <p class="text-sm text-gray-400 mt-4 text-center">@L.Tickets_Create_NoComponents</p>
             }
 
             <div class="mt-4">
-                <button class="text-sm text-gray-500 hover:text-gray-700" @onclick="() => step = 1">&larr; Volver</button>
+                <button class="text-sm text-gray-500 hover:text-gray-700" @onclick="() => step = 1">&larr; @L.Common_Back</button>
             </div>
         </div>
     }
@@ -162,9 +163,9 @@
     @if (step == 3)
     {
         <div class="flex items-center gap-3 mb-4">
-            <button class="text-sm text-gray-500 hover:text-gray-700" @onclick="() => step = 2">&larr; Volver</button>
+            <button class="text-sm text-gray-500 hover:text-gray-700" @onclick="() => step = 2">&larr; @L.Common_Back</button>
             <input type="text" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   placeholder="Buscar servicio..." @bind="serviceSearch" @bind:event="oninput" />
+                   placeholder="@L.Tickets_Create_SearchService" @bind="serviceSearch" @bind:event="oninput" />
         </div>
 
         <div class="grid grid-cols-3 gap-4">
@@ -184,7 +185,7 @@
 
         @if (!FilteredServices.Any())
         {
-            <p class="text-sm text-gray-400 mt-4 text-center">No se encontraron servicios</p>
+            <p class="text-sm text-gray-400 mt-4 text-center">@L.Tickets_Create_NoServices</p>
         }
     }
 
@@ -196,8 +197,8 @@
             @* Ticket Summary *@
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <div class="flex items-center justify-between mb-1">
-                    <h2 class="text-xl font-bold text-gray-800">Boleta de servicio</h2>
-                    <span class="text-sm text-gray-500">Mecanico @selectedMechanic?.Name</span>
+                    <h2 class="text-xl font-bold text-gray-800">@L.Tickets_ServiceTicket</h2>
+                    <span class="text-sm text-gray-500">@L.Tickets_Mechanic @selectedMechanic?.Name</span>
                 </div>
 
                 <div class="mb-4">
@@ -212,10 +213,10 @@
 
                 @* Mechanic selector *@
                 <div class="mb-4">
-                    <label class="block text-sm text-gray-600 mb-1">Mecánico asignado</label>
+                    <label class="block text-sm text-gray-600 mb-1">@L.Tickets_AssignedMechanic</label>
                     <select class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-indigo-300"
                             @bind="selectedMechanicId">
-                        <option value="">— Sin asignar —</option>
+                        <option value="">@L.Tickets_NoMechanic</option>
                         @foreach (var m in availableMechanics)
                         {
                             <option value="@m.Id">@m.Name</option>
@@ -227,14 +228,14 @@
                 @if (ticketProducts.Any())
                 {
                     <div class="mb-4">
-                        <h4 class="text-sm font-semibold text-gray-700 mb-2">Productos</h4>
+                        <h4 class="text-sm font-semibold text-gray-700 mb-2">@L.Common_Products</h4>
                         @foreach (var tp in ticketProducts)
                         {
                             <div class="flex items-center justify-between text-sm py-1 border-b border-gray-100">
                                 <span class="text-gray-700">@tp.Product.Name x @tp.Quantity</span>
                                 <div class="flex items-center gap-2">
                                     <span class="text-gray-800">@((tp.UnitPrice * tp.Quantity).ToString("C"))</span>
-                                    <button class="text-red-400 hover:text-red-600 text-xs" @onclick="() => RemoveProduct(tp)">quitar</button>
+                                    <button class="text-red-400 hover:text-red-600 text-xs" @onclick="() => RemoveProduct(tp)">@L.Common_Remove</button>
                                 </div>
                             </div>
                         }
@@ -242,19 +243,19 @@
                 }
 
                 <button class="text-sm text-indigo-600 hover:underline mb-4 block" @onclick="OpenProductSelector">
-                    Agregar productos
+                    @L.Common_AddProducts
                 </button>
 
                 @* Notes *@
                 <div class="mb-4">
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">Anotaciones</label>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">@L.Common_Notes</label>
                     <textarea class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                              rows="3" @bind="ticketNotes" placeholder="Notas adicionales..."></textarea>
+                              rows="3" @bind="ticketNotes" placeholder="@L.Common_NotesPlaceholder"></textarea>
                 </div>
 
                 @* Discount *@
                 <div class="mb-4">
-                    <label class="block text-sm text-gray-600 mb-1">Descuento (%)</label>
+                    <label class="block text-sm text-gray-600 mb-1">@L.Common_DiscountPercent</label>
                     <input type="number" step="0.01" min="0" max="100"
                            class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-indigo-300"
                            @bind="discountPercent" />
@@ -265,16 +266,16 @@
                     @if (discountPercent > 0)
                     {
                         <div class="flex justify-between items-center text-sm text-gray-500 mb-1">
-                            <span>Subtotal</span>
+                            <span>@L.Common_Subtotal</span>
                             <span>@CalculateSubtotal().ToString("C")</span>
                         </div>
                         <div class="flex justify-between items-center text-sm text-red-500 mb-1">
-                            <span>Descuento (@discountPercent%)</span>
+                            <span>@L.Common_Discount (@discountPercent%)</span>
                             <span>-@((CalculateSubtotal() * discountPercent / 100m).ToString("C"))</span>
                         </div>
                     }
                     <div class="flex justify-between items-center text-sm font-semibold">
-                        <span class="text-gray-700">Total</span>
+                        <span class="text-gray-700">@L.Common_Total</span>
                         <span class="text-gray-800 text-lg">@CalculateTotal().ToString("C")</span>
                     </div>
                 </div>
@@ -282,9 +283,9 @@
                 <div class="flex gap-3">
                     <button class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors"
                             @onclick="SaveTicket">
-                        Guardar Boleta
+                        @L.Tickets_SaveTicket
                     </button>
-                    <button class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2" @onclick="() => step = 3">&larr; Volver</button>
+                    <button class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2" @onclick="() => step = 3">&larr; @L.Common_Back</button>
                 </div>
             </div>
         }
@@ -295,9 +296,9 @@
                 @* Product grid *@
                 <div class="flex-1">
                     <div class="flex items-center gap-3 mb-4">
-                        <button class="text-sm text-gray-500 hover:text-gray-700" @onclick="CloseProductSelector">&larr; Volver</button>
+                        <button class="text-sm text-gray-500 hover:text-gray-700" @onclick="CloseProductSelector">&larr; @L.Common_Back</button>
                         <input type="text" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                               placeholder="Buscar producto..." @bind="productSearch" @bind:event="oninput" @onkeyup="SearchProducts" />
+                               placeholder="@L.Common_SearchProduct" @bind="productSearch" @bind:event="oninput" @onkeyup="SearchProducts" />
                     </div>
 
                     <div class="grid grid-cols-3 gap-4">
@@ -315,7 +316,7 @@
 
                 @* Ticket sidebar summary *@
                 <div class="w-72 bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-fit sticky top-6">
-                    <h4 class="text-sm font-bold text-gray-800 mb-1">Boleta de servicio</h4>
+                    <h4 class="text-sm font-bold text-gray-800 mb-1">@L.Tickets_ServiceTicket</h4>
                     <p class="text-xs text-gray-500 mb-3">@selectedCustomer?.FullName</p>
 
                     <div class="text-xs text-gray-700 mb-1">@selectedService?.Name</div>
@@ -330,17 +331,17 @@
                     }
 
                     <div class="flex justify-between text-sm font-semibold border-t border-gray-200 pt-2 mt-3">
-                        <span>Total</span>
+                        <span>@L.Common_Total</span>
                         <span>@CalculateTotal().ToString("C")</span>
                     </div>
 
                     <button class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2 rounded-lg mt-3 transition-colors"
                             @onclick="SaveTicket">
-                        Guardar
+                        @L.Common_Save
                     </button>
                     <button class="w-full border border-gray-300 text-gray-700 text-sm py-2 rounded-lg mt-2 hover:bg-gray-50 transition-colors"
                             @onclick="SaveAndCharge">
-                        Continuar al cobro
+                        @L.Tickets_ContinueToCharge
                     </button>
                 </div>
             </div>
@@ -349,6 +350,7 @@
 </div>
 
 @code {
+    Text L = new();
     private int step = 1;
 
     // Step 1 — Customer
@@ -391,6 +393,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        L = await I18nText.GetTextTableAsync<Text>(this);
         await LoadCustomers();
         await LoadComponentTypes();
     }

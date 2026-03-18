@@ -3,6 +3,7 @@
 @using Microsoft.EntityFrameworkCore
 @using BikePOS.Models
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject I18nText I18nText
 
 <PageTitle>Configuración</PageTitle>
 
@@ -45,6 +46,12 @@
                 <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "notifications" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
                         @onclick='() => activeSection = "notifications"'>
                     <i class="fa-solid fa-bell w-5 text-center mr-2"></i>Notificaciones
+                </button>
+            </li>
+            <li>
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "language" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
+                        @onclick='() => activeSection = "language"'>
+                    <i class="fa-solid fa-language w-5 text-center mr-2"></i>@L.Settings_Language
                 </button>
             </li>
         </ul>
@@ -450,11 +457,38 @@
                 </div>
             }
 
+            @* ==================== Language ==================== *@
+            @if (activeSection == "language")
+            {
+                <h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_Language</h1>
+                <p class="text-sm text-gray-500 mb-6">@L.Settings_LanguageSubtitle</p>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <label class="block text-sm text-gray-600 mb-2">@L.Settings_Language</label>
+                    <select class="w-64 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            @bind="selectedLanguage">
+                        <option value="es">Español</option>
+                        <option value="en">English</option>
+                    </select>
+
+                    @if (!string.IsNullOrEmpty(languageSaveMessage))
+                    {
+                        <div class="text-sm text-green-600 bg-green-50 rounded-lg px-3 py-2 mt-4">@languageSaveMessage</div>
+                    }
+
+                    <div class="mt-4">
+                        <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
+                                @onclick="SaveLanguage">@L.Common_Save</button>
+                    </div>
+                </div>
+            }
+
         </div>
     </div>
 </div>
 
 @code {
+    Text L = new();
     private string activeSection = "profile";
 
     // --- Profile ---
@@ -497,12 +531,19 @@
     private string shopAddress = "";
     private string? shopSaveMessage;
 
+    // --- Language ---
+    private string selectedLanguage = "es";
+    private string? languageSaveMessage;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadComponentTypes();
         await LoadMetaFields();
         await LoadShopSettings();
         await LoadProfile();
+        await LoadLanguage();
+        await I18nText.SetCurrentLanguageAsync(selectedLanguage);
+        L = await I18nText.GetTextTableAsync<Text>(this);
     }
 
     // ===== Profile =====
@@ -769,6 +810,29 @@
         UpsertSetting(context, settings, "shop_address", shopAddress);
         await context.SaveChangesAsync();
         shopSaveMessage = "Configuración guardada.";
+    }
+
+    // ===== Language =====
+
+    private async Task LoadLanguage()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var setting = await context.ShopSetting.FirstOrDefaultAsync(s => s.Key == "user_language");
+        selectedLanguage = setting?.Value ?? "es";
+    }
+
+    private async Task SaveLanguage()
+    {
+        languageSaveMessage = null;
+        using var context = DbFactory.CreateDbContext();
+        var settings = await context.ShopSetting.ToListAsync();
+        UpsertSetting(context, settings, "user_language", selectedLanguage);
+        await context.SaveChangesAsync();
+
+        // Toolbelt handles persistence and re-rendering
+        await I18nText.SetCurrentLanguageAsync(selectedLanguage);
+        L = await I18nText.GetTextTableAsync<Text>(this);
+        languageSaveMessage = L.Settings_ConfigSaved;
     }
 
     // ===== Helpers =====
