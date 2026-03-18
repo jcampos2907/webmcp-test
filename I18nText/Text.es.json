@@ -254,6 +254,7 @@
   "Settings_NotificationsComingSoon": "Próximamente — notificaciones por email / WhatsApp cuando un servicio está listo.",
   "Settings_Language": "Idioma",
   "Settings_LanguageSubtitle": "Idioma de la interfaz.",
+  "Settings_Locale": "Moneda y formato regional",
   "NotFound_Title": "No Encontrado",
   "NotFound_Message": "Lo sentimos, el contenido que buscas no existe.",
   "Component_Type": "Tipo"

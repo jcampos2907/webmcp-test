@@ -254,6 +254,7 @@
   "Settings_NotificationsComingSoon": "Coming soon — email / WhatsApp notifications when a service is ready.",
   "Settings_Language": "Language",
   "Settings_LanguageSubtitle": "Interface language.",
+  "Settings_Locale": "Currency & regional format",
   "NotFound_Title": "Not Found",
   "NotFound_Message": "Sorry, the content you are looking for does not exist.",
   "Component_Type": "Type"

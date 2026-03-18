@@ -86,55 +86,45 @@ A complete bike service shop POS system. Handles the full lifecycle: customer wa
 
 ---
 
-## Phase 3: Translation & Internationalization (i18n)
+## Phase 3: Translation & Internationalization (i18n) — DONE
 
-**Goal**: Make all UI text translatable and support locale-specific formatting (currency, dates, numbers). The app currently mixes Spanish and English strings across pages. Centralize all text into resource files so the entire UI can be served in one consistent language, and new languages can be added without code changes. Doing this now makes all future phases translatable from the start.
+**Goal**: Make all UI text translatable and support locale-specific formatting (currency, dates, numbers). Centralize all text into translation files so the entire UI can be served in one consistent language, and new languages can be added without code changes.
 
-### Approach: Built-in .NET Localization (`Microsoft.Extensions.Localization`)
-- [ ] Add `Resources/` directory with `.resx` files per language (e.g. `Strings.resx` for default/es, `Strings.en.resx` for English)
-- [ ] Register `IStringLocalizer<T>` in `Program.cs` with `AddLocalization()` and `RequestLocalizationOptions`
-- [ ] Set default culture from `ShopSetting` key `locale` (e.g. `es-CR`, `es-CL`, `en-US`)
-- [ ] Settings UI: add language/locale selector in "Datos del Negocio" section
-- [ ] Inject `IStringLocalizer` into all page components, replace hardcoded strings with `@L["key"]`
+### Approach: Toolbelt.Blazor.I18nText
+- [x] Add `I18nText/Text.es.json` and `I18nText/Text.en.json` with ~260 flattened translation keys
+- [x] Register `AddI18nText()` in `Program.cs`
+- [x] All pages inject `I18nText` and use `L.Key` pattern for all UI strings
+- [x] Per-user language selector in Settings > Profile (persisted as `user_language` in ShopSetting)
+- [x] Language switch via `I18nText.SetCurrentLanguageAsync()` — instant UI update
 
-### Pages to Translate
-- [ ] Home (POS Terminal) — all labels, buttons, status badges, cashier modal
-- [ ] Ticket Create wizard — step labels, placeholders, buttons, validation messages
-- [ ] Ticket Edit/Details — status labels, section headers, action buttons
-- [ ] Ticket Index — column headers, filter labels
-- [ ] Ticket Delete — confirmation text
-- [ ] Customer pages — form labels, table headers
-- [ ] Mechanic, Service, Product CRUD pages
-- [ ] Settings page — section titles, field labels, messages
-- [ ] NavMenu — link labels
+### Pages Translated
+- [x] Home dashboard — all labels, buttons, status badges, cashier modal
+- [x] Ticket Create wizard — step labels, placeholders, buttons, validation messages
+- [x] Ticket Edit/Details — status labels, section headers, action buttons
+- [x] Ticket Index — column headers, filter labels
+- [x] Ticket Delete — confirmation text
+- [x] Customer pages — form labels, table headers
+- [x] Mechanic, Service, Product CRUD pages
+- [x] Settings page — all section titles, field labels, messages
+- [x] NavMenu — link labels
 
-### Locale-Specific Formatting
-- [ ] Currency: use `CultureInfo` for `.ToString("C")` calls (e.g. `$1,000.00` vs `$1.000,00` vs `₡1.000`)
-- [ ] Dates: respect locale for `ToString("g")` / `ToString("dd/MM/yyyy")` calls
-- [ ] Numbers: decimal separators, thousands grouping
+### Locale-Specific Formatting (Store Setting)
+- [x] `ShopCultureService` loads `CultureInfo` from `ShopSetting` key `shop_locale`
+- [x] Currency: all `.ToString("C", culture)` calls use store locale (₡, $, etc.)
+- [x] Dates: all `.ToString("g", culture)` calls use store locale
+- [x] Locale selector in Settings > Shop Info (es-CR, es-CL, es-MX, es-CO, es-AR, en-US)
+- [x] Language (user preference) and locale/currency (store setting) are independent
 
-### Translation Keys Strategy
-- Group by page/feature (e.g. `Tickets_Create_StepCustomer`, `Pos_ProcessCharge`, `Settings_ShopInfo_Title`)
-- Status labels as a shared group (e.g. `TicketStatus_Open`, `TicketStatus_Charged`)
-- Validation messages as shared group (e.g. `Validation_Required`, `Validation_InvalidEmail`)
-- Keep keys stable — changes break translations
+### Design Decisions
+- **Language vs Locale separation**: User language (UI text) is per-user in Profile. Store locale (currency, dates, number formats) is per-store in Shop Info. A user can read the UI in English while the store displays prices in ₡ (Costa Rican colones).
+- **Flattened keys**: Toolbelt requires valid C# identifiers, so keys use underscore notation (e.g. `Common_Save`, `Tickets_Create_Step1`)
+- **Keys grouped by page/feature**: `Common_*`, `Nav_*`, `Status_*`, `Tickets_*`, `Customers_*`, `Settings_*`, etc.
 
-### Supported Locales (Initial)
-- `es` — Spanish (default, covers CR/Chile/Mexico with locale variants)
+### Supported Languages
+- `es` — Spanish (default)
 - `en` — English
 
-### Why No Extra Libraries
-- `Microsoft.Extensions.Localization` is built into .NET — zero NuGet packages needed
-- Blazorise already integrates with .NET's `CultureInfo` for its own components
-- `.resx` files are compiled into the assembly (good performance)
-- Full framework support: culture middleware, `CultureInfo` for formatting, `IStringLocalizer<T>`
-
-### Future
-- Community-contributed translations via `.resx` files
-- RTL support if needed
-- Per-user language preference (after Auth, Phase 4)
-
-**Files**: `Resources/Strings.*.resx`, `Program.cs`, all `.razor` pages
+**Files**: `I18nText/Text.*.json`, `Services/ShopCultureService.cs`, `Program.cs`, all `.razor` pages
 
 ---
 
@@ -283,7 +273,7 @@ All core models support dynamic fields via `MetaFieldDefinition` + entity-specif
 - Blazorise.Snackbar for toast notifications
 - EF Core with SQLite (IDbContextFactory pattern)
 - Interactive Server render mode
-- Built-in .NET Localization (`IStringLocalizer` + `.resx`) for i18n — no third-party i18n libraries
+- Toolbelt.Blazor.I18nText for i18n (typed C# classes generated from JSON at build time)
 
 ---
 
@@ -293,7 +283,7 @@ All core models support dynamic fields via `MetaFieldDefinition` + entity-specif
 Critical Bugs (immediate) ✅
   → Phase 1 (Bike→Component rename) ✅
     → Phase 2 (Ticket hardening) ✅
-      → Phase 3 (i18n / Translation) ← translate as you go, before adding more UI
+      → Phase 3 (i18n / Translation) ✅
         → Phase 4 (Auth)
           → Phase 5 (Payment terminal)
             → Phase 6 (Parametrizable expansion)
