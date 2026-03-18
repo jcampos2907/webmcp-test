@@ -38,6 +38,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddI18nText();
 builder.Services.AddScoped<ShopCultureService>();
 builder.Services.AddScoped<TenantContext>();
+builder.Services.AddSingleton<SecretProtector>();
 
 // Decorate IDbContextFactory so every DbContext automatically gets CurrentStoreId from TenantContext
 {

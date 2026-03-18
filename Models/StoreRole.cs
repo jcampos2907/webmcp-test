@@ -5,5 +5,6 @@ public enum StoreRole
     Cashier,
     Mechanic,
     Admin,
-    SuperAdmin
+    SuperAdmin,
+    Developer
 }

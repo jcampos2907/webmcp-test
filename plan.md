@@ -201,30 +201,48 @@ Conglomerate (optional top level — e.g. "FamCR Group")
 - [x] ~40 new i18n keys in both `Text.en.json` and `Text.es.json`
 - **Test**: Superadmin creates a new company + store → can assign users to it → locale/currency set at company level.
 
-#### Step 6: Store switcher + audit trail
-- [ ] Store switcher in NavMenu or header (for users with access to multiple stores)
-- [ ] Switching store reloads `TenantContext`, re-filters all data
-- [ ] Populate `CreatedBy`/`UpdatedBy` from `AuthenticationState` when saving tickets/charges
-- **Test**: User with 2 stores switches between them → sees different data. Created tickets show who created them.
+#### Step 6: Store switcher + audit trail — DONE
+- [x] Store switcher "Switch to" button in Organization diagram (SuperAdmin only)
+- [x] Cookie-based store override with JS interop + TenantInitializer dual-path (HttpContext + JS)
+- [x] `TenantContext.SwitchContext` + `IsOverridden` flag prevents `PopulateFromClaims` overwrite
+- [x] `TenantDbContextFactory` decorator auto-sets `CurrentStoreId` on all DbContext instances
+- [x] Global interactive render mode (`Routes @rendermode="InteractiveServer"`) for shared DI scope
+- [x] URL-routed settings tabs (`/settings/{section}`) — tab persists on refresh and store switch
+- [x] `CreatedBy`/`UpdatedBy` populated via `Tenant.UserIdentifier` on all ticket/charge save operations
+- [x] Audit trail displayed in ticket detail view (created by, updated by with timestamps)
+- **Test**: SuperAdmin switches stores in Organization → sees different data, stays on org tab. Ticket shows creator/updater.
+
+#### Step 7: OAuth GUI setup + Developer role — DONE
+- [x] `Developer` role added to `StoreRole` enum (can access Settings + OAuth config)
+- [x] `OidcConfig` model: stores OIDC provider settings per conglomerate (authority, client ID/secret, scopes, etc.)
+- [x] Client ID and Client Secret encrypted at rest via ASP.NET Data Protection API (`SecretProtector` service)
+- [x] OAuth settings section in Settings page with: provider name, authority URL, client ID/secret (masked), response type, scopes, advanced toggles
+- [x] Read-only callback URLs panel for easy IdP configuration copy-paste
+- [x] Connection status indicator (configured / not configured)
+- [x] OAuth tab visible only to SuperAdmin and Developer roles
+- [x] i18n keys for all OAuth UI strings (en + es)
+- **Test**: Developer user sees OAuth tab, configures provider → secrets stored encrypted in DB. Regular admin cannot see the tab.
 
 ### Authorization Matrix
 
-| Area | superadmin | admin | mechanic | cashier |
-|------|------------|-------|----------|---------|
-| Companies & Stores (create/edit/delete) | Yes | — | — | — |
-| User management (assign roles per store) | Yes | — | — | — |
-| Settings (meta fields, component types) | Yes | — | — | — |
-| Services CRUD | Yes | Read/Write | — | — |
-| Products CRUD | Yes | Read/Write | — | — |
-| Mechanics CRUD | Yes | Read/Write | — | — |
-| Components CRUD | Yes | Read/Write | — | — |
-| Tickets read/write | Yes | Read/Write | Own only | — |
-| Customer CRUD | Yes | Read/Write | Read only | Read only |
-| POS Terminal | Yes | Yes | — | Yes |
-| Home dashboard | Yes | Yes | Yes | Yes |
+| Area | superadmin | developer | admin | mechanic | cashier |
+|------|------------|-----------|-------|----------|---------|
+| Companies & Stores (create/edit/delete) | Yes | — | — | — | — |
+| User management (assign roles per store) | Yes | — | — | — | — |
+| Settings (meta fields, component types) | Yes | — | — | — | — |
+| OAuth / OIDC configuration | Yes | Yes | — | — | — |
+| Services CRUD | Yes | — | Read/Write | — | — |
+| Products CRUD | Yes | — | Read/Write | — | — |
+| Mechanics CRUD | Yes | — | Read/Write | — | — |
+| Components CRUD | Yes | — | Read/Write | — | — |
+| Tickets read/write | Yes | — | Read/Write | Own only | — |
+| Customer CRUD | Yes | — | Read/Write | Read only | Read only |
+| POS Terminal | Yes | — | Yes | — | Yes |
+| Home dashboard | Yes | Yes | Yes | Yes | Yes |
 
 ### Role Descriptions
-- **superadmin**: Conglomerate owner. Creates/manages companies and stores. Manages user access. Configures system-wide settings (meta fields, component types). Full access to all operational data across all stores.
+- **superadmin**: Conglomerate owner. Creates/manages companies and stores. Manages user access. Configures system-wide settings (meta fields, component types, OAuth). Full access to all operational data across all stores.
+- **developer**: Technical integration role. Can configure OAuth/OIDC provider settings and view system configuration. No access to operational data (tickets, customers, etc.).
 - **admin**: Store manager. Can read and write all operational data within their assigned store(s). Uses POS terminal. Cannot create companies/stores or change system configuration.
 - **mechanic**: Workshop staff. Views and works on their own assigned tickets. Read-only access to customers. Scoped to their assigned store.
 - **cashier**: Front desk / POS operator. Uses the POS terminal (cashier = their own identity). Can look up customers. Scoped to their assigned store.
@@ -252,29 +270,51 @@ Conglomerate (optional top level — e.g. "FamCR Group")
 
 ## Phase 5: Payment Terminal Integration
 
-**Goal**: Integrate with physical payment terminals via an abstracted service interface.
+**Goal**: Integrate with network-connected payment terminals via a vendor-agnostic abstraction. Terminals are physical devices on the local network (IP-based) that handle card data on-device (no PCI scope for the app).
 
-### New Files
-- `Services/IPaymentTerminalService.cs` — interface: CreateCheckout, GetStatus, Cancel, ListDevices
-- `Services/SquareTerminalService.cs` — Square Terminal API via HttpClient
-- `Services/ManualPaymentService.cs` — fallback for Cash/transfer
+### Architecture
+- `IPaymentTerminalProvider` — vendor-agnostic interface for terminal communication
+- `ManualPaymentProvider` — built-in fallback for Cash/Transfer (no terminal needed)
+- Future vendor adapters plug in via the same interface (e.g. Ingenico, Verifone, PAX, Nexgo)
 
-### Charge Model Updates
-- Add `PaymentStatus` (Pending/Completed/Cancelled/Failed)
-- Add `TerminalCheckoutId`, `CompletedAt`
-- Support multiple payment methods: Cash, Card (terminal), Transfer
-
-### POS Terminal Updates
-- "Terminal" payment method shows "Waiting for customer..." with polling
-- Device selector if multiple terminals
-- Partial payments support (deposit now, rest on pickup)
-
-### Configuration
-```json
-{ "Square": { "AccessToken": "", "LocationId": "", "Environment": "sandbox" } }
+### IPaymentTerminalProvider Interface
+```csharp
+Task<TerminalDevice[]> DiscoverDevicesAsync();           // Network discovery or configured devices
+Task<PaymentSession> CreatePaymentAsync(PaymentRequest);  // Send amount to terminal
+Task<PaymentSession> GetStatusAsync(string sessionId);    // Poll terminal for result
+Task<bool> CancelAsync(string sessionId);                 // Cancel in-progress payment
+Task<bool> PingAsync(string deviceId);                    // Health check
 ```
 
-No PCI scope — Square Terminal handles card data on-device.
+### New Models
+- **PaymentTerminal**: `Id`, `StoreId`, `Name`, `IpAddress`, `Port`, `Provider` (enum), `IsActive`, `LastSeenAt`
+- **PaymentSession**: `Id`, `ChargeId`, `TerminalId`, `Status` (Pending/Processing/Completed/Failed/Cancelled), `ExternalRef`, `CreatedAt`, `CompletedAt`
+
+### Charge Model Updates
+- Add `PaymentStatus` enum (Pending/Completed/Cancelled/Failed)
+- Add `PaymentSessionId` FK, `CompletedAt`
+- Support multiple payment methods: Cash, Card (terminal), Transfer, Mixed
+
+### POS Terminal Updates
+- Terminal selector dropdown (configured devices for this store)
+- "Card" payment method → sends amount to selected terminal → "Waiting for customer..." with polling
+- Partial payments support (deposit now, rest on pickup)
+- Terminal management in Settings (add/edit/remove devices per store, test connection)
+
+### Settings > Terminals (new section, Admin+ access)
+- List configured terminals for current store
+- Add terminal: name, IP address, port, provider type
+- Test connection button (ping)
+- Device status indicator (online/offline based on last ping)
+
+### Implementation Steps
+1. Models + migration (PaymentTerminal, PaymentSession, Charge updates)
+2. `IPaymentTerminalProvider` interface + `ManualPaymentProvider`
+3. Terminal management UI in Settings
+4. POS Terminal integration (device selector, payment flow, polling)
+5. Partial payments support
+
+No PCI scope — terminals handle card data on-device. The app only sends the amount and receives success/failure.
 
 ---
 

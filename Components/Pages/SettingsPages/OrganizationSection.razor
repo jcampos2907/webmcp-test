@@ -518,9 +518,8 @@
     private async Task SwitchToStore(Store store)
     {
         // Set cookie via JS (can't use HttpContext in interactive server mode — response already sent)
-        var expires = DateTime.UtcNow.AddDays(30).ToString("R");
         await JS.InvokeVoidAsync("eval", $"document.cookie='store_override={store.Id};path=/;max-age=2592000;samesite=lax'");
-        Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
+        Navigation.NavigateTo("/settings/organization", forceLoad: true);
     }
 
     private async Task SaveStore()

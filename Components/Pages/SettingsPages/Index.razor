@@ -1,13 +1,15 @@
 @page "/settings"
+@page "/settings/{Section}"
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Authorization
-@attribute [Authorize(Roles = "SuperAdmin")]
+@attribute [Authorize(Roles = "SuperAdmin,Developer")]
 @using Microsoft.EntityFrameworkCore
 @using BikePOS.Models
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject I18nText I18nText
 @inject ShopCultureService CultureService
 @inject TenantContext Tenant
+@inject NavigationManager Navigation
 
 <PageTitle>@L.Settings_Title</PageTitle>
 
@@ -18,37 +20,37 @@
         <ul class="space-y-1">
             <li>
                 <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("profile")"
-                        @onclick='() => activeSection = "profile"'>
+                        @onclick='() => NavigateToSection("profile")'>
                     <i class="fa-solid fa-user w-5 text-center mr-2"></i>@L.Settings_Profile
                 </button>
             </li>
             <li>
                 <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("components")"
-                        @onclick='() => activeSection = "components"'>
+                        @onclick='() => NavigateToSection("components")'>
                     <i class="fa-solid fa-cubes w-5 text-center mr-2"></i>@L.Settings_ComponentTypes
                 </button>
             </li>
             <li>
                 <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("meta")"
-                        @onclick='() => activeSection = "meta"'>
+                        @onclick='() => NavigateToSection("meta")'>
                     <i class="fa-solid fa-sliders w-5 text-center mr-2"></i>@L.Settings_MetaFields
                 </button>
             </li>
             <li>
                 <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("shop")"
-                        @onclick='() => activeSection = "shop"'>
+                        @onclick='() => NavigateToSection("shop")'>
                     <i class="fa-solid fa-store w-5 text-center mr-2"></i>@L.Settings_ShopInfo
                 </button>
             </li>
             <li>
                 <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("billing")"
-                        @onclick='() => activeSection = "billing"'>
+                        @onclick='() => NavigateToSection("billing")'>
                     <i class="fa-solid fa-file-invoice w-5 text-center mr-2"></i>@L.Settings_Billing
                 </button>
             </li>
             <li>
                 <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("notifications")"
-                        @onclick='() => activeSection = "notifications"'>
+                        @onclick='() => NavigateToSection("notifications")'>
                     <i class="fa-solid fa-bell w-5 text-center mr-2"></i>@L.Settings_Notifications
                 </button>
             </li>
@@ -59,16 +61,25 @@
             </li>
             <li>
                 <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("organization")"
-                        @onclick='() => activeSection = "organization"'>
+                        @onclick='() => NavigateToSection("organization")'>
                     <i class="fa-solid fa-sitemap w-5 text-center mr-2"></i>@L.Settings_Organization
                 </button>
             </li>
             <li>
                 <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("users")"
-                        @onclick='() => activeSection = "users"'>
+                        @onclick='() => NavigateToSection("users")'>
                     <i class="fa-solid fa-user-gear w-5 text-center mr-2"></i>@L.Settings_Users
                 </button>
             </li>
+            @if (Tenant.Role == StoreRole.SuperAdmin || Tenant.Role == StoreRole.Developer)
+            {
+                <li>
+                    <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("oauth")"
+                            @onclick='() => NavigateToSection("oauth")'>
+                        <i class="fa-solid fa-key w-5 text-center mr-2"></i>@L.Settings_OAuth
+                    </button>
+                </li>
+            }
         </ul>
     </nav>
 
@@ -495,6 +506,11 @@
                 <UsersSection />
             }
 
+            @if (activeSection == "oauth")
+            {
+                <OAuthSection />
+            }
+
         </div>
     </div>
 </div>
@@ -503,8 +519,16 @@
     Text L = new();
     private string activeSection = "profile";
 
+    [Parameter]
+    public string? Section { get; set; }
+
     [CascadingParameter]
     private Task<AuthenticationState>? AuthState { get; set; }
+
+    private static readonly HashSet<string> ValidSections = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "profile", "components", "meta", "shop", "billing", "notifications", "organization", "users", "oauth"
+    };
 
     // --- Profile ---
     private string profilePhone = "";
@@ -550,6 +574,18 @@
 
     private string NavClass(string section) =>
         activeSection == section ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50";
+
+    protected override void OnParametersSet()
+    {
+        activeSection = ValidSections.Contains(Section ?? "")
+            ? Section!.ToLowerInvariant()
+            : "profile";
+    }
+
+    private void NavigateToSection(string section)
+    {
+        Navigation.NavigateTo($"/settings/{section}");
+    }
 
     private Dictionary<string, string> EntityTypes => new()
     {

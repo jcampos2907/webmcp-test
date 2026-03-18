@@ -358,6 +358,8 @@
             if (ticket is not null)
             {
                 ticket.Status = TicketStatus.Charged;
+                ticket.UpdatedAt = DateTime.UtcNow;
+                ticket.UpdatedBy = Tenant.UserIdentifier;
             }
 
             await context.SaveChangesAsync();

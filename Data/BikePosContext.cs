@@ -28,6 +28,7 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
     public DbSet<CustomerMetaValue> CustomerMetaValue { get; set; } = default!;
     public DbSet<EntityMetaValue> EntityMetaValue { get; set; } = default!;
     public DbSet<ShopSetting> ShopSetting { get; set; } = default!;
+    public DbSet<OidcConfig> OidcConfig { get; set; } = default!;
 
     public override int SaveChanges()
     {
@@ -147,6 +148,12 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
         modelBuilder.Entity<ShopSetting>(entity =>
         {
             entity.HasIndex(s => new { s.StoreId, s.Key }).IsUnique();
+        });
+
+        modelBuilder.Entity<OidcConfig>(entity =>
+        {
+            entity.HasOne(o => o.Conglomerate).WithMany().HasForeignKey(o => o.ConglomerateId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(o => new { o.ConglomerateId, o.IsActive });
         });
 
         // Tenant hierarchy
