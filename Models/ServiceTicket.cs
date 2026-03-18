@@ -52,4 +52,13 @@ public class ServiceTicket
     [Column(TypeName = "decimal(5, 2)")]
     [Range(0, 100)]
     public decimal DiscountPercent { get; set; }
+
+    public int? StoreId { get; set; }
+    public Store? Store { get; set; }
+
+    [MaxLength(500)]
+    public string? CreatedBy { get; set; }
+
+    [MaxLength(500)]
+    public string? UpdatedBy { get; set; }
 }

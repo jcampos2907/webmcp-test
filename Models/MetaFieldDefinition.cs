@@ -44,4 +44,7 @@ public class MetaFieldDefinition
     /// <summary>The value the parent field must have for this field to be visible</summary>
     [MaxLength(200)]
     public string? ConditionalOnValue { get; set; }
+
+    public int? StoreId { get; set; }
+    public Store? Store { get; set; }
 }

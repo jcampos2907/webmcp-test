@@ -33,4 +33,10 @@ public class Charge
     public string? ExternalTransactionId { get; set; }
 
     public string? Notes { get; set; }
+
+    public int? StoreId { get; set; }
+    public Store? Store { get; set; }
+
+    [MaxLength(500)]
+    public string? CreatedBy { get; set; }
 }

@@ -5,6 +5,14 @@ namespace BikePOS.Data;
 
 public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContext(options)
 {
+    // Tenant hierarchy
+    public DbSet<Conglomerate> Conglomerate { get; set; } = default!;
+    public DbSet<Company> Company { get; set; } = default!;
+    public DbSet<Store> Store { get; set; } = default!;
+    public DbSet<AppUser> AppUser { get; set; } = default!;
+    public DbSet<StoreUser> StoreUser { get; set; } = default!;
+
+    // Domain entities
     public DbSet<Component> Component { get; set; } = default!;
     public DbSet<ServiceTicket> ServiceTicket { get; set; } = default!;
     public DbSet<Mechanic> Mechanic { get; set; } = default!;
@@ -121,7 +129,44 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
 
         modelBuilder.Entity<ShopSetting>(entity =>
         {
-            entity.HasIndex(s => s.Key).IsUnique();
+            entity.HasIndex(s => new { s.StoreId, s.Key }).IsUnique();
+        });
+
+        // Tenant hierarchy
+        modelBuilder.Entity<Company>(entity =>
+        {
+            entity.HasOne(c => c.Conglomerate)
+                .WithMany(g => g.Companies)
+                .HasForeignKey(c => c.ConglomerateId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Store>(entity =>
+        {
+            entity.HasOne(s => s.Company)
+                .WithMany(c => c.Stores)
+                .HasForeignKey(s => s.CompanyId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<StoreUser>(entity =>
+        {
+            entity.HasOne(su => su.AppUser)
+                .WithMany(u => u.StoreUsers)
+                .HasForeignKey(su => su.AppUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(su => su.Store)
+                .WithMany(s => s.StoreUsers)
+                .HasForeignKey(su => su.StoreId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(su => new { su.AppUserId, su.StoreId }).IsUnique();
+        });
+
+        modelBuilder.Entity<AppUser>(entity =>
+        {
+            entity.HasIndex(u => u.ExternalSubjectId).IsUnique();
         });
     }
 }

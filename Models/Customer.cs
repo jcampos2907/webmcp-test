@@ -34,6 +34,9 @@ public class Customer
     [MaxLength(100)]
     public string? Country { get; set; }
 
+    public int? StoreId { get; set; }
+    public Store? Store { get; set; }
+
     [NotMapped]
     public string FullName => $"{FirstName} {LastName}";
 
