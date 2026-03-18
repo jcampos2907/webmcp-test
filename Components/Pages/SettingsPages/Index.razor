@@ -5,47 +5,47 @@
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject I18nText I18nText
 
-<PageTitle>Configuración</PageTitle>
+<PageTitle>@L.Settings_Title</PageTitle>
 
 <div class="flex h-full">
     @* Vertical nav *@
     <nav class="w-56 bg-white border-r border-gray-200 p-4 flex-shrink-0">
-        <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Configuración</h2>
+        <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">@L.Settings_Title</h2>
         <ul class="space-y-1">
             <li>
                 <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "profile" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
                         @onclick='() => activeSection = "profile"'>
-                    <i class="fa-solid fa-user w-5 text-center mr-2"></i>Mi Perfil
+                    <i class="fa-solid fa-user w-5 text-center mr-2"></i>@L.Settings_Profile
                 </button>
             </li>
             <li>
                 <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "components" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
                         @onclick='() => activeSection = "components"'>
-                    <i class="fa-solid fa-cubes w-5 text-center mr-2"></i>Tipos de Componente
+                    <i class="fa-solid fa-cubes w-5 text-center mr-2"></i>@L.Settings_ComponentTypes
                 </button>
             </li>
             <li>
                 <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "meta" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
                         @onclick='() => activeSection = "meta"'>
-                    <i class="fa-solid fa-sliders w-5 text-center mr-2"></i>Campos de Cliente
+                    <i class="fa-solid fa-sliders w-5 text-center mr-2"></i>@L.Settings_ClientFields
                 </button>
             </li>
             <li>
                 <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "shop" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
                         @onclick='() => activeSection = "shop"'>
-                    <i class="fa-solid fa-store w-5 text-center mr-2"></i>Datos del Negocio
+                    <i class="fa-solid fa-store w-5 text-center mr-2"></i>@L.Settings_ShopInfo
                 </button>
             </li>
             <li>
                 <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "billing" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
                         @onclick='() => activeSection = "billing"'>
-                    <i class="fa-solid fa-file-invoice w-5 text-center mr-2"></i>Facturación
+                    <i class="fa-solid fa-file-invoice w-5 text-center mr-2"></i>@L.Settings_Billing
                 </button>
             </li>
             <li>
                 <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @(activeSection == "notifications" ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50")"
                         @onclick='() => activeSection = "notifications"'>
-                    <i class="fa-solid fa-bell w-5 text-center mr-2"></i>Notificaciones
+                    <i class="fa-solid fa-bell w-5 text-center mr-2"></i>@L.Settings_Notifications
                 </button>
             </li>
             <li>
@@ -64,8 +64,8 @@
             @* ==================== Profile ==================== *@
             @if (activeSection == "profile")
             {
-                <h1 class="text-xl font-bold text-gray-800 mb-1">Mi Perfil</h1>
-                <p class="text-sm text-gray-500 mb-6">Tu información de usuario.</p>
+                <h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_Profile</h1>
+                <p class="text-sm text-gray-500 mb-6">@L.Settings_ProfileSubtitle</p>
 
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <div class="flex items-center gap-4 mb-6">
@@ -73,30 +73,30 @@
                             <i class="fa-solid fa-user text-indigo-400 text-2xl"></i>
                         </div>
                         <div>
-                            <p class="text-gray-800 font-semibold">@(string.IsNullOrEmpty(profileName) ? "Sin nombre" : profileName)</p>
-                            <p class="text-sm text-gray-500">@(string.IsNullOrEmpty(profileEmail) ? "Sin email" : profileEmail)</p>
+                            <p class="text-gray-800 font-semibold">@(string.IsNullOrEmpty(profileName) ? L.Settings_NoName : profileName)</p>
+                            <p class="text-sm text-gray-500">@(string.IsNullOrEmpty(profileEmail) ? L.Settings_NoEmail : profileEmail)</p>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm text-gray-600 mb-1">Nombre completo</label>
+                            <label class="block text-sm text-gray-600 mb-1">@L.Settings_FullName</label>
                             <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                   @bind="profileName" placeholder="Tu nombre" />
+                                   @bind="profileName" placeholder="@L.Settings_YourName" />
                         </div>
                         <div>
-                            <label class="block text-sm text-gray-600 mb-1">Email</label>
+                            <label class="block text-sm text-gray-600 mb-1">@L.Common_Email</label>
                             <input type="email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                   @bind="profileEmail" placeholder="tu@email.com" />
+                                   @bind="profileEmail" placeholder="@L.Settings_YourEmail" />
                         </div>
                         <div>
-                            <label class="block text-sm text-gray-600 mb-1">Teléfono</label>
+                            <label class="block text-sm text-gray-600 mb-1">@L.Common_Phone</label>
                             <input type="tel" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                   @bind="profilePhone" placeholder="+506 8888 8888" />
+                                   @bind="profilePhone" placeholder="@L.Settings_PhonePlaceholder" />
                         </div>
                         <div>
-                            <label class="block text-sm text-gray-600 mb-1">Rol</label>
-                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500" value="Administrador" disabled />
+                            <label class="block text-sm text-gray-600 mb-1">@L.Settings_Role</label>
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500" value="@L.Settings_Admin" disabled />
                         </div>
                     </div>
 
@@ -107,7 +107,7 @@
 
                     <div class="mt-4">
                         <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
-                                @onclick="SaveProfile">Guardar</button>
+                                @onclick="SaveProfile">@L.Common_Save</button>
                     </div>
                 </div>
             }
@@ -115,8 +115,8 @@
             @* ==================== Component Types ==================== *@
             @if (activeSection == "components")
             {
-                <h1 class="text-xl font-bold text-gray-800 mb-1">Tipos de Componente</h1>
-                <p class="text-sm text-gray-500 mb-6">Categorías disponibles al registrar un componente en una boleta de servicio (ej: Bicicleta, Aro, Pedal).</p>
+                <h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_ComponentTypes</h1>
+                <p class="text-sm text-gray-500 mb-6">@L.Settings_ComponentTypesSubtitle</p>
 
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     @* Existing types *@
@@ -127,24 +127,24 @@
                             {
                                 <div class="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2">
                                     <span class="text-sm text-gray-800">@ct</span>
-                                    <button class="text-red-400 hover:text-red-600 text-xs" @onclick="() => RemoveComponentType(ct)">quitar</button>
+                                    <button class="text-red-400 hover:text-red-600 text-xs" @onclick="() => RemoveComponentType(ct)">@L.Common_Remove</button>
                                 </div>
                             }
                         </div>
                     }
                     else
                     {
-                        <p class="text-sm text-gray-400 mb-4">No hay tipos configurados. Agrega al menos uno.</p>
+                        <p class="text-sm text-gray-400 mb-4">@L.Settings_NoTypes</p>
                     }
 
                     @* Add new type *@
                     <div class="flex items-center gap-2">
                         <input type="text" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                               placeholder="Nuevo tipo (ej: Marco, Rueda...)" @bind="newComponentType" @bind:event="oninput"
+                               placeholder="@L.Settings_NewTypePlaceholder" @bind="newComponentType" @bind:event="oninput"
                                @onkeydown="HandleComponentTypeKeyDown" />
                         <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
                                 @onclick="AddComponentType" disabled="@string.IsNullOrWhiteSpace(newComponentType)">
-                            Agregar
+                            @L.Common_Add
                         </button>
                     </div>
 
@@ -165,12 +165,12 @@
             {
                 <div class="flex items-center justify-between mb-6">
                     <div>
-                        <h1 class="text-xl font-bold text-gray-800 mb-1">Campos de Cliente</h1>
-                        <p class="text-sm text-gray-500">Campos personalizados que se muestran al crear o editar clientes. Soportan validación por regex, formato, y visibilidad condicional.</p>
+                        <h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_ClientFields</h1>
+                        <p class="text-sm text-gray-500">@L.Settings_ClientFieldsSubtitle</p>
                     </div>
                     <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex-shrink-0"
                             @onclick="ShowAddField">
-                        Agregar campo
+                        @L.Settings_AddField
                     </button>
                 </div>
 
@@ -178,22 +178,22 @@
                 @if (showFieldForm)
                 {
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
-                        <h4 class="text-sm font-semibold text-gray-800 mb-4">@(editingFieldId.HasValue ? "Editar campo" : "Nuevo campo")</h4>
+                        <h4 class="text-sm font-semibold text-gray-800 mb-4">@(editingFieldId.HasValue ? L.Settings_EditField : L.Settings_NewField)</h4>
 
                         @* Basic info *@
                         <div class="grid grid-cols-3 gap-3 mb-4">
                             <div>
-                                <label class="block text-xs text-gray-500 mb-1">Etiqueta <span class="text-red-500">*</span></label>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_Label <span class="text-red-500">*</span></label>
                                 <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                       placeholder="Ej: Cédula, RUT" @bind="fieldLabel" />
+                                       placeholder="@L.Settings_LabelPlaceholder" @bind="fieldLabel" />
                             </div>
                             <div>
-                                <label class="block text-xs text-gray-500 mb-1">Clave <span class="text-red-500">*</span></label>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_Key <span class="text-red-500">*</span></label>
                                 <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                       placeholder="Ej: cedula, rut" @bind="fieldKey" />
+                                       placeholder="@L.Settings_KeyPlaceholder" @bind="fieldKey" />
                             </div>
                             <div>
-                                <label class="block text-xs text-gray-500 mb-1">Orden</label>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_Order</label>
                                 <input type="number" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                                        @bind="fieldSortOrder" />
                             </div>
@@ -202,65 +202,65 @@
                         @* Type + Options *@
                         <div class="grid grid-cols-2 gap-3 mb-4">
                             <div>
-                                <label class="block text-xs text-gray-500 mb-1">Tipo de campo</label>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_FieldType</label>
                                 <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" @bind="fieldType">
-                                    <option value="text">Texto</option>
-                                    <option value="number">Número</option>
-                                    <option value="email">Email</option>
-                                    <option value="tel">Teléfono</option>
-                                    <option value="date">Fecha</option>
-                                    <option value="url">URL</option>
-                                    <option value="select">Lista desplegable</option>
+                                    <option value="text">@L.Settings_FieldText</option>
+                                    <option value="number">@L.Settings_FieldNumber</option>
+                                    <option value="email">@L.Settings_FieldEmail</option>
+                                    <option value="tel">@L.Settings_FieldPhone</option>
+                                    <option value="date">@L.Settings_FieldDate</option>
+                                    <option value="url">@L.Settings_FieldUrl</option>
+                                    <option value="select">@L.Settings_FieldSelect</option>
                                 </select>
                             </div>
                             @if (fieldType == "select")
                             {
                                 <div>
-                                    <label class="block text-xs text-gray-500 mb-1">Opciones (separadas por coma)</label>
+                                    <label class="block text-xs text-gray-500 mb-1">@L.Settings_OptionsComma</label>
                                     <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                           placeholder="Persona Física, Persona Jurídica" @bind="fieldOptions" />
+                                           placeholder="@L.Settings_OptionsPlaceholder" @bind="fieldOptions" />
                                 </div>
                             }
                         </div>
 
                         @* Validation *@
-                        <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">Validación</p>
+                        <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">@L.Settings_Validation</p>
                         <div class="grid grid-cols-2 gap-3 mb-4">
                             <div>
-                                <label class="block text-xs text-gray-500 mb-1">Regex de validación</label>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_RegexValidation</label>
                                 <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                       placeholder="Ej: ^\d \d{4} \d{4}$" @bind="fieldRegex" />
+                                       placeholder="@L.Settings_RegexPlaceholder" @bind="fieldRegex" />
                             </div>
                             <div>
-                                <label class="block text-xs text-gray-500 mb-1">Mensaje de error regex</label>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_RegexErrorMessage</label>
                                 <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                       placeholder="Ej: Formato debe ser 0 0000 0000" @bind="fieldRegexMessage" />
+                                       placeholder="@L.Settings_RegexErrorPlaceholder" @bind="fieldRegexMessage" />
                             </div>
                         </div>
 
                         @* Format mask *@
                         <div class="grid grid-cols-2 gap-3 mb-4">
                             <div>
-                                <label class="block text-xs text-gray-500 mb-1">Máscara de formato (placeholder)</label>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_FormatMask</label>
                                 <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                       placeholder="Ej: 0 0000 0000" @bind="fieldFormatMask" />
+                                       placeholder="@L.Settings_FormatMaskPlaceholder" @bind="fieldFormatMask" />
                             </div>
                             <div class="flex items-end pb-1">
                                 <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                                     <input type="checkbox" class="rounded border-gray-300" @bind="fieldIsRequired" />
-                                    Campo obligatorio
+                                    @L.Settings_RequiredField
                                 </label>
                             </div>
                         </div>
 
                         @* Conditional visibility *@
-                        <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">Visibilidad condicional</p>
+                        <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">@L.Settings_ConditionalVisibility</p>
                         <div class="grid grid-cols-2 gap-3 mb-4">
                             <div>
-                                <label class="block text-xs text-gray-500 mb-1">Mostrar solo cuando este campo...</label>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_ShowWhenField</label>
                                 <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                                         @bind="fieldConditionalOnId">
-                                    <option value="">— Siempre visible —</option>
+                                    <option value="">@L.Settings_AlwaysVisible</option>
                                     @foreach (var f in metaFields.Where(f => f.Id != editingFieldId && f.FieldType == "select"))
                                     {
                                         <option value="@f.Id">@f.Label</option>
@@ -273,10 +273,10 @@
                                 @if (parentField is not null && !string.IsNullOrEmpty(parentField.Options))
                                 {
                                     <div>
-                                        <label class="block text-xs text-gray-500 mb-1">...tenga el valor</label>
+                                        <label class="block text-xs text-gray-500 mb-1">@L.Settings_HasValue</label>
                                         <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                                                 @bind="fieldConditionalOnValue">
-                                            <option value="">— Seleccionar —</option>
+                                            <option value="">@L.Common_Select</option>
                                             @foreach (var opt in parentField.Options.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                                             {
                                                 <option value="@opt">@opt</option>
@@ -293,8 +293,8 @@
                         }
 
                         <div class="flex gap-2">
-                            <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg" @onclick="SaveField">Guardar campo</button>
-                            <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm px-4 py-2 rounded-lg" @onclick="CancelFieldForm">Cancelar</button>
+                            <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg" @onclick="SaveField">@L.Settings_SaveField</button>
+                            <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm px-4 py-2 rounded-lg" @onclick="CancelFieldForm">@L.Common_Cancel</button>
                         </div>
                     </div>
                 }
@@ -306,12 +306,12 @@
                         <table class="w-full text-sm">
                             <thead class="bg-gray-50">
                                 <tr class="text-left text-gray-500 text-xs uppercase tracking-wide">
-                                    <th class="py-3 px-4 font-medium">#</th>
-                                    <th class="py-3 px-4 font-medium">Etiqueta</th>
-                                    <th class="py-3 px-4 font-medium">Tipo</th>
-                                    <th class="py-3 px-4 font-medium">Validación</th>
-                                    <th class="py-3 px-4 font-medium">Condición</th>
-                                    <th class="py-3 px-4 font-medium">Estado</th>
+                                    <th class="py-3 px-4 font-medium">@L.Settings_FieldTableOrder</th>
+                                    <th class="py-3 px-4 font-medium">@L.Settings_FieldTableLabel</th>
+                                    <th class="py-3 px-4 font-medium">@L.Settings_FieldTableType</th>
+                                    <th class="py-3 px-4 font-medium">@L.Settings_FieldTableValidation</th>
+                                    <th class="py-3 px-4 font-medium">@L.Settings_FieldTableCondition</th>
+                                    <th class="py-3 px-4 font-medium">@L.Settings_FieldTableStatus</th>
                                     <th class="py-3 px-4"></th>
                                 </tr>
                             </thead>
@@ -355,17 +355,17 @@
                                         <td class="py-3 px-4">
                                             @if (field.IsActive)
                                             {
-                                                <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Activo</span>
+                                                <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">@L.Common_Active</span>
                                             }
                                             else
                                             {
-                                                <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Inactivo</span>
+                                                <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">@L.Common_Inactive</span>
                                             }
                                         </td>
                                         <td class="py-3 px-4 text-right">
-                                            <button class="text-indigo-600 hover:text-indigo-800 text-xs mr-2" @onclick="() => EditField(field)">editar</button>
+                                            <button class="text-indigo-600 hover:text-indigo-800 text-xs mr-2" @onclick="() => EditField(field)">@L.Common_Edit</button>
                                             <button class="text-gray-400 hover:text-gray-600 text-xs" @onclick="() => ToggleFieldActive(field)">
-                                                @(field.IsActive ? "desactivar" : "activar")
+                                                @(field.IsActive ? L.Settings_Deactivate : L.Settings_Activate)
                                             </button>
                                         </td>
                                     </tr>
@@ -378,8 +378,8 @@
                 {
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
                         <i class="fa-solid fa-sliders text-gray-300 text-3xl mb-3"></i>
-                        <p class="text-sm text-gray-400">No hay campos adicionales configurados.</p>
-                        <p class="text-xs text-gray-400 mt-1">Crea campos personalizados como Cédula, Tipo de persona, RUT, etc.</p>
+                        <p class="text-sm text-gray-400">@L.Settings_NoFieldsConfigured</p>
+                        <p class="text-xs text-gray-400 mt-1">@L.Settings_NoFieldsHint</p>
                     </div>
                 }
             }
@@ -387,40 +387,40 @@
             @* ==================== Shop Info ==================== *@
             @if (activeSection == "shop")
             {
-                <h1 class="text-xl font-bold text-gray-800 mb-1">Datos del Negocio</h1>
-                <p class="text-sm text-gray-500 mb-6">Información que aparece en boletas y documentos.</p>
+                <h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_ShopInfo</h1>
+                <p class="text-sm text-gray-500 mb-6">@L.Settings_ShopInfoSubtitle</p>
 
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <div class="grid grid-cols-2 gap-4">
                         <div class="col-span-2">
-                            <label class="block text-sm text-gray-600 mb-1">Nombre del negocio</label>
+                            <label class="block text-sm text-gray-600 mb-1">@L.Settings_ShopName</label>
                             <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                   @bind="shopName" placeholder="Mi Taller de Bicicletas" />
+                                   @bind="shopName" placeholder="@L.Settings_ShopNamePlaceholder" />
                         </div>
                         <div>
-                            <label class="block text-sm text-gray-600 mb-1">Cédula jurídica / RUT</label>
+                            <label class="block text-sm text-gray-600 mb-1">@L.Settings_TaxId</label>
                             <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                   @bind="shopTaxId" placeholder="3-101-123456" />
+                                   @bind="shopTaxId" placeholder="@L.Settings_TaxIdPlaceholder" />
                         </div>
                         <div>
-                            <label class="block text-sm text-gray-600 mb-1">Giro / Actividad</label>
+                            <label class="block text-sm text-gray-600 mb-1">@L.Settings_BusinessType</label>
                             <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                   @bind="shopBusinessType" placeholder="Reparación de bicicletas" />
+                                   @bind="shopBusinessType" placeholder="@L.Settings_BusinessTypePlaceholder" />
                         </div>
                         <div>
-                            <label class="block text-sm text-gray-600 mb-1">Teléfono</label>
+                            <label class="block text-sm text-gray-600 mb-1">@L.Common_Phone</label>
                             <input type="tel" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                   @bind="shopPhone" placeholder="+506 2222 2222" />
+                                   @bind="shopPhone" placeholder="@L.Settings_ShopPhone" />
                         </div>
                         <div>
-                            <label class="block text-sm text-gray-600 mb-1">Email</label>
+                            <label class="block text-sm text-gray-600 mb-1">@L.Common_Email</label>
                             <input type="email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                   @bind="shopEmail" placeholder="contacto@mitaller.com" />
+                                   @bind="shopEmail" placeholder="@L.Settings_ShopEmail" />
                         </div>
                         <div class="col-span-2">
-                            <label class="block text-sm text-gray-600 mb-1">Dirección</label>
+                            <label class="block text-sm text-gray-600 mb-1">@L.Common_Address</label>
                             <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                   @bind="shopAddress" placeholder="San José, Costa Rica" />
+                                   @bind="shopAddress" placeholder="@L.Settings_ShopAddress" />
                         </div>
                     </div>
 
@@ -431,7 +431,7 @@
 
                     <div class="mt-4">
                         <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
-                                @onclick="SaveShopSettings">Guardar</button>
+                                @onclick="SaveShopSettings">@L.Common_Save</button>
                     </div>
                 </div>
             }
@@ -439,21 +439,21 @@
             @* ==================== Placeholder sections ==================== *@
             @if (activeSection == "billing")
             {
-                <h1 class="text-xl font-bold text-gray-800 mb-1">Facturación</h1>
-                <p class="text-sm text-gray-500 mb-6">Configuración de facturación electrónica.</p>
+                <h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_Billing</h1>
+                <p class="text-sm text-gray-500 mb-6">@L.Settings_BillingSubtitle</p>
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
                     <i class="fa-solid fa-file-invoice text-gray-300 text-3xl mb-3"></i>
-                    <p class="text-sm text-gray-400">Próximamente — configuración de facturación electrónica y formatos de impresión.</p>
+                    <p class="text-sm text-gray-400">@L.Settings_BillingComingSoon</p>
                 </div>
             }
 
             @if (activeSection == "notifications")
             {
-                <h1 class="text-xl font-bold text-gray-800 mb-1">Notificaciones</h1>
-                <p class="text-sm text-gray-500 mb-6">Alertas y notificaciones del sistema.</p>
+                <h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_Notifications</h1>
+                <p class="text-sm text-gray-500 mb-6">@L.Settings_NotificationsSubtitle</p>
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
                     <i class="fa-solid fa-bell text-gray-300 text-3xl mb-3"></i>
-                    <p class="text-sm text-gray-400">Próximamente — notificaciones por email / WhatsApp cuando un servicio está listo.</p>
+                    <p class="text-sm text-gray-400">@L.Settings_NotificationsComingSoon</p>
                 </div>
             }
 
