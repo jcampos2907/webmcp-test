@@ -1,9 +1,9 @@
 @page "/customers/create"
 @rendermode InteractiveServer
 @inject NavigationManager NavigationManager
-@inject IStringLocalizer<SharedResource> L
+@inject I18nText I18nText
 
-<PageTitle>@L["Customers.Create"]</PageTitle>
+<PageTitle>@L.Customers_Create</PageTitle>
 
 <div class="p-6 max-w-2xl mx-auto">
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -12,6 +12,12 @@
 </div>
 
 @code {
+    Text L = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        L = await I18nText.GetTextTableAsync<Text>(this);
+    }
     private void HandleSaved(BikePOS.Models.Customer customer)
     {
         NavigationManager.NavigateTo("/customers");

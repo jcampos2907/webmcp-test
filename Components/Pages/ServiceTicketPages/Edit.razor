@@ -5,9 +5,9 @@
 @using BikePOS.Models
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
-@inject IStringLocalizer<SharedResource> L
+@inject I18nText I18nText
 
-<PageTitle>@(isPaid ? L["Tickets.ServiceTicket"] : L["Common.Edit"] + " " + L["Tickets.ServiceTicket"])</PageTitle>
+<PageTitle>@(isPaid ? L.Tickets_ServiceTicket : L.Common_Edit + " " + L.Tickets_ServiceTicket)</PageTitle>
 
 <div class="p-6 max-w-5xl mx-auto">
     @if (ticket is null)
@@ -20,7 +20,7 @@
         {
             <div class="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 flex items-center gap-2">
                 <i class="fa-solid fa-circle-check text-green-600"></i>
-                <span class="text-sm text-green-800 font-medium">@L["Tickets.AlreadyChargedBanner"]</span>
+                <span class="text-sm text-green-800 font-medium">@L.Tickets_AlreadyChargedBanner</span>
             </div>
         }
 
@@ -28,13 +28,13 @@
         {
             <div class="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4 flex items-center gap-2">
                 <i class="fa-solid fa-circle-xmark text-red-600"></i>
-                <span class="text-sm text-red-800 font-medium">@L["Tickets.CancelledBanner"]</span>
+                <span class="text-sm text-red-800 font-medium">@L.Tickets_CancelledBanner</span>
             </div>
         }
 
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div class="flex items-center justify-between mb-1">
-                <h2 class="text-xl font-bold text-gray-800">@L["Tickets.ServiceTicket"] #@ticket.Id</h2>
+                <h2 class="text-xl font-bold text-gray-800">@L.Tickets_ServiceTicket #@ticket.Id</h2>
                 <div class="flex items-center gap-3">
                     <span class="text-xs px-2 py-1 rounded-full @StatusBadgeClass(ticket.Status)">@StatusLabel(ticket.Status)</span>
                     <span class="text-sm text-gray-500">@ticket.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
@@ -48,12 +48,12 @@
             </div>
 
             <div class="mb-4">
-                <p class="text-sm text-gray-700">@(ticket.BaseService?.Name ?? L["Services.NoBaseService"])</p>
+                <p class="text-sm text-gray-700">@(ticket.BaseService?.Name ?? L.Services_NoBaseService)</p>
             </div>
 
             @* Status *@
             <div class="mb-4">
-                <label class="block text-sm text-gray-600 mb-1">@L["Common.Status"]</label>
+                <label class="block text-sm text-gray-600 mb-1">@L.Common_Status</label>
                 <select class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
                         @bind="ticket.Status" disabled="@isReadOnly">
                     @foreach (var status in Enum.GetValues<TicketStatus>())
@@ -65,10 +65,10 @@
 
             @* Mechanic selector *@
             <div class="mb-4">
-                <label class="block text-sm text-gray-600 mb-1">@L["Tickets.AssignedMechanic"]</label>
+                <label class="block text-sm text-gray-600 mb-1">@L.Tickets_AssignedMechanic</label>
                 <select class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
                         @bind="ticket.MechanicId" disabled="@isReadOnly">
-                    <option value="">@L["Tickets.NoMechanic"]</option>
+                    <option value="">@L.Tickets_NoMechanic</option>
                     @foreach (var m in mechanics)
                     {
                         <option value="@m.Id">@m.Name</option>
@@ -80,7 +80,7 @@
             @if (ticketProducts.Any())
             {
                 <div class="mb-4">
-                    <h4 class="text-sm font-semibold text-gray-700 mb-2">@L["Common.Products"]</h4>
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">@L.Common_Products</h4>
                     @foreach (var tp in ticketProducts)
                     {
                         <div class="flex items-center justify-between text-sm py-1 border-b border-gray-100">
@@ -89,7 +89,7 @@
                                 <span class="text-gray-800">@((tp.UnitPrice * tp.Quantity).ToString("C"))</span>
                                 @if (!isReadOnly)
                                 {
-                                    <button class="text-red-400 hover:text-red-600 text-xs" @onclick="() => RemoveProduct(tp)">@L["Common.Remove"]</button>
+                                    <button class="text-red-400 hover:text-red-600 text-xs" @onclick="() => RemoveProduct(tp)">@L.Common_Remove</button>
                                 }
                             </div>
                         </div>
@@ -100,20 +100,20 @@
             @if (!isReadOnly)
             {
                 <button class="text-sm text-indigo-600 hover:underline mb-4 block" @onclick="OpenProductSelector">
-                    @L["Common.AddProducts"]
+                    @L.Common_AddProducts
                 </button>
             }
 
             @* Notes *@
             <div class="mb-4">
-                <label class="block text-sm font-semibold text-gray-700 mb-1">@L["Common.Notes"]</label>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">@L.Common_Notes</label>
                 <textarea class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
-                          rows="3" @bind="ticket.Description" placeholder="@L["Common.NotesPlaceholder"]" disabled="@isReadOnly"></textarea>
+                          rows="3" @bind="ticket.Description" placeholder="@L.Common_NotesPlaceholder" disabled="@isReadOnly"></textarea>
             </div>
 
             @* Discount *@
             <div class="mb-4">
-                <label class="block text-sm text-gray-600 mb-1">@L["Common.DiscountPercent"]</label>
+                <label class="block text-sm text-gray-600 mb-1">@L.Common_DiscountPercent</label>
                 <input type="number" step="0.01" min="0" max="100"
                        class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
                        @bind="ticket.DiscountPercent" disabled="@isReadOnly" />
@@ -124,16 +124,16 @@
                 @if (ticket.DiscountPercent > 0)
                 {
                     <div class="flex justify-between items-center text-sm text-gray-500 mb-1">
-                        <span>@L["Common.Subtotal"]</span>
+                        <span>@L.Common_Subtotal</span>
                         <span>@CalculateSubtotal().ToString("C")</span>
                     </div>
                     <div class="flex justify-between items-center text-sm text-red-500 mb-1">
-                        <span>@L["Common.Discount"] (@ticket.DiscountPercent%)</span>
+                        <span>@L.Common_Discount (@ticket.DiscountPercent%)</span>
                         <span>-@((CalculateSubtotal() * ticket.DiscountPercent / 100m).ToString("C"))</span>
                     </div>
                 }
                 <div class="flex justify-between items-center text-sm font-semibold">
-                    <span class="text-gray-700">@L["Common.Total"]</span>
+                    <span class="text-gray-700">@L.Common_Total</span>
                     <span class="text-gray-800 text-lg">@CalculateTotal().ToString("C")</span>
                 </div>
             </div>
@@ -143,21 +143,21 @@
                 {
                     <button class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors"
                             @onclick="SaveTicket">
-                        @L["Common.Save"]
+                        @L.Common_Save
                     </button>
                     <button class="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors"
                             @onclick="GoToCharge">
-                        <i class="fa-solid fa-cash-register mr-1"></i> @L["Tickets.Charge"]
+                        <i class="fa-solid fa-cash-register mr-1"></i> @L.Tickets_Charge
                     </button>
                     @if (!isCancelled)
                     {
                         <button class="bg-red-50 hover:bg-red-100 text-red-600 font-semibold px-4 py-2 rounded-lg transition-colors border border-red-200"
                                 @onclick="CancelTicket">
-                            @L["Tickets.CancelTicket"]
+                            @L.Tickets_CancelTicket
                         </button>
                     }
                 }
-                <a href="/tickets" class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">&larr; @L["Common.BackToList"]</a>
+                <a href="/tickets" class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">&larr; @L.Common_BackToList</a>
             </div>
         </div>
     }
@@ -169,7 +169,7 @@
                 <div class="flex items-center gap-3 mb-4">
                     <button class="text-sm text-gray-500 hover:text-gray-700" @onclick="CloseProductSelector">&larr; Volver</button>
                     <input type="text" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                           placeholder="@L["Common.SearchProduct"]" @bind="productSearch" @bind:event="oninput" @onkeyup="SearchProducts" />
+                           placeholder="@L.Common_SearchProduct" @bind="productSearch" @bind:event="oninput" @onkeyup="SearchProducts" />
                 </div>
 
                 <div class="grid grid-cols-3 gap-4">
@@ -188,7 +188,7 @@
             </div>
 
             <div class="w-72 bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-fit sticky top-6">
-                <h4 class="text-sm font-bold text-gray-800 mb-1">@L["Tickets.ServiceTicket"]</h4>
+                <h4 class="text-sm font-bold text-gray-800 mb-1">@L.Tickets_ServiceTicket</h4>
                 <p class="text-xs text-gray-500 mb-3">@(ticket.Component?.Customer?.FullName ?? "—")</p>
 
                 <div class="text-xs text-gray-700 mb-1">@(ticket.BaseService?.Name ?? "—")</div>
@@ -203,13 +203,13 @@
                 }
 
                 <div class="flex justify-between text-sm font-semibold border-t border-gray-200 pt-2 mt-3">
-                    <span>@L["Common.Total"]</span>
+                    <span>@L.Common_Total</span>
                     <span>@CalculateTotal().ToString("C")</span>
                 </div>
 
                 <button class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2 rounded-lg mt-3 transition-colors"
                         @onclick="SaveAndCloseProducts">
-                    @L["Common.Save"]
+                    @L.Common_Save
                 </button>
             </div>
         </div>
@@ -217,10 +217,11 @@
 </div>
 
 <Snackbar @ref="snackbar" Color="SnackbarColor.Success" Interval="3000" Location="SnackbarLocation.BottomEnd">
-    <SnackbarBody>@L["Tickets.TicketSaved"]</SnackbarBody>
+    <SnackbarBody>@L.Tickets_TicketSaved</SnackbarBody>
 </Snackbar>
 
 @code {
+    Text L = new();
     [SupplyParameterFromQuery]
     private int Id { get; set; }
 
@@ -242,6 +243,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        L = await I18nText.GetTextTableAsync<Text>(this);
         using var context = DbFactory.CreateDbContext();
         ticket = await context.ServiceTicket
             .Include(t => t.Component).ThenInclude(c => c!.Customer)
@@ -423,12 +425,12 @@
 
     private string StatusLabel(TicketStatus status) => status switch
     {
-        TicketStatus.Open => L["Status.Open"],
-        TicketStatus.InProgress => L["Status.InProgress"],
-        TicketStatus.WaitingForParts => L["Status.WaitingForParts"],
-        TicketStatus.Completed => L["Status.Completed"],
-        TicketStatus.Charged => L["Status.Charged"],
-        TicketStatus.Cancelled => L["Status.Cancelled"],
+        TicketStatus.Open => L.Status_Open,
+        TicketStatus.InProgress => L.Status_InProgress,
+        TicketStatus.WaitingForParts => L.Status_WaitingForParts,
+        TicketStatus.Completed => L.Status_Completed,
+        TicketStatus.Charged => L.Status_Charged,
+        TicketStatus.Cancelled => L.Status_Cancelled,
         _ => status.ToString()
     };
 

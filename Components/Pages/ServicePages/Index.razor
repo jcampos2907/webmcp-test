@@ -6,14 +6,14 @@
 @implements IAsyncDisposable
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
-@inject IStringLocalizer<SharedResource> L
+@inject I18nText I18nText
 
-<PageTitle>@L["Services.Title"]</PageTitle>
+<PageTitle>@L.Services_Title</PageTitle>
 
-<h1>@L["Services.Title"]</h1>
+<h1>@L.Services_Title</h1>
 
 <p>
-    <a href="services/create">@L["Common.CreateNew"]</a>
+    <a href="services/create">@L.Common_CreateNew</a>
 </p>
 
 <QuickGrid Class="table" Items="context.Service">
@@ -23,13 +23,19 @@
     <PropertyColumn Property="service => service.EstimatedMinutes" />
 
     <TemplateColumn Context="service">
-        <a href="@($"services/edit?id={service.Id}")">@L["Common.Edit"]</a> |
-        <a href="@($"services/details?id={service.Id}")">@L["Common.Details"]</a> |
-        <a href="@($"services/delete?id={service.Id}")">@L["Common.Delete"]</a>
+        <a href="@($"services/edit?id={service.Id}")">@L.Common_Edit</a> |
+        <a href="@($"services/details?id={service.Id}")">@L.Common_Details</a> |
+        <a href="@($"services/delete?id={service.Id}")">@L.Common_Delete</a>
     </TemplateColumn>
 </QuickGrid>
 
 @code {
+    Text L = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        L = await I18nText.GetTextTableAsync<Text>(this);
+    }
     private BikePosContext context = default!;
 
     protected override void OnInitialized()

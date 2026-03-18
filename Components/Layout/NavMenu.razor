@@ -1,5 +1,5 @@
 @inject NavigationManager NavigationManager
-@inject IStringLocalizer<SharedResource> L
+@inject I18nText I18nText
 
 <aside class="w-20 bg-gray-800 flex flex-col items-center py-4 gap-1 flex-shrink-0">
     @* Brand *@
@@ -7,20 +7,26 @@
         <i class="fa-solid fa-cash-register text-white text-lg"></i>
     </a>
 
-    <NavButton Href="/" Icon="fa-house" Label="@L["Nav.Home"]" Match="NavLinkMatch.All" />
-    <NavButton Href="/tickets" Icon="fa-ticket" Label="@L["Nav.Tickets"]" />
-    <NavButton Href="/customers" Icon="fa-users" Label="@L["Nav.Customers"]" />
+    <NavButton Href="/" Icon="fa-house" Label="@L.Nav_Home" Match="NavLinkMatch.All" />
+    <NavButton Href="/tickets" Icon="fa-ticket" Label="@L.Nav_Tickets" />
+    <NavButton Href="/customers" Icon="fa-users" Label="@L.Nav_Customers" />
     <hr class="w-10 border-gray-600 my-2" />
 
-    <NavButton Href="/mechanics" Icon="fa-wrench" Label="@L["Nav.Mechanics"]" />
-    <NavButton Href="/services" Icon="fa-gears" Label="@L["Nav.Services"]" />
-    <NavButton Href="/products" Icon="fa-box-open" Label="@L["Nav.Products"]" />
+    <NavButton Href="/mechanics" Icon="fa-wrench" Label="@L.Nav_Mechanics" />
+    <NavButton Href="/services" Icon="fa-gears" Label="@L.Nav_Services" />
+    <NavButton Href="/products" Icon="fa-box-open" Label="@L.Nav_Products" />
 
     <div class="mt-auto">
-        <NavButton Href="/settings" Icon="fa-gear" Label="@L["Nav.Settings"]" />
+        <NavButton Href="/settings" Icon="fa-gear" Label="@L.Nav_Settings" />
     </div>
 </aside>
 
 @code {
+    Text L = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        L = await I18nText.GetTextTableAsync<Text>(this);
+    }
     private void Navigate(string url) => NavigationManager.NavigateTo(url);
 }

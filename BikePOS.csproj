@@ -11,9 +11,6 @@
     <PackageReference Include="Blazorise.Icons.FontAwesome" Version="2.0.2" />
     <PackageReference Include="Blazorise.Snackbar" Version="2.0.2" />
     <PackageReference Include="Blazorise.Tailwind" Version="2.0.2" />
-    <PackageReference Include="I18Next.Net" Version="1.0.0" />
-    <PackageReference Include="I18Next.Net.AspNetCore" Version="1.0.0" />
-    <PackageReference Include="I18Next.Net.Extensions" Version="1.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Components.QuickGrid.EntityFrameworkAdapter" Version="10.0.4" />
     <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="10.0.4" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.4" />
@@ -25,6 +22,7 @@
     </PackageReference>
     <PackageReference Include="MudBlazor" Version="9.1.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+    <PackageReference Include="Toolbelt.Blazor.I18nText" Version="14.1.1" />
   </ItemGroup>
 
 </Project>

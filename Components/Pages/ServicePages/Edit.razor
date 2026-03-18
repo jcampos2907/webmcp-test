@@ -3,17 +3,17 @@
 @using BikePOS.Models
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
-@inject IStringLocalizer<SharedResource> L
+@inject I18nText I18nText
 
-<PageTitle>@L["Services.Edit"]</PageTitle>
+<PageTitle>@L.Services_Edit</PageTitle>
 
-<h1>@L["Common.Edit"]</h1>
+<h1>@L.Common_Edit</h1>
 
-<h2>@L["Services.Entity"]</h2>
+<h2>@L.Services_Entity</h2>
 <hr />
 @if (Service is null)
 {
-    <p><em>@L["Common.Loading"]</em></p>
+    <p><em>@L.Common_Loading</em></p>
 }
 else
 {
@@ -25,36 +25,37 @@ else
                 <input type="hidden" name="Service.Id" value="@Service.Id" />
                 <div class="mb-3">
                 <span class="text-danger">*</span>
-                    <label for="name" class="form-label">@L["Common.Name"]:</label>
+                    <label for="name" class="form-label">@L.Common_Name:</label>
                     <InputText id="name" @bind-Value="Service.Name" class="form-control" aria-required="true"/>
                     <ValidationMessage For="() => Service.Name" class="text-danger" />
                 </div>
                 <div class="mb-3">
-                    <label for="description" class="form-label">@L["Common.Description"]:</label>
+                    <label for="description" class="form-label">@L.Common_Description:</label>
                     <InputText id="description" @bind-Value="Service.Description" class="form-control" />
                     <ValidationMessage For="() => Service.Description" class="text-danger" />
                 </div>
                 <div class="mb-3">
-                    <label for="defaultprice" class="form-label">@L["Common.DefaultPrice"]:</label>
+                    <label for="defaultprice" class="form-label">@L.Common_DefaultPrice:</label>
                     <InputNumber id="defaultprice" @bind-Value="Service.DefaultPrice" class="form-control" />
                     <ValidationMessage For="() => Service.DefaultPrice" class="text-danger" />
                 </div>
                 <div class="mb-3">
-                    <label for="estimatedminutes" class="form-label">@L["Common.EstimatedMinutes"]:</label>
+                    <label for="estimatedminutes" class="form-label">@L.Common_EstimatedMinutes:</label>
                     <InputNumber id="estimatedminutes" @bind-Value="Service.EstimatedMinutes" class="form-control" />
                     <ValidationMessage For="() => Service.EstimatedMinutes" class="text-danger" />
                 </div>
-                <button type="submit" class="btn btn-primary">@L["Common.Save"]</button>
+                <button type="submit" class="btn btn-primary">@L.Common_Save</button>
             </EditForm>
         </div>
     </div>
 }
 
 <div>
-    <a href="/services">@L["Common.BackToList"]</a>
+    <a href="/services">@L.Common_BackToList</a>
 </div>
 
 @code {
+    Text L = new();
     [SupplyParameterFromQuery]
     private int Id { get; set; }
 
@@ -63,6 +64,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        L = await I18nText.GetTextTableAsync<Text>(this);
         using var context = DbFactory.CreateDbContext();
         Service ??= await context.Service.FirstOrDefaultAsync(m => m.Id == Id);
 
