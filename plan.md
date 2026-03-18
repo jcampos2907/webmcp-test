@@ -128,53 +128,90 @@ A complete bike service shop POS system. Handles the full lifecycle: customer wa
 
 ---
 
-## Phase 4: Authentication & Authorization
+## Phase 4: Authentication, Authorization & Multi-Tenancy
 
-**Goal**: Secure the app with external OAuth/OIDC. No local passwords — identity and permissions are fully managed by the IdP (Keycloak, Authentik, Azure AD/Entra, etc.). The app reads claims from the token and enforces access. Auth comes before payment terminal because payment endpoints must be secured.
+**Goal**: Secure the app with external OAuth/OIDC and support multi-tenant operations. A conglomerate can own multiple companies (each in a different country with its own currency), and each company can have multiple stores/locations. Users are assigned roles per store. All data is row-filtered by StoreId in a shared database.
 
 ### Design Decisions
-- **Provider is the single source of truth** for identity and roles. No local role storage or management UI.
-- **No ASP.NET Core Identity** — no IdentityUser, no password hashing, no Identity tables. Just OIDC + cookie auth.
-- **`AppUser` table is audit-only** — records known users (external subject ID, display name, email, last login) for `CreatedBy`/`UpdatedBy` FKs. Not used for authorization.
-- **Roles come from the IdP** via a `roles` claim in the ID token. The IdP admin assigns users to roles (`superadmin`, `admin`, `mechanic`, `cashier`). The app maps this claim to .NET's role system automatically.
-- **Role hierarchy**: `superadmin` > `admin` > `mechanic`/`cashier`. Superadmin is the store owner — full control including store-wide settings and meta field configuration. Admin can read all data and write operational data (tickets, customers, products) but cannot change system configuration.
+- **OIDC for authentication** — IdP (Keycloak, Authentik, Azure AD, etc.) handles identity. No local passwords.
+- **No ASP.NET Core Identity** — no IdentityUser, no password hashing, no Identity tables.
+- **Row-level multi-tenancy** — all data tables get a `StoreId` FK. EF Core global query filters scope all queries to the current store. One database, one deployment.
+- **Store assignment is local** — `StoreUser` table maps (UserId → StoreId → Role). The IdP authenticates; the app determines store access and roles. A user can be `admin` at Store A and `mechanic` at Store B.
+- **Currency/locale is company-level** — a conglomerate may operate companies in different countries (e.g. Costa Rica uses ₡, Chile uses $). Each company has its own currency/locale settings.
+- **Cashier = logged-in user** — POS terminal uses the authenticated user's name, no manual cashier input.
+
+### Tenant Hierarchy
+```
+Conglomerate (optional top level — e.g. "FamCR Group")
+  └─ Company (legal/financial entity — e.g. "BikePOS Costa Rica S.A.")
+      ├─ Currency, locale, tax settings (company-wide)
+      └─ Store / Location (physical site — e.g. "Sucursal Escazú")
+          ├─ All operational data scoped here (tickets, customers, products, etc.)
+          └─ StoreUser (userId + role per store)
+```
+
+### New Models
+- **Conglomerate**: `Id`, `Name`, `CreatedAt`
+- **Company**: `Id`, `ConglomerateId`, `Name`, `Locale` (e.g. "es-CR"), `Currency` (e.g. "CRC"), `TaxId`, `CreatedAt`
+- **Store**: `Id`, `CompanyId`, `Name`, `Address`, `Phone`, `Email`, `IsActive`, `CreatedAt`
+- **AppUser**: `Id`, `ExternalSubjectId` (from IdP `sub` claim), `DisplayName`, `Email`, `LastLoginAt`
+- **StoreUser**: `Id`, `AppUserId`, `StoreId`, `Role` (enum: SuperAdmin, Admin, Mechanic, Cashier)
 
 ### Implementation Steps (one at a time, testable independently)
 
-#### Step 1: OIDC plumbing + login/logout
-- [ ] Add OIDC config to `appsettings.json` (`Oidc:Authority`, `Oidc:ClientId`, `Oidc:ClientSecret`)
-- [ ] Register Authentication + OpenIdConnect + Cookie in `Program.cs`
-- [ ] Add `UseAuthentication()` + `UseAuthorization()` middleware
-- [ ] Add `CascadingAuthenticationState` to `App.razor`
-- [ ] Create `Components/Pages/Account/Login.razor` — triggers OIDC challenge redirect
-- [ ] Create `Components/Pages/Account/Logout.razor` — signs out of cookie + IdP
-- [ ] Add login/logout button to NavMenu (show user name when authenticated)
-- **Test**: Click login → redirected to IdP → login → redirected back → see your name in nav. Click logout → session cleared.
+#### Step 1: OIDC plumbing + login/logout — DONE
+- [x] OIDC config in `appsettings.json`, Authentication + Cookie + OpenIdConnect in `Program.cs`
+- [x] Auth middleware, `CascadingAuthenticationState`, `AuthorizeRouteView`
+- [x] Login/logout HTTP endpoints, user initials + logout in NavMenu
+- [x] FallbackPolicy requires authenticated users on all pages
 
-#### Step 2: Require authentication globally
-- [ ] Add `[Authorize]` as default policy (all pages require login)
-- [ ] Create `Components/Pages/Account/AccessDenied.razor` — friendly "not authorized" page
-- [ ] Unauthenticated users redirected to login automatically
-- **Test**: Open app in incognito → redirected to IdP login. After login → app loads normally.
+#### Step 2: Tenant models + migration
+- [ ] Create models: `Conglomerate`, `Company`, `Store`, `AppUser`, `StoreUser`
+- [ ] Create `Role` enum: `SuperAdmin`, `Admin`, `Mechanic`, `Cashier`
+- [ ] Add `StoreId` FK (nullable initially) to all existing data models (Customer, Component, ServiceTicket, Mechanic, Service, Product, Charge, ShopSetting, MetaFieldDefinition)
+- [ ] Add `CreatedBy`/`UpdatedBy` (string, nullable) to ServiceTicket and Charge
+- [ ] Register DbSets in `BikePosContext`, create migration
+- [ ] Seed a default conglomerate + company + store so existing data continues to work
+- **Test**: Migration runs, app starts, existing data still loads.
 
-#### Step 3: Role-based authorization
-- [ ] Map IdP `roles` claim to .NET roles in OIDC `OnTokenValidated` event
+#### Step 3: Tenant resolution + scoped context
+- [ ] Create `TenantContext` service (scoped) — holds current `AppUser`, `Store`, `Company`, `Role`
+- [ ] In OIDC `OnTokenValidated`, upsert `AppUser` row
+- [ ] After login, resolve user's store(s) from `StoreUser` table
+- [ ] If user has one store → auto-select. If multiple → show store picker.
+- [ ] Add EF Core global query filters: `.HasQueryFilter(x => x.StoreId == currentStoreId)` on all tenant-scoped entities
+- [ ] `ShopCultureService` reads locale from `Company` instead of `ShopSetting`
+- **Test**: Login → tenant resolves → data filtered to current store. No data leaks across stores.
+
+#### Step 4: Role-based authorization
+- [ ] Read role from `StoreUser` for the current store (not from IdP claims)
+- [ ] Add role as claim via custom middleware or `ClaimsTransformation`
 - [ ] Add `[Authorize(Roles = "...")]` attributes to pages per authorization matrix
-- [ ] NavMenu: show/hide links based on user role
-- **Test**: Login as mechanic → only see Tickets + Customers. Login as superadmin → see everything. Login as admin → see most things but not Settings. Login as cashier → see POS + Customers.
+- [ ] NavMenu: show/hide links based on user role in current store
+- [ ] POS Terminal: cashier = logged-in user from `AuthenticationState` (remove manual cashier input)
+- **Test**: Login as mechanic at Store A → only see Tickets + Customers. Switch to Store B where you're admin → see more.
 
-#### Step 4: AppUser table + audit trail
-- [ ] Create `Models/AppUser.cs` — `Id`, `ExternalSubjectId`, `DisplayName`, `Email`, `LastLoginAt`
-- [ ] Migration: add `AppUser` table, add `CreatedBy`/`UpdatedBy` (string, nullable) to ServiceTicket and Charge
-- [ ] In `OnTokenValidated`, upsert `AppUser` row (create on first login, update LastLoginAt on subsequent)
+#### Step 5: Superadmin management UI
+- [ ] Settings > Companies: superadmin can create/edit/delete companies (name, locale, currency, tax ID)
+- [ ] Settings > Stores: superadmin can create/edit/delete stores within a company
+- [ ] Settings > Users: superadmin can view users, assign roles per store
+- [ ] Move existing Settings sections (meta fields, component types) under store-scoped config
+- [ ] Currency/locale settings move from `ShopSetting` to `Company` model
+- **Test**: Superadmin creates a new company + store → can switch to it → empty data, correct currency.
+
+#### Step 6: Store switcher + audit trail
+- [ ] Store switcher in NavMenu or header (for users with access to multiple stores)
+- [ ] Switching store reloads `TenantContext`, re-filters all data
 - [ ] Populate `CreatedBy`/`UpdatedBy` from `AuthenticationState` when saving tickets/charges
-- **Test**: Login → check DB for AppUser row. Create a ticket → `CreatedBy` has your subject ID.
+- **Test**: User with 2 stores switches between them → sees different data. Created tickets show who created them.
 
 ### Authorization Matrix
 
 | Area | superadmin | admin | mechanic | cashier |
 |------|------------|-------|----------|---------|
-| Settings (shop info, meta fields, component types) | Yes | — | — | — |
+| Companies & Stores (create/edit/delete) | Yes | — | — | — |
+| User management (assign roles per store) | Yes | — | — | — |
+| Settings (meta fields, component types) | Yes | — | — | — |
 | Services CRUD | Yes | Read/Write | — | — |
 | Products CRUD | Yes | Read/Write | — | — |
 | Mechanics CRUD | Yes | Read/Write | — | — |
@@ -185,24 +222,22 @@ A complete bike service shop POS system. Handles the full lifecycle: customer wa
 | Home dashboard | Yes | Yes | Yes | Yes |
 
 ### Role Descriptions
-- **superadmin**: Store owner. Full access to everything including system configuration (Settings, meta fields, component types, shop info). The only role that can change how the system behaves.
-- **admin**: Store manager. Can read and write all operational data (tickets, customers, products, services, mechanics) and use the POS terminal. Cannot change system settings.
-- **mechanic**: Workshop staff. Can view and work on their own assigned tickets. Read-only access to customers. Cannot access POS, products, services, or settings.
-- **cashier**: Front desk / POS operator. Can use the POS terminal and look up customers. Cannot access tickets, products, services, or settings.
+- **superadmin**: Conglomerate owner. Creates/manages companies and stores. Manages user access. Configures system-wide settings (meta fields, component types). Full access to all operational data across all stores.
+- **admin**: Store manager. Can read and write all operational data within their assigned store(s). Uses POS terminal. Cannot create companies/stores or change system configuration.
+- **mechanic**: Workshop staff. Views and works on their own assigned tickets. Read-only access to customers. Scoped to their assigned store.
+- **cashier**: Front desk / POS operator. Uses the POS terminal (cashier = their own identity). Can look up customers. Scoped to their assigned store.
 
 ### IdP Configuration (admin responsibility, not app code)
-- Create client with Authorization Code flow + PKCE
+- Create OIDC client with Authorization Code flow
 - Set redirect URI: `https://localhost:7245/signin-oidc`
 - Set post-logout redirect: `https://localhost:7245/signout-callback-oidc`
-- Create roles/groups: `superadmin`, `admin`, `mechanic`, `cashier`
-- Configure ID token to include `roles` claim
-- Assign users to roles
+- No role claims needed from IdP — roles are managed per-store in the app
 
 ### Config Shape
 ```json
 {
   "Oidc": {
-    "Authority": "https://keycloak.example/realms/bikepos",
+    "Authority": "https://keycloak.example/realms/master",
     "ClientId": "bikepos",
     "ClientSecret": "..."
   }
