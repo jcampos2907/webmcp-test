@@ -323,13 +323,83 @@ No PCI scope — terminals handle card data on-device. The app only sends the am
 
 **Goal**: Extend the MetaFieldDefinition pattern (already working for Customer) to other entities.
 
-- [ ] Add `EntityType` discriminator to `MetaFieldDefinition` (e.g. "Customer", "Component", "ServiceTicket")
-- [ ] Create `ComponentMetaValue`, `TicketMetaValue` tables (same pattern as `CustomerMetaValue`)
-- [ ] Settings UI: add tabs per entity type in "Campos" section
-- [ ] Render dynamic fields in Component and Ticket forms
-- [ ] Support per-country presets (CR, Chile, Mexico defaults for tax ID formats, currencies, required fields)
+- [x] Add `EntityType` discriminator to `MetaFieldDefinition` — already existed, extended to support "Component" and "ServiceTicket"
+- [x] Use generic `EntityMetaValue` table for all non-customer entities (no separate tables needed)
+- [x] Settings UI: entity type tabs in Custom Fields section now include Customer, Component, Service Ticket, Company, Group, Store
+- [x] Render dynamic fields in Ticket forms (Create step 4 + Edit page) with validation, conditional visibility, upsert save
+- [x] Render dynamic fields in Component creation (inline in ticket wizard step 2) with save on create
+- [x] Support per-country presets — auto-applied from company's `CountryCode`, conditional field linking, no overwrite of custom fields
+- [x] JS action scripts on meta fields — `ActionEvent` (blur/input/change) + `ActionScript` with sandboxed execution via `new Function` + global shadowing + blocklist
+- [x] Input masks — `FormatMask` property with real-time masking via JS interop (`9`=digit, `A`=letter, `X`=alphanumeric)
+- [x] Default values — `DefaultValue` property auto-populated on form load
+- [x] Inline regex validation on blur — `RegexPattern` + `RegexMessage` enforced in all entity forms
+- [x] Security hardening — client-side blocklist + server-side validation of action scripts before save
+- [x] Delete custom field functionality in Settings
+- [ ] Form Editor — unified field layout editor with drag-and-drop reordering (see below)
 
-**Files**: `Models/MetaFieldDefinition.cs`, `Components/Pages/SettingsPages/Index.razor`, new MetaValue models
+### Form Editor
+
+**Goal**: Provide a visual editor in Settings where admins can see ALL fields for an entity (base model fields + custom meta fields) in a single, reorderable list. This controls the render order and layout of fields in the actual entity forms (CustomerForm, Ticket Create/Edit, Component section).
+
+#### Concept
+- **Unified field list**: Base entity fields (e.g. FirstName, LastName, Phone, Email for Customer) appear alongside custom meta fields in one sortable list.
+- **Base fields are locked**: They cannot be edited, deleted, or hidden — only reordered. They display with a lock icon and muted styling.
+- **Custom meta fields are fully editable**: Edit, delete, reorder — same capabilities as the current Custom Fields section, but now in context with base fields.
+- **Drag-and-drop reordering**: All fields (base + custom) can be dragged to reorder. The sort order determines how fields render in the actual forms.
+- **Per-entity-type tabs**: Same entity type tabs as current Custom Fields section (Customer, Component, Service Ticket, Company, Group, Store).
+
+#### Data Model Changes
+- New model **`BaseFieldLayout`**: `Id`, `EntityType`, `FieldKey` (e.g. "FirstName"), `Label`, `SortOrder`, `CompanyId`, `StoreId`
+- On first load for an entity type, auto-seed `BaseFieldLayout` records from a static registry of known base fields per entity
+- Meta fields already have `SortOrder` — unify the sort space so base fields and meta fields interleave correctly
+- All sort orders are relative integers (0, 1, 2, ...) — renumbered on drag-drop save
+
+#### Base Field Registry (static, per entity type)
+| Entity | Base Fields |
+|--------|-------------|
+| Customer | FirstName, LastName, Phone, Email, Address |
+| Component | Name, ComponentType, Brand, Model, Color, SerialNumber, Notes |
+| ServiceTicket | Customer, Component, Mechanic, Services, Status, DiscountPercent, Notes |
+| Company | Name, Locale, Currency, TaxId, CountryCode |
+| Store | Name, Address, Phone, Email |
+
+#### UI Design
+- Replace (or enhance) current Custom Fields tab with Form Editor
+- Each entity type tab shows a vertical sortable list of field cards:
+  - **Base field card**: Lock icon, field label (localized), field key (muted), type badge ("text", "select", etc.) — non-interactive except drag handle
+  - **Meta field card**: Drag handle, field label, field key, type badge, Edit button, Delete button, Active/Inactive toggle
+- Drag handle on left side of each card for reordering
+- "Add Custom Field" button at bottom (opens existing field editor form)
+- Save button persists new sort orders for all fields
+
+#### Drag-and-Drop Implementation
+- Use HTML5 Drag and Drop API via JS interop (Blazor doesn't have native sortable lists)
+- JS module `wwwroot/js/form-editor-dnd.js`:
+  - `initSortable(containerSelector, dotNetRef)` — attaches drag listeners to `.field-card` elements
+  - On drop: reorders DOM, calls `[JSInvokable] OnFieldReordered(string[] orderedIds)` back to Blazor
+  - Visual feedback: drag ghost, drop indicator line between cards
+- Blazor component receives new order, updates `SortOrder` on both `BaseFieldLayout` and `MetaFieldDefinition` records, saves to DB
+
+#### Form Rendering Changes
+- `CustomerForm.razor`, `Create.razor`, `Edit.razor` — instead of rendering base fields first then meta fields separately, load the unified sort order and render ALL fields in sort order
+- Each form builds a merged list: `List<FormField>` where `FormField` is a union type (base field reference or meta field definition), sorted by `SortOrder`
+- Base fields render their existing Blazorise inputs; meta fields render the dynamic field template (text/select/textarea with mask, validation, conditional visibility)
+- Fallback: if no `BaseFieldLayout` records exist (first run), render in default order (base fields first, then meta fields by their `SortOrder`)
+
+#### Implementation Steps
+1. [ ] Create `BaseFieldLayout` model + migration
+2. [ ] Create static base field registry (`BaseFieldDefinition.GetBaseFields(entityType)`)
+3. [ ] Create `FormField` union type + merge/sort logic
+4. [ ] Build `form-editor-dnd.js` — HTML5 sortable with Blazor interop
+5. [ ] Build Form Editor UI component in Settings (replaces Custom Fields section)
+6. [ ] Wire drag-drop save — persist reordered `SortOrder` values
+7. [ ] Update `CustomerForm.razor` to render fields in unified sort order
+8. [ ] Update `Create.razor` (ticket) to render fields in unified sort order
+9. [ ] Update `Edit.razor` (ticket) to render fields in unified sort order
+10. [ ] Auto-seed `BaseFieldLayout` on first load per entity type
+11. [ ] i18n keys for Form Editor UI strings
+
+**Files**: `Models/BaseFieldLayout.cs`, `wwwroot/js/form-editor-dnd.js`, `Components/Pages/SettingsPages/Index.razor`, `Components/Pages/CustomerPages/CustomerForm.razor`, `Components/Pages/ServiceTicketPages/Create.razor`, `Components/Pages/ServiceTicketPages/Edit.razor`, `I18nText/Text.*.json`
 
 ---
 

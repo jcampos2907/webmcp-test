@@ -1,9 +1,11 @@
+@using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.EntityFrameworkCore
 @using BikePOS.Models
 @using System.Text.RegularExpressions
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject I18nText I18nText
 @inject TenantContext Tenant
+@inject IJSRuntime JS
 
 <div class="space-y-4">
     <h3 class="text-lg font-semibold text-gray-800">@(IsEditMode ? L.Customers_Edit : L.Customers_New)</h3>
@@ -87,7 +89,7 @@
                         {
                             <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                                     value="@GetMetaValue(field.Id)"
-                                    @onchange="e => SetMetaValue(field.Id, e.Value?.ToString())">
+                                    @onchange="e => OnMetaChange(field, e)">
                                 <option value="">@L.Common_Select</option>
                                 @foreach (var opt in field.Options.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                                 {
@@ -101,7 +103,8 @@
                                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                                    value="@GetMetaValue(field.Id)"
                                    placeholder="@(field.FormatMask ?? "")"
-                                   @oninput="e => SetMetaValue(field.Id, e.Value?.ToString())" />
+                                   @oninput="e => OnMetaInput(field, e)"
+                                   @onfocusout="() => OnMetaBlur(field)" />
                         }
 
                         @if (fieldErrors.TryGetValue(field.Id, out var err))
@@ -157,12 +160,76 @@
     private Dictionary<string, string> metaValues = new();
     private Dictionary<string, string> fieldErrors = new();
 
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
+        if (AuthState != null)
+        {
+            var state = await AuthState;
+            Tenant.PopulateFromClaims(state.User);
+        }
+
         L = await I18nText.GetTextTableAsync<Text>(this);
         using var context = DbFactory.CreateDbContext();
+
+        // Auto-apply country presets if needed
+        if (!string.IsNullOrEmpty(Tenant.CompanyId))
+        {
+            var company = await context.Company.FindAsync(Tenant.CompanyId);
+            if (company is not null && !string.IsNullOrEmpty(company.CountryCode))
+            {
+                var presets = MetaFieldDefinition.GetPresetsForCountry(company.CountryCode, "Customer");
+                if (presets.Any())
+                {
+                    var existing = await context.MetaFieldDefinition
+                        .Where(f => f.EntityType == "Customer" && f.CompanyId == Tenant.CompanyId)
+                        .ToListAsync();
+                    var existingByKey = existing.ToDictionary(f => f.Key, StringComparer.OrdinalIgnoreCase);
+                    // Build a map from preset key → saved DB id (for conditional linking)
+                    var presetKeyToDbId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    var changed = false;
+
+                    foreach (var preset in presets)
+                    {
+                        if (existingByKey.TryGetValue(preset.Key, out var dbField))
+                        {
+                            presetKeyToDbId[preset.Key] = dbField.Id;
+                        }
+                        else
+                        {
+                            preset.CompanyId = Tenant.CompanyId;
+                            context.MetaFieldDefinition.Add(preset);
+                            presetKeyToDbId[preset.Key] = preset.Id;
+                            changed = true;
+                        }
+                    }
+
+                    // Patch conditional links on existing fields that are missing them
+                    foreach (var preset in presets)
+                    {
+                        if (preset.ConditionalOnFieldId == null) continue;
+                        if (!existingByKey.TryGetValue(preset.Key, out var dbField)) continue;
+                        // Find which preset key the condition points to
+                        var parentPreset = presets.FirstOrDefault(p => p.Id == preset.ConditionalOnFieldId);
+                        if (parentPreset == null) continue;
+                        var parentDbId = presetKeyToDbId.GetValueOrDefault(parentPreset.Key);
+                        if (parentDbId != null && (dbField.ConditionalOnFieldId != parentDbId || dbField.ConditionalOnValue != preset.ConditionalOnValue))
+                        {
+                            dbField.ConditionalOnFieldId = parentDbId;
+                            dbField.ConditionalOnValue = preset.ConditionalOnValue;
+                            changed = true;
+                        }
+                    }
+
+                    if (changed) await context.SaveChangesAsync();
+                }
+            }
+        }
+
         metaFields = await context.MetaFieldDefinition
-            .Where(f => f.IsActive && f.EntityType == "Customer" && f.CompanyId == CompanyId)
+            .Where(f => f.IsActive && f.EntityType == "Customer" && f.CompanyId == Tenant.CompanyId)
             .OrderBy(f => f.SortOrder)
             .ToListAsync();
 
@@ -185,6 +252,66 @@
             {
                 metaValues[mv.MetaFieldDefinitionId] = mv.Value ?? "";
             }
+        }
+
+        // Apply default values for fields that have no value yet
+        foreach (var field in metaFields)
+        {
+            if (!string.IsNullOrEmpty(field.DefaultValue) && !metaValues.ContainsKey(field.Id))
+                metaValues[field.Id] = field.DefaultValue;
+        }
+    }
+
+    private async Task RunMetaAction(MetaFieldDefinition field, string eventName)
+    {
+        if (string.IsNullOrEmpty(field.ActionEvent) || string.IsNullOrEmpty(field.ActionScript)) return;
+        if (!string.Equals(field.ActionEvent, eventName, StringComparison.OrdinalIgnoreCase)) return;
+        var currentVal = GetMetaValue(field.Id);
+        var result = await JS.InvokeAsync<string>("MetaFieldActions.execute", field.ActionScript, currentVal);
+        if (result != currentVal) { metaValues[field.Id] = result; StateHasChanged(); }
+    }
+
+    private async Task OnMetaInput(MetaFieldDefinition field, ChangeEventArgs e)
+    {
+        var val = e.Value?.ToString() ?? "";
+        if (!string.IsNullOrEmpty(field.FormatMask))
+        {
+            val = await JS.InvokeAsync<string>("MetaFieldActions.applyMask", field.FormatMask, val);
+        }
+        SetMetaValue(field.Id, val);
+        await RunMetaAction(field, "input");
+    }
+
+    private async Task OnMetaChange(MetaFieldDefinition field, ChangeEventArgs e)
+    {
+        SetMetaValue(field.Id, e.Value?.ToString());
+        await RunMetaAction(field, "change");
+        StateHasChanged(); // re-evaluate conditional visibility
+    }
+
+    private async Task OnMetaBlur(MetaFieldDefinition field)
+    {
+        await RunMetaAction(field, "blur");
+        ValidateField(field);
+    }
+
+    private void ValidateField(MetaFieldDefinition field)
+    {
+        var val = GetMetaValue(field.Id);
+        fieldErrors.Remove(field.Id);
+        if (field.IsRequired && string.IsNullOrWhiteSpace(val))
+        {
+            fieldErrors[field.Id] = string.Format(L.Validation_FieldRequired, field.Label);
+            return;
+        }
+        if (!string.IsNullOrWhiteSpace(val) && !string.IsNullOrWhiteSpace(field.RegexPattern))
+        {
+            try
+            {
+                if (!Regex.IsMatch(val, field.RegexPattern))
+                    fieldErrors[field.Id] = field.RegexMessage ?? string.Format(L.Validation_InvalidFormat, field.Label);
+            }
+            catch { }
         }
     }
 

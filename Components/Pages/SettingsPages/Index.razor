@@ -295,6 +295,7 @@
                                 <label class="block text-xs text-gray-500 mb-1">@L.Settings_FormatMask</label>
                                 <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                                        placeholder="@L.Settings_FormatMaskPlaceholder" @bind="fieldFormatMask" />
+                                <p class="text-xs text-gray-400 mt-1">9 = digit, A = letter, X = any</p>
                             </div>
                             <div class="flex items-end pb-1">
                                 <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
@@ -302,6 +303,35 @@
                                     @L.Settings_RequiredField
                                 </label>
                             </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-xs text-gray-500 mb-1">@L.Settings_DefaultValue</label>
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                   placeholder="@L.Settings_DefaultValuePlaceholder" @bind="fieldDefaultValue" />
+                        </div>
+
+                        <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">Action</p>
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_ActionEvent</label>
+                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                        @bind="fieldActionEvent">
+                                    <option value="">@L.Settings_ActionNone</option>
+                                    <option value="blur">@L.Settings_ActionOnBlur</option>
+                                    <option value="input">@L.Settings_ActionOnInput</option>
+                                    <option value="change">@L.Settings_ActionOnChange</option>
+                                </select>
+                            </div>
+                            @if (!string.IsNullOrEmpty(fieldActionEvent))
+                            {
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">@L.Settings_ActionScript</label>
+                                    <textarea class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                              rows="3" placeholder="@L.Settings_ActionScriptPlaceholder"
+                                              @bind="fieldActionScript"></textarea>
+                                    <p class="text-xs text-gray-400 mt-1">@L.Settings_ActionScriptHint</p>
+                                </div>
+                            }
                         </div>
 
                         <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">@L.Settings_ConditionalVisibility</p>
@@ -410,9 +440,10 @@
                                         </td>
                                         <td class="py-3 px-4 text-right">
                                             <button class="text-indigo-600 hover:text-indigo-800 text-xs mr-2" @onclick="() => EditField(field)">@L.Common_Edit</button>
-                                            <button class="text-gray-400 hover:text-gray-600 text-xs" @onclick="() => ToggleFieldActive(field)">
+                                            <button class="text-gray-400 hover:text-gray-600 text-xs mr-2" @onclick="() => ToggleFieldActive(field)">
                                                 @(field.IsActive ? L.Settings_Deactivate : L.Settings_Activate)
                                             </button>
+                                            <button class="text-red-400 hover:text-red-600 text-xs" @onclick="() => DeleteField(field)">@L.Common_Delete</button>
                                         </td>
                                     </tr>
                                 }
@@ -574,9 +605,12 @@
     private string fieldRegex = "";
     private string fieldRegexMessage = "";
     private string fieldFormatMask = "";
+    private string fieldDefaultValue = "";
     private string fieldOptions = "";
     private string fieldConditionalOnId = "";
     private string fieldConditionalOnValue = "";
+    private string fieldActionEvent = "";
+    private string fieldActionScript = "";
     private string? fieldError;
 
     // --- Shop Settings ---
@@ -629,6 +663,8 @@
     private Dictionary<string, string> EntityTypes => new()
     {
         ["Customer"] = L.Settings_EntityCustomer,
+        ["Component"] = L.Settings_EntityComponent,
+        ["ServiceTicket"] = L.Settings_EntityServiceTicket,
         ["Company"] = L.Settings_EntityCompany,
         ["Conglomerate"] = L.Settings_EntityConglomerate,
         ["Store"] = L.Settings_EntityStore
@@ -747,16 +783,76 @@
     private async Task LoadMetaFields()
     {
         using var context = DbFactory.CreateDbContext();
+        var isOrgType = OrgEntityTypes.Contains(selectedEntityType);
+
         var query = context.MetaFieldDefinition
             .Where(f => f.EntityType == selectedEntityType);
-
-        // Customer fields are company-scoped; org-level types are conglomerate-wide
-        if (!OrgEntityTypes.Contains(selectedEntityType))
+        if (!isOrgType)
             query = query.Where(f => f.CompanyId == Tenant.CompanyId);
 
         metaFields = await query
             .OrderBy(f => f.SortOrder).ThenBy(f => f.Label)
             .ToListAsync();
+
+        // Auto-apply country presets for company-scoped entity types
+        if (!isOrgType)
+            await AutoApplyPresets(context);
+    }
+
+    private async Task AutoApplyPresets(BikePOS.Data.BikePosContext context)
+    {
+        var company = await context.Company.FindAsync(Tenant.CompanyId);
+        if (company is null || string.IsNullOrEmpty(company.CountryCode)) return;
+
+        var presets = MetaFieldDefinition.GetPresetsForCountry(company.CountryCode, selectedEntityType);
+        if (!presets.Any()) return;
+
+        var existing = await context.MetaFieldDefinition
+            .Where(f => f.EntityType == selectedEntityType && f.CompanyId == Tenant.CompanyId)
+            .ToListAsync();
+        var existingByKey = existing.ToDictionary(f => f.Key, StringComparer.OrdinalIgnoreCase);
+        var presetKeyToDbId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var changed = false;
+
+        foreach (var preset in presets)
+        {
+            if (existingByKey.TryGetValue(preset.Key, out var dbField))
+            {
+                presetKeyToDbId[preset.Key] = dbField.Id;
+            }
+            else
+            {
+                preset.CompanyId = Tenant.CompanyId;
+                context.MetaFieldDefinition.Add(preset);
+                presetKeyToDbId[preset.Key] = preset.Id;
+                changed = true;
+            }
+        }
+
+        // Patch conditional links on existing fields
+        foreach (var preset in presets)
+        {
+            if (preset.ConditionalOnFieldId == null) continue;
+            if (!existingByKey.TryGetValue(preset.Key, out var dbField)) continue;
+            var parentPreset = presets.FirstOrDefault(p => p.Id == preset.ConditionalOnFieldId);
+            if (parentPreset == null) continue;
+            var parentDbId = presetKeyToDbId.GetValueOrDefault(parentPreset.Key);
+            if (parentDbId != null && (dbField.ConditionalOnFieldId != parentDbId || dbField.ConditionalOnValue != preset.ConditionalOnValue))
+            {
+                dbField.ConditionalOnFieldId = parentDbId;
+                dbField.ConditionalOnValue = preset.ConditionalOnValue;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync();
+            metaFields = await context.MetaFieldDefinition
+                .Where(f => f.EntityType == selectedEntityType && f.CompanyId == Tenant.CompanyId)
+                .OrderBy(f => f.SortOrder).ThenBy(f => f.Label)
+                .ToListAsync();
+        }
     }
 
     private async Task SwitchEntityType(string entityType)
@@ -771,8 +867,9 @@
         editingFieldId = null;
         fieldLabel = ""; fieldKey = ""; fieldType = "text"; fieldIsRequired = false;
         fieldSortOrder = metaFields.Any() ? metaFields.Max(f => f.SortOrder) + 1 : 0;
-        fieldRegex = ""; fieldRegexMessage = ""; fieldFormatMask = ""; fieldOptions = "";
-        fieldConditionalOnId = ""; fieldConditionalOnValue = ""; fieldError = null;
+        fieldRegex = ""; fieldRegexMessage = ""; fieldFormatMask = ""; fieldDefaultValue = ""; fieldOptions = "";
+        fieldConditionalOnId = ""; fieldConditionalOnValue = "";
+        fieldActionEvent = ""; fieldActionScript = ""; fieldError = null;
         showFieldForm = true;
     }
 
@@ -782,10 +879,11 @@
         fieldLabel = field.Label; fieldKey = field.Key; fieldType = field.FieldType;
         fieldIsRequired = field.IsRequired; fieldSortOrder = field.SortOrder;
         fieldRegex = field.RegexPattern ?? ""; fieldRegexMessage = field.RegexMessage ?? "";
-        fieldFormatMask = field.FormatMask ?? ""; fieldOptions = field.Options ?? "";
+        fieldFormatMask = field.FormatMask ?? ""; fieldDefaultValue = field.DefaultValue ?? ""; fieldOptions = field.Options ?? "";
         fieldConditionalOnId = field.ConditionalOnFieldId ?? "";
-        fieldConditionalOnValue = field.ConditionalOnValue ?? ""; fieldError = null;
-        showFieldForm = true;
+        fieldConditionalOnValue = field.ConditionalOnValue ?? "";
+        fieldActionEvent = field.ActionEvent ?? ""; fieldActionScript = field.ActionScript ?? "";
+        fieldError = null; showFieldForm = true;
     }
 
     private void CancelFieldForm() { showFieldForm = false; fieldError = null; }
@@ -804,6 +902,18 @@
         {
             try { System.Text.RegularExpressions.Regex.Match("", fieldRegex); }
             catch { fieldError = L.Validation_InvalidRegex; return; }
+        }
+
+        // Validate action script — block dangerous patterns server-side
+        if (!string.IsNullOrWhiteSpace(fieldActionScript))
+        {
+            var blocked = new[] { "fetch", "XMLHttpRequest", "import", "require", "eval", "Function",
+                "setTimeout", "setInterval", "document.", "window.", "globalThis",
+                "localStorage", "sessionStorage", "cookie", "indexedDB", "WebSocket",
+                "Worker", "ServiceWorker", "navigator.", "location.", "history." };
+            var scriptLower = fieldActionScript;
+            if (blocked.Any(b => scriptLower.Contains(b)))
+            { fieldError = L.Validation_ActionScriptBlocked; return; }
         }
 
         using var context = DbFactory.CreateDbContext();
@@ -826,8 +936,10 @@
                 field.Label = fieldLabel.Trim(); field.Key = fieldKey.Trim(); field.FieldType = fieldType;
                 field.IsRequired = fieldIsRequired; field.SortOrder = fieldSortOrder;
                 field.RegexPattern = NullIfEmpty(fieldRegex); field.RegexMessage = NullIfEmpty(fieldRegexMessage);
-                field.FormatMask = NullIfEmpty(fieldFormatMask); field.Options = NullIfEmpty(fieldOptions);
+                field.FormatMask = NullIfEmpty(fieldFormatMask); field.DefaultValue = NullIfEmpty(fieldDefaultValue);
+                field.Options = NullIfEmpty(fieldOptions);
                 field.ConditionalOnFieldId = conditionalId; field.ConditionalOnValue = NullIfEmpty(fieldConditionalOnValue);
+                field.ActionEvent = NullIfEmpty(fieldActionEvent); field.ActionScript = NullIfEmpty(fieldActionScript);
             }
         }
         else
@@ -839,8 +951,10 @@
                 Label = fieldLabel.Trim(), Key = fieldKey.Trim(), FieldType = fieldType,
                 IsRequired = fieldIsRequired, SortOrder = fieldSortOrder, IsActive = true,
                 RegexPattern = NullIfEmpty(fieldRegex), RegexMessage = NullIfEmpty(fieldRegexMessage),
-                FormatMask = NullIfEmpty(fieldFormatMask), Options = NullIfEmpty(fieldOptions),
+                FormatMask = NullIfEmpty(fieldFormatMask), DefaultValue = NullIfEmpty(fieldDefaultValue),
+                Options = NullIfEmpty(fieldOptions),
                 ConditionalOnFieldId = conditionalId, ConditionalOnValue = NullIfEmpty(fieldConditionalOnValue),
+                ActionEvent = NullIfEmpty(fieldActionEvent), ActionScript = NullIfEmpty(fieldActionScript),
             });
         }
 
@@ -859,6 +973,28 @@
             await context.SaveChangesAsync();
             await LoadMetaFields();
         }
+    }
+
+    private async Task DeleteField(MetaFieldDefinition field)
+    {
+        using var context = DbFactory.CreateDbContext();
+        var entity = await context.MetaFieldDefinition.FindAsync(field.Id);
+        if (entity is null) return;
+
+        // Remove any meta values referencing this field
+        var relatedValues = await context.EntityMetaValue
+            .Where(v => v.MetaFieldDefinitionId == field.Id)
+            .ToListAsync();
+        context.EntityMetaValue.RemoveRange(relatedValues);
+
+        var relatedCustomerValues = await context.CustomerMetaValue
+            .Where(v => v.MetaFieldDefinitionId == field.Id)
+            .ToListAsync();
+        context.CustomerMetaValue.RemoveRange(relatedCustomerValues);
+
+        context.MetaFieldDefinition.Remove(entity);
+        await context.SaveChangesAsync();
+        await LoadMetaFields();
     }
 
     // ===== Shop Settings =====

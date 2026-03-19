@@ -9,6 +9,7 @@
 @inject I18nText I18nText
 @inject ShopCultureService CultureService
 @inject TenantContext Tenant
+@inject IJSRuntime JS
 @using BikePOS.Components.Pages.CustomerPages
 
 <PageTitle>@L.Tickets_Create_Title</PageTitle>
@@ -116,6 +117,51 @@
                             }
                         </select>
                     </div>
+                    @if (componentMetaFields.Any())
+                    {
+                        <div class="mt-3 pt-3 border-t border-gray-200">
+                            <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">@L.Customers_AdditionalFields</p>
+                            <div class="grid grid-cols-2 gap-3">
+                                @foreach (var field in componentMetaFields)
+                                {
+                                    @if (IsComponentMetaFieldVisible(field))
+                                    {
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-1">
+                                                @field.Label
+                                                @if (field.IsRequired) { <span class="text-red-500">*</span> }
+                                            </label>
+                                            @if (field.FieldType == "select" && !string.IsNullOrEmpty(field.Options))
+                                            {
+                                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                                        value="@GetComponentMetaValue(field.Id)"
+                                                        @onchange="e => OnComponentMetaChange(field, e)">
+                                                    <option value="">@L.Common_Select</option>
+                                                    @foreach (var opt in field.Options.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                                                    {
+                                                        <option value="@opt">@opt</option>
+                                                    }
+                                                </select>
+                                            }
+                                            else
+                                            {
+                                                <input type="@field.FieldType"
+                                                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                                       value="@GetComponentMetaValue(field.Id)"
+                                                       placeholder="@(field.FormatMask ?? "")"
+                                                       @oninput="e => OnComponentMetaInput(field, e)"
+                                                       @onfocusout="() => OnComponentMetaBlur(field)" />
+                                            }
+                                            @if (componentMetaFieldErrors.TryGetValue(field.Id, out var err))
+                                            {
+                                                <p class="text-xs text-red-500 mt-1">@err</p>
+                                            }
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    }
                     <div class="flex gap-2 mt-3">
                         <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-1.5 rounded-lg" @onclick="CreateComponent">@L.Common_Save</button>
                         <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm px-4 py-1.5 rounded-lg" @onclick="() => showCreateComponent = false">@L.Common_Cancel</button>
@@ -227,6 +273,53 @@
                         }
                     </select>
                 </div>
+
+                @* Custom fields *@
+                @if (metaFields.Any())
+                {
+                    <div class="mb-4">
+                        <h4 class="text-xs text-gray-400 uppercase tracking-wide mb-2">@L.Customers_AdditionalFields</h4>
+                        <div class="grid grid-cols-2 gap-3">
+                            @foreach (var field in metaFields)
+                            {
+                                @if (IsMetaFieldVisible(field))
+                                {
+                                    <div>
+                                        <label class="block text-xs text-gray-500 mb-1">
+                                            @field.Label
+                                            @if (field.IsRequired) { <span class="text-red-500">*</span> }
+                                        </label>
+                                        @if (field.FieldType == "select" && !string.IsNullOrEmpty(field.Options))
+                                        {
+                                            <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                                    value="@GetMetaValue(field.Id)"
+                                                    @onchange="e => OnMetaChange(field, e)">
+                                                <option value="">@L.Common_Select</option>
+                                                @foreach (var opt in field.Options.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                                                {
+                                                    <option value="@opt">@opt</option>
+                                                }
+                                            </select>
+                                        }
+                                        else
+                                        {
+                                            <input type="@field.FieldType"
+                                                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                                   value="@GetMetaValue(field.Id)"
+                                                   placeholder="@(field.FormatMask ?? "")"
+                                                   @oninput="e => OnMetaInput(field, e)"
+                                                   @onfocusout="() => OnMetaBlur(field)" />
+                                        }
+                                        @if (metaFieldErrors.TryGetValue(field.Id, out var err))
+                                        {
+                                            <p class="text-xs text-red-500 mt-1">@err</p>
+                                        }
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                }
 
                 @* Product list *@
                 @if (ticketProducts.Any())
@@ -400,6 +493,16 @@
     private string productSearch = "";
     private List<Product> productResults = new();
 
+    // Ticket meta fields
+    private List<MetaFieldDefinition> metaFields = new();
+    private Dictionary<string, string> metaValues = new();
+    private Dictionary<string, string> metaFieldErrors = new();
+
+    // Component meta fields
+    private List<MetaFieldDefinition> componentMetaFields = new();
+    private Dictionary<string, string> componentMetaValues = new();
+    private Dictionary<string, string> componentMetaFieldErrors = new();
+
     protected override async Task OnInitializedAsync()
     {
         if (AuthState != null)
@@ -429,6 +532,16 @@
         if (availableComponentTypes.Any())
         {
             newComponentType = availableComponentTypes[0];
+        }
+
+        componentMetaFields = await context.MetaFieldDefinition
+            .Where(f => f.IsActive && f.EntityType == "Component" && f.CompanyId == Tenant.CompanyId)
+            .OrderBy(f => f.SortOrder).ThenBy(f => f.Label)
+            .ToListAsync();
+        foreach (var field in componentMetaFields)
+        {
+            if (!string.IsNullOrEmpty(field.DefaultValue) && !componentMetaValues.ContainsKey(field.Id))
+                componentMetaValues[field.Id] = field.DefaultValue;
         }
     }
 
@@ -503,8 +616,27 @@
         };
         context.Component.Add(component);
         await context.SaveChangesAsync();
+
+        // Save component meta values
+        foreach (var field in componentMetaFields)
+        {
+            var val = componentMetaValues.TryGetValue(field.Id, out var v) ? v : null;
+            if (!string.IsNullOrWhiteSpace(val) && IsComponentMetaFieldVisible(field))
+            {
+                context.EntityMetaValue.Add(new EntityMetaValue
+                {
+                    EntityType = "Component",
+                    EntityId = component.Id,
+                    MetaFieldDefinitionId = field.Id,
+                    Value = val
+                });
+            }
+        }
+        await context.SaveChangesAsync();
+
         showCreateComponent = false;
         newComponentName = ""; newComponentSku = ""; newComponentColor = ""; newComponentBrand = ""; newComponentType = "Bicicleta";
+        componentMetaValues.Clear(); componentMetaFieldErrors.Clear();
         SelectComponent(component);
     }
 
@@ -528,6 +660,15 @@
         step = 4;
         using var context = DbFactory.CreateDbContext();
         availableMechanics = await context.Mechanic.Where(m => m.IsActive).OrderBy(m => m.Name).ToListAsync();
+        metaFields = await context.MetaFieldDefinition
+            .Where(f => f.IsActive && f.EntityType == "ServiceTicket" && f.CompanyId == Tenant.CompanyId)
+            .OrderBy(f => f.SortOrder).ThenBy(f => f.Label)
+            .ToListAsync();
+        foreach (var field in metaFields)
+        {
+            if (!string.IsNullOrEmpty(field.DefaultValue) && !metaValues.ContainsKey(field.Id))
+                metaValues[field.Id] = field.DefaultValue;
+        }
     }
 
     // --- Products ---
@@ -579,9 +720,173 @@
         return subtotal - (subtotal * discountPercent / 100m);
     }
 
+    // ===== Meta Field Helpers =====
+
+    private async Task RunMetaAction(MetaFieldDefinition field, string eventName)
+    {
+        if (string.IsNullOrEmpty(field.ActionEvent) || string.IsNullOrEmpty(field.ActionScript)) return;
+        if (!string.Equals(field.ActionEvent, eventName, StringComparison.OrdinalIgnoreCase)) return;
+        var currentVal = GetMetaValue(field.Id);
+        var result = await JS.InvokeAsync<string>("MetaFieldActions.execute", field.ActionScript, currentVal);
+        if (result != currentVal) { metaValues[field.Id] = result; StateHasChanged(); }
+    }
+
+    private async Task OnMetaInput(MetaFieldDefinition field, ChangeEventArgs e)
+    {
+        var val = e.Value?.ToString() ?? "";
+        if (!string.IsNullOrEmpty(field.FormatMask))
+            val = await JS.InvokeAsync<string>("MetaFieldActions.applyMask", field.FormatMask, val);
+        SetMetaValue(field.Id, val);
+        await RunMetaAction(field, "input");
+    }
+
+    private async Task OnMetaChange(MetaFieldDefinition field, ChangeEventArgs e)
+    {
+        SetMetaValue(field.Id, e.Value?.ToString());
+        await RunMetaAction(field, "change");
+        StateHasChanged();
+    }
+
+    private async Task OnMetaBlur(MetaFieldDefinition field)
+    {
+        await RunMetaAction(field, "blur");
+        ValidateMetaField(field);
+    }
+
+    private void ValidateMetaField(MetaFieldDefinition field)
+    {
+        var val = GetMetaValue(field.Id);
+        metaFieldErrors.Remove(field.Id);
+        if (field.IsRequired && string.IsNullOrWhiteSpace(val))
+        {
+            metaFieldErrors[field.Id] = string.Format(L.Validation_FieldRequired, field.Label);
+            return;
+        }
+        if (!string.IsNullOrWhiteSpace(val) && !string.IsNullOrWhiteSpace(field.RegexPattern))
+        {
+            try
+            {
+                if (!System.Text.RegularExpressions.Regex.IsMatch(val, field.RegexPattern))
+                    metaFieldErrors[field.Id] = field.RegexMessage ?? string.Format(L.Validation_InvalidFormat, field.Label);
+            }
+            catch { }
+        }
+    }
+
+    private string GetMetaValue(string fieldId) =>
+        metaValues.TryGetValue(fieldId, out var val) ? val : "";
+
+    private void SetMetaValue(string fieldId, string? value)
+    {
+        metaValues[fieldId] = value ?? "";
+        metaFieldErrors.Remove(fieldId);
+    }
+
+    private bool IsMetaFieldVisible(MetaFieldDefinition field)
+    {
+        if (string.IsNullOrEmpty(field.ConditionalOnFieldId)) return true;
+        var parentValue = GetMetaValue(field.ConditionalOnFieldId);
+        return string.Equals(parentValue, field.ConditionalOnValue, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool ValidateMetaFields()
+    {
+        metaFieldErrors.Clear();
+        foreach (var field in metaFields.Where(IsMetaFieldVisible))
+        {
+            var val = GetMetaValue(field.Id);
+            if (field.IsRequired && string.IsNullOrWhiteSpace(val))
+            {
+                metaFieldErrors[field.Id] = string.Format(L.Validation_FieldRequired, field.Label);
+                continue;
+            }
+            if (!string.IsNullOrWhiteSpace(val) && !string.IsNullOrWhiteSpace(field.RegexPattern))
+            {
+                try
+                {
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(val, field.RegexPattern))
+                        metaFieldErrors[field.Id] = field.RegexMessage ?? string.Format(L.Validation_InvalidFormat, field.Label);
+                }
+                catch { }
+            }
+        }
+        return !metaFieldErrors.Any();
+    }
+
+    // ===== Component Meta Field Helpers =====
+
+    private async Task RunComponentMetaAction(MetaFieldDefinition field, string eventName)
+    {
+        if (string.IsNullOrEmpty(field.ActionEvent) || string.IsNullOrEmpty(field.ActionScript)) return;
+        if (!string.Equals(field.ActionEvent, eventName, StringComparison.OrdinalIgnoreCase)) return;
+        var currentVal = GetComponentMetaValue(field.Id);
+        var result = await JS.InvokeAsync<string>("MetaFieldActions.execute", field.ActionScript, currentVal);
+        if (result != currentVal) { componentMetaValues[field.Id] = result; StateHasChanged(); }
+    }
+
+    private async Task OnComponentMetaInput(MetaFieldDefinition field, ChangeEventArgs e)
+    {
+        var val = e.Value?.ToString() ?? "";
+        if (!string.IsNullOrEmpty(field.FormatMask))
+            val = await JS.InvokeAsync<string>("MetaFieldActions.applyMask", field.FormatMask, val);
+        SetComponentMetaValue(field.Id, val);
+        await RunComponentMetaAction(field, "input");
+    }
+
+    private async Task OnComponentMetaChange(MetaFieldDefinition field, ChangeEventArgs e)
+    {
+        SetComponentMetaValue(field.Id, e.Value?.ToString());
+        await RunComponentMetaAction(field, "change");
+        StateHasChanged();
+    }
+
+    private async Task OnComponentMetaBlur(MetaFieldDefinition field)
+    {
+        await RunComponentMetaAction(field, "blur");
+        ValidateComponentMetaField(field);
+    }
+
+    private void ValidateComponentMetaField(MetaFieldDefinition field)
+    {
+        var val = GetComponentMetaValue(field.Id);
+        componentMetaFieldErrors.Remove(field.Id);
+        if (field.IsRequired && string.IsNullOrWhiteSpace(val))
+        {
+            componentMetaFieldErrors[field.Id] = string.Format(L.Validation_FieldRequired, field.Label);
+            return;
+        }
+        if (!string.IsNullOrWhiteSpace(val) && !string.IsNullOrWhiteSpace(field.RegexPattern))
+        {
+            try
+            {
+                if (!System.Text.RegularExpressions.Regex.IsMatch(val, field.RegexPattern))
+                    componentMetaFieldErrors[field.Id] = field.RegexMessage ?? string.Format(L.Validation_InvalidFormat, field.Label);
+            }
+            catch { }
+        }
+    }
+
+    private string GetComponentMetaValue(string fieldId) =>
+        componentMetaValues.TryGetValue(fieldId, out var val) ? val : "";
+
+    private void SetComponentMetaValue(string fieldId, string? value)
+    {
+        componentMetaValues[fieldId] = value ?? "";
+        componentMetaFieldErrors.Remove(fieldId);
+    }
+
+    private bool IsComponentMetaFieldVisible(MetaFieldDefinition field)
+    {
+        if (string.IsNullOrEmpty(field.ConditionalOnFieldId)) return true;
+        var parentValue = GetComponentMetaValue(field.ConditionalOnFieldId);
+        return string.Equals(parentValue, field.ConditionalOnValue, StringComparison.OrdinalIgnoreCase);
+    }
+
     // --- Save ---
     private async Task SaveTicketInternal(bool navigateToCharge)
     {
+        if (!ValidateMetaFields()) return;
+
         using var context = DbFactory.CreateDbContext();
 
         // Assign store-scoped sequential TicketNumber
@@ -607,6 +912,22 @@
         };
         context.ServiceTicket.Add(ticket);
         await context.SaveChangesAsync();
+
+        // Save meta field values
+        foreach (var field in metaFields)
+        {
+            var val = metaValues.TryGetValue(field.Id, out var v) ? v : null;
+            if (!string.IsNullOrWhiteSpace(val) && IsMetaFieldVisible(field))
+            {
+                context.EntityMetaValue.Add(new EntityMetaValue
+                {
+                    EntityType = "ServiceTicket",
+                    EntityId = ticket.Id,
+                    MetaFieldDefinitionId = field.Id,
+                    Value = val
+                });
+            }
+        }
 
         foreach (var tp in ticketProducts)
         {
