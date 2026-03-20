@@ -3,6 +3,7 @@ using System;
 using BikePOS.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BikePOS.Migrations
 {
     [DbContext(typeof(BikePosContext))]
-    partial class BikePosContextModelSnapshot : ModelSnapshot
+    [Migration("20260319204859_AddBaseFieldLayout")]
+    partial class AddBaseFieldLayout
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.4");
@@ -54,11 +57,6 @@ namespace BikePOS.Migrations
                 {
                     b.Property<string>("Id")
                         .HasMaxLength(36)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Block")
-                        .IsRequired()
-                        .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("CompanyId")
@@ -421,10 +419,6 @@ namespace BikePOS.Migrations
 
                     b.Property<string>("ActionScript")
                         .HasMaxLength(2000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Block")
-                        .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("CompanyId")
@@ -900,50 +894,6 @@ namespace BikePOS.Migrations
                     b.ToTable("StoreUser");
                 });
 
-            modelBuilder.Entity("BikePOS.Models.TicketEvent", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasMaxLength(36)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("CreatedBy")
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Details")
-                        .HasMaxLength(2000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("EventType")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("ServiceTicketId")
-                        .IsRequired()
-                        .HasMaxLength(36)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("StoreId")
-                        .HasMaxLength(36)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedAt");
-
-                    b.HasIndex("ServiceTicketId");
-
-                    b.HasIndex("StoreId");
-
-                    b.ToTable("TicketEvent");
-                });
-
             modelBuilder.Entity("BikePOS.Models.TicketProduct", b =>
                 {
                     b.Property<string>("Id")
@@ -1243,24 +1193,6 @@ namespace BikePOS.Migrations
                     b.Navigation("Store");
                 });
 
-            modelBuilder.Entity("BikePOS.Models.TicketEvent", b =>
-                {
-                    b.HasOne("BikePOS.Models.ServiceTicket", "ServiceTicket")
-                        .WithMany("Events")
-                        .HasForeignKey("ServiceTicketId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("BikePOS.Models.Store", "Store")
-                        .WithMany()
-                        .HasForeignKey("StoreId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("ServiceTicket");
-
-                    b.Navigation("Store");
-                });
-
             modelBuilder.Entity("BikePOS.Models.TicketProduct", b =>
                 {
                     b.HasOne("BikePOS.Models.Product", "Product")
@@ -1305,8 +1237,6 @@ namespace BikePOS.Migrations
             modelBuilder.Entity("BikePOS.Models.ServiceTicket", b =>
                 {
                     b.Navigation("Charges");
-
-                    b.Navigation("Events");
 
                     b.Navigation("TicketProducts");
                 });

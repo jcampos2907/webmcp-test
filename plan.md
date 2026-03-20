@@ -335,7 +335,7 @@ No PCI scope — terminals handle card data on-device. The app only sends the am
 - [x] Inline regex validation on blur — `RegexPattern` + `RegexMessage` enforced in all entity forms
 - [x] Security hardening — client-side blocklist + server-side validation of action scripts before save
 - [x] Delete custom field functionality in Settings
-- [ ] Form Editor — unified field layout editor with drag-and-drop reordering (see below)
+- [x] Form Editor — unified field layout editor with block-scoped drag-and-drop reordering (see below)
 
 ### Form Editor
 
@@ -387,23 +387,74 @@ No PCI scope — terminals handle card data on-device. The app only sends the am
 - Fallback: if no `BaseFieldLayout` records exist (first run), render in default order (base fields first, then meta fields by their `SortOrder`)
 
 #### Implementation Steps
-1. [ ] Create `BaseFieldLayout` model + migration
-2. [ ] Create static base field registry (`BaseFieldDefinition.GetBaseFields(entityType)`)
-3. [ ] Create `FormField` union type + merge/sort logic
-4. [ ] Build `form-editor-dnd.js` — HTML5 sortable with Blazor interop
-5. [ ] Build Form Editor UI component in Settings (replaces Custom Fields section)
-6. [ ] Wire drag-drop save — persist reordered `SortOrder` values
-7. [ ] Update `CustomerForm.razor` to render fields in unified sort order
-8. [ ] Update `Create.razor` (ticket) to render fields in unified sort order
-9. [ ] Update `Edit.razor` (ticket) to render fields in unified sort order
-10. [ ] Auto-seed `BaseFieldLayout` on first load per entity type
-11. [ ] i18n keys for Form Editor UI strings
+1. [x] Create `BaseFieldLayout` model + migration
+2. [x] Create static base field registry (`BaseFieldLayout.GetBaseFields(entityType)`)
+3. [x] Create `EditorField` union type + merge/sort logic
+4. [x] Build `form-editor-dnd.js` — HTML5 sortable with Blazor interop
+5. [x] Build Form Editor UI component in Settings (replaces Custom Fields section)
+6. [x] Wire drag-drop save — persist reordered `SortOrder` values
+7. [x] Update `CustomerForm.razor` to render fields in unified sort order
+8. [x] Update `Create.razor` (ticket) to render fields in unified sort order
+9. [x] Update `Edit.razor` (ticket) to render fields in unified sort order
+10. [x] Auto-seed `BaseFieldLayout` on first load per entity type
+11. [x] i18n keys for Form Editor UI strings
 
-**Files**: `Models/BaseFieldLayout.cs`, `wwwroot/js/form-editor-dnd.js`, `Components/Pages/SettingsPages/Index.razor`, `Components/Pages/CustomerPages/CustomerForm.razor`, `Components/Pages/ServiceTicketPages/Create.razor`, `Components/Pages/ServiceTicketPages/Edit.razor`, `I18nText/Text.*.json`
+**Block/Zone System**: Fields are grouped into blocks (e.g. Customer has "info" + "address", ServiceTicket has "header"/"details"/"products"/"summary"/"totals"). Fixed blocks (header, products, totals) render structurally and cannot be reordered. Non-fixed blocks allow field reordering within them. `FormBlockDefinition.cs` defines the block registry per entity type. The Form Editor renders each block as a section with per-block DnD containers. `form-editor-dnd.js` supports multi-container block-scoped drag-and-drop.
+
+**Files**: `Models/BaseFieldLayout.cs`, `Models/FormBlockDefinition.cs`, `wwwroot/js/form-editor-dnd.js`, `Components/Pages/SettingsPages/Index.razor`, `Components/Pages/CustomerPages/CustomerForm.razor`, `Components/Pages/ServiceTicketPages/Create.razor`, `Components/Pages/ServiceTicketPages/Edit.razor`, `I18nText/Text.*.json`
 
 ---
 
-## Phase 7: ERP Integration
+## Phase 7: Enhancements
+
+- [ ] Customer component history (all components + service history per component)
+- [x] Ticket timeline/activity log (status changes, notes, who did what)
+- [ ] Mechanic workload view (assigned tickets dashboard)
+- [ ] Inventory alerts (stock below threshold)
+- [ ] Reports: daily sales, revenue by service type, mechanic productivity (Chart.js)
+- [ ] Notification system (WhatsApp/email when service is ready)
+- [ ] Billing/invoicing (electronic invoicing for CR tax compliance)
+- [ ] Print/email receipt after charge
+- [ ] Refund flow (reverse charge, reopen ticket)
+- [ ] CSV export for reports
+- [ ] Zero-flash i18n — eliminate the English flash on page load (see below)
+
+### Zero-Flash i18n
+
+**Problem**: Every page starts with `Text L = new()` (English defaults) and only resolves the correct language after `OnInitializedAsync` completes. This causes a visible flash of English text before the correct language renders.
+
+**Solution**: Resolve language once before any component renders, using a three-layer approach:
+
+#### 1. Language cookie + middleware
+- Create `I18nCookieMiddleware` that runs before the Blazor circuit starts
+- Reads a `lang` cookie from the request
+- If no cookie exists, falls back to the `Accept-Language` header (picks `es` or `en`, defaults to `es`)
+- Calls `I18nText.SetCurrentLanguageAsync(lang)` so the i18n system is pre-configured
+- Store resolved language in `HttpContext.Items["lang"]` for downstream use
+
+#### 2. Cookie write on language change
+- In Settings profile save (`SaveProfile`), write/update the `lang` cookie via JS interop (`document.cookie`)
+- Also write the cookie on first login if the user has a saved preference in the DB
+
+#### 3. MainLayout cascading text table
+- `MainLayout.razor` loads the `Text` table once in `OnInitializedAsync`
+- Cascades it as a `CascadingValue<Text>` to all child components
+- Child components receive `[CascadingParameter] Text L` — no per-page language loading needed
+- Remove per-page `Text L = new()` and `I18nText.GetTextTableAsync` calls
+
+#### Implementation steps
+1. [ ] Create `I18nCookieMiddleware` — read cookie / Accept-Language, set i18n language
+2. [ ] Register middleware in `Program.cs` before `app.MapRazorComponents`
+3. [ ] Update `MainLayout.razor` — load Text table, cascade as `CascadingValue<Text>`
+4. [ ] Update Settings `SaveProfile` — write `lang` cookie via JS interop on language change
+5. [ ] Remove per-page `Text L = new()` + `GetTextTableAsync` calls from all pages (use cascading parameter)
+6. [ ] Test: first visit (no cookie) uses browser language, subsequent visits use cookie, language switch is instant
+
+**Files**: `Middleware/I18nCookieMiddleware.cs`, `Program.cs`, `Components/Layout/MainLayout.razor`, `Components/Pages/SettingsPages/Index.razor`, all page components
+
+---
+
+## Phase 8: ERP Integration
 
 **Goal**: Bidirectional sync with external ERP systems, configurable through admin UI.
 
@@ -421,21 +472,6 @@ No PCI scope — terminals handle card data on-device. The app only sends the am
 - Components ↔ ERP Assets
 - ServiceTickets ↔ ERP Orders/Work Orders
 - Charges ↔ ERP Payments/Invoices
-
----
-
-## Phase 8: Enhancements
-
-- [ ] Customer component history (all components + service history per component)
-- [ ] Ticket timeline/activity log (status changes, notes, who did what)
-- [ ] Mechanic workload view (assigned tickets dashboard)
-- [ ] Inventory alerts (stock below threshold)
-- [ ] Reports: daily sales, revenue by service type, mechanic productivity (Chart.js)
-- [ ] Notification system (WhatsApp/email when service is ready)
-- [ ] Billing/invoicing (electronic invoicing for CR tax compliance)
-- [ ] Print/email receipt after charge
-- [ ] Refund flow (reverse charge, reopen ticket)
-- [ ] CSV export for reports
 
 ---
 
@@ -488,8 +524,8 @@ Critical Bugs (immediate) ✅
         → Phase 4 (Auth)
           → Phase 5 (Payment terminal)
             → Phase 6 (Parametrizable expansion)
-            → Phase 7 (ERP integration)
-            → Phase 8 (Enhancements)
+            → Phase 7 (Enhancements) ← was Phase 8, moved up
+            → Phase 8 (ERP integration) ← was Phase 7, moved down
             → Phase 9 (WebMCP expansion)
 ```
 
@@ -506,6 +542,6 @@ Phases 6-9 can run in parallel once Auth and Payment are done.
 5. **Phase 4**: Login/logout works, role restrictions enforced, audit trail records user actions
 6. **Phase 5**: Terminal configured in Settings → payment sent to device → polling updates status → Charge record persisted
 7. **Phase 6**: Dynamic fields render on Component and Ticket forms, validation works
-8. **Phase 7**: Create customer in BikePOS → appears in ERP, edit in ERP → syncs back
-9. **Phase 8**: Dashboard shows metrics, reports export CSV, notifications send
+8. **Phase 7**: Dashboard shows metrics, reports export CSV, notifications send
+9. **Phase 8**: Create customer in BikePOS → appears in ERP, edit in ERP → syncs back
 10. **Phase 9**: WebMCP tools return correct data via Claude Desktop

@@ -12,6 +12,7 @@
 @inject ShopCultureService CultureService
 @inject TenantContext Tenant
 @inject PaymentTerminalService TerminalService
+@inject TicketEventService TicketEvents
 
 <PageTitle>@L.Pos_Title</PageTitle>
 
@@ -613,6 +614,11 @@
                 ticket.UpdatedBy = Tenant.UserIdentifier;
                 await context.SaveChangesAsync();
             }
+
+            // Record timeline events
+            await TicketEvents.RecordCharge(selectedTicket!.Id, amount, selectedPaymentMethod.ToString(), Tenant.UserIdentifier, Tenant.StoreId);
+            if (ticket?.Status == TicketStatus.Charged)
+                await TicketEvents.RecordStatusChange(selectedTicket.Id, TicketStatus.Open, TicketStatus.Charged, Tenant.UserIdentifier, Tenant.StoreId);
 
             chargeSuccess = true;
             terminalPolling = false;

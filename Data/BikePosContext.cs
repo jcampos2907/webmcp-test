@@ -31,6 +31,8 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
     public DbSet<OidcConfig> OidcConfig { get; set; } = default!;
     public DbSet<PaymentTerminal> PaymentTerminal { get; set; } = default!;
     public DbSet<PaymentSession> PaymentSession { get; set; } = default!;
+    public DbSet<BaseFieldLayout> BaseFieldLayout { get; set; } = default!;
+    public DbSet<TicketEvent> TicketEvent { get; set; } = default!;
 
     public override int SaveChanges()
     {
@@ -173,6 +175,24 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
             entity.HasIndex(s => s.Status);
         });
 
+        modelBuilder.Entity<BaseFieldLayout>(entity =>
+        {
+            entity.HasOne(b => b.Company).WithMany().HasForeignKey(b => b.CompanyId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(b => b.Store).WithMany().HasForeignKey(b => b.StoreId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(b => new { b.EntityType, b.FieldKey, b.CompanyId }).IsUnique();
+        });
+
+        modelBuilder.Entity<TicketEvent>(entity =>
+        {
+            entity.HasOne(e => e.ServiceTicket)
+                .WithMany(t => t.Events)
+                .HasForeignKey(e => e.ServiceTicketId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Store).WithMany().HasForeignKey(e => e.StoreId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasIndex(e => e.ServiceTicketId);
+            entity.HasIndex(e => e.CreatedAt);
+        });
+
         // Tenant hierarchy
         modelBuilder.Entity<Company>(entity =>
         {
@@ -219,6 +239,7 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
         modelBuilder.Entity<Product>().HasQueryFilter(e => CurrentStoreId == null || e.StoreId == CurrentStoreId);
         modelBuilder.Entity<Charge>().HasQueryFilter(e => CurrentStoreId == null || e.StoreId == CurrentStoreId);
         modelBuilder.Entity<ShopSetting>().HasQueryFilter(e => CurrentStoreId == null || e.StoreId == CurrentStoreId);
+        modelBuilder.Entity<TicketEvent>().HasQueryFilter(e => CurrentStoreId == null || e.StoreId == CurrentStoreId);
         // MetaFieldDefinition: no global query filter — scoped explicitly by CompanyId (company-wide) or ConglomerateId (org-level)
     }
 }

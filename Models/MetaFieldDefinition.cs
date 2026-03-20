@@ -56,6 +56,10 @@ public class MetaFieldDefinition
     [MaxLength(200)]
     public string? ConditionalOnValue { get; set; }
 
+    /// <summary>Which block/zone this field belongs to. Null = default block for the entity type.</summary>
+    [MaxLength(50)]
+    public string? Block { get; set; }
+
     [MaxLength(36)]
     public string? CompanyId { get; set; }
     public Company? Company { get; set; }
@@ -75,7 +79,7 @@ public class MetaFieldDefinition
             var tipoPersona = new MetaFieldDefinition
             {
                 Key = "tipo_persona", Label = "Tipo de Persona", FieldType = "select", IsRequired = false, SortOrder = 0, IsActive = true,
-                EntityType = "Customer",
+                EntityType = "Customer", Block = "info",
                 Options = "Física, Jurídica"
             };
             return new()
@@ -84,7 +88,7 @@ public class MetaFieldDefinition
                 new MetaFieldDefinition
                 {
                     Key = "cedula", Label = "Cédula", FieldType = "text", IsRequired = false, SortOrder = 1, IsActive = true,
-                    EntityType = "Customer",
+                    EntityType = "Customer", Block = "info",
                     RegexPattern = @"^\d-\d{4}-\d{4}$", RegexMessage = "Formato: 9-9999-9999",
                     FormatMask = "9-9999-9999",
                     ConditionalOnFieldId = tipoPersona.Id,
@@ -93,7 +97,7 @@ public class MetaFieldDefinition
                 new MetaFieldDefinition
                 {
                     Key = "cedula_juridica", Label = "Cédula Jurídica", FieldType = "text", IsRequired = false, SortOrder = 2, IsActive = true,
-                    EntityType = "Customer",
+                    EntityType = "Customer", Block = "info",
                     RegexPattern = @"^\d-\d{3}-\d{6}$", RegexMessage = "Formato: 9-999-999999",
                     FormatMask = "9-999-999999",
                     ConditionalOnFieldId = tipoPersona.Id,

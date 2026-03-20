@@ -1,0 +1,51 @@
+@using System.Globalization
+
+<div>
+    @for (var i = 0; i < Items.Count; i++)
+    {
+        var item = Items[i];
+        var isLast = i == Items.Count - 1;
+
+        <div class="flex gap-3" style="position: relative; @(!isLast ? "padding-bottom: 1.25rem;" : "")">
+            @* Connector line *@
+            @if (!isLast)
+            {
+                <div style="position: absolute; left: 11px; top: 24px; bottom: 0; width: 2px; background: #e5e7eb;"></div>
+            }
+
+            @* Color-coded dot with icon *@
+            <div class="flex-shrink-0 flex items-center justify-center"
+                 style="width: 24px; height: 24px; border-radius: 50%; background: @item.DotBg; color: @item.DotColor; position: relative; z-index: 1;">
+                <i class="@item.Icon" style="font-size: 10px;"></i>
+            </div>
+
+            @* Content *@
+            <div class="flex-1 min-w-0" style="padding-top: 2px;">
+                <p class="text-sm font-medium text-gray-800">@item.Title</p>
+                @if (!string.IsNullOrEmpty(item.Description))
+                {
+                    <p class="text-xs text-gray-500">@item.Description</p>
+                }
+                <p class="text-gray-400" style="font-size: 11px; margin-top: 2px;">
+                    @item.Actor &middot; @item.Timestamp.ToString("g", Culture)
+                </p>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<TimelineItem> Items { get; set; } = new();
+    [Parameter] public CultureInfo Culture { get; set; } = CultureInfo.CurrentCulture;
+
+    public class TimelineItem
+    {
+        public string Icon { get; set; } = "fa-solid fa-circle";
+        public string DotBg { get; set; } = "#f3f4f6";
+        public string DotColor { get; set; } = "#6b7280";
+        public string Title { get; set; } = "";
+        public string? Description { get; set; }
+        public string Actor { get; set; } = "";
+        public DateTime Timestamp { get; set; }
+    }
+}

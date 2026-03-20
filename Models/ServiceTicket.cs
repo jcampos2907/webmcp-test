@@ -55,6 +55,8 @@ public class ServiceTicket
 
     public ICollection<Charge> Charges { get; set; } = new List<Charge>();
 
+    public ICollection<TicketEvent> Events { get; set; } = new List<TicketEvent>();
+
     [Required]
     [DataType(DataType.Currency)]
     [Column(TypeName = "decimal(18, 2)")]

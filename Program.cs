@@ -39,6 +39,7 @@ builder.Services.AddI18nText();
 builder.Services.AddScoped<ShopCultureService>();
 builder.Services.AddScoped<TenantContext>();
 builder.Services.AddScoped<AuditDisplayService>();
+builder.Services.AddScoped<TicketEventService>();
 builder.Services.AddSingleton<SecretProtector>();
 builder.Services.AddSingleton<IPaymentTerminalProvider, ManualPaymentProvider>();
 builder.Services.AddSingleton<PaymentTerminalService>();

@@ -11,11 +11,13 @@
 @inject ShopCultureService CultureService
 @inject TenantContext Tenant
 @inject AuditDisplayService AuditDisplay
+@inject TicketEventService TicketEvents
 @inject IJSRuntime JS
+@using BikePOS.Components.Shared
 
 <PageTitle>@(isPaid ? L.Tickets_ServiceTicket : L.Common_Edit + " " + L.Tickets_ServiceTicket)</PageTitle>
 
-<div class="p-6 max-w-5xl mx-auto">
+<div class="p-6 max-w-6xl mx-auto">
     @if (ticket is null)
     {
         <p class="text-sm text-gray-400">Cargando...</p>
@@ -38,7 +40,9 @@
             </div>
         }
 
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex gap-6 items-start">
+        @* Main ticket card *@
+        <div class="flex-1 min-w-0 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div class="flex items-center justify-between mb-1">
                 <h2 class="text-xl font-bold text-gray-800">@L.Tickets_ServiceTicket @ticket.TicketDisplay</h2>
                 <div class="flex items-center gap-3">
@@ -57,76 +61,93 @@
                 <p class="text-sm text-gray-700">@(ticket.BaseService?.Name ?? L.Services_NoBaseService)</p>
             </div>
 
-            @* Status *@
-            <div class="mb-4">
-                <label class="block text-sm text-gray-600 mb-1">@L.Common_Status</label>
-                <select class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
-                        @bind="ticket.Status" disabled="@isReadOnly">
-                    @foreach (var status in Enum.GetValues<TicketStatus>())
-                    {
-                        <option value="@status">@StatusLabel(status)</option>
-                    }
-                </select>
-            </div>
-
-            @* Mechanic selector *@
-            <div class="mb-4">
-                <label class="block text-sm text-gray-600 mb-1">@L.Tickets_AssignedMechanic</label>
-                <select class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
-                        @bind="ticket.MechanicId" disabled="@isReadOnly">
-                    <option value="">@L.Tickets_NoMechanic</option>
-                    @foreach (var m in mechanics)
-                    {
-                        <option value="@m.Id">@m.Name</option>
-                    }
-                </select>
-            </div>
-
-            @* Custom fields *@
-            @if (metaFields.Any())
+            @* Render ticket fields grouped by block *@
+            @foreach (var blockGroup in ticketBlockGroups)
             {
-                <div class="mb-4">
-                    <h4 class="text-xs text-gray-400 uppercase tracking-wide mb-2">@L.Customers_AdditionalFields</h4>
-                    <div class="grid grid-cols-2 gap-3">
-                        @foreach (var field in metaFields)
+                @foreach (var ff in blockGroup.Fields)
+                {
+                    @if (ff.IsBase)
+                    {
+                        @switch (ff.FieldKey)
                         {
-                            @if (IsMetaFieldVisible(field))
-                            {
-                                <div>
-                                    <label class="block text-xs text-gray-500 mb-1">
-                                        @field.Label
-                                        @if (field.IsRequired) { <span class="text-red-500">*</span> }
-                                    </label>
-                                    @if (field.FieldType == "select" && !string.IsNullOrEmpty(field.Options))
-                                    {
-                                        <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
-                                                value="@GetMetaValue(field.Id)" disabled="@isReadOnly"
-                                                @onchange="e => OnMetaChange(field, e)">
-                                            <option value="">@L.Common_Select</option>
-                                            @foreach (var opt in field.Options.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
-                                            {
-                                                <option value="@opt">@opt</option>
-                                            }
-                                        </select>
-                                    }
-                                    else
-                                    {
-                                        <input type="@field.FieldType"
-                                               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
-                                               value="@GetMetaValue(field.Id)" disabled="@isReadOnly"
-                                               placeholder="@(field.FormatMask ?? "")"
-                                               @oninput="e => OnMetaInput(field, e)"
-                                               @onfocusout="() => OnMetaBlur(field)" />
-                                    }
-                                    @if (metaFieldErrors.TryGetValue(field.Id, out var err))
-                                    {
-                                        <p class="text-xs text-red-500 mt-1">@err</p>
-                                    }
+                            case "Status":
+                                <div class="mb-4">
+                                    <label class="block text-sm text-gray-600 mb-1">@L.Common_Status</label>
+                                    <select class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
+                                            @bind="ticket.Status" disabled="@isReadOnly">
+                                        @foreach (var status in Enum.GetValues<TicketStatus>())
+                                        {
+                                            <option value="@status">@StatusLabel(status)</option>
+                                        }
+                                    </select>
                                 </div>
-                            }
+                                break;
+                            case "Mechanic":
+                                <div class="mb-4">
+                                    <label class="block text-sm text-gray-600 mb-1">@L.Tickets_AssignedMechanic</label>
+                                    <select class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
+                                            @bind="ticket.MechanicId" disabled="@isReadOnly">
+                                        <option value="">@L.Tickets_NoMechanic</option>
+                                        @foreach (var m in mechanics)
+                                        {
+                                            <option value="@m.Id">@m.Name</option>
+                                        }
+                                    </select>
+                                </div>
+                                break;
+                            case "Notes":
+                                <div class="mb-4">
+                                    <label class="block text-sm font-semibold text-gray-700 mb-1">@L.Common_Notes</label>
+                                    <textarea class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
+                                              rows="3" @bind="ticket.Description" placeholder="@L.Common_NotesPlaceholder" disabled="@isReadOnly"></textarea>
+                                </div>
+                                break;
+                            case "DiscountPercent":
+                                <div class="mb-4">
+                                    <label class="block text-sm text-gray-600 mb-1">@L.Common_DiscountPercent</label>
+                                    <input type="number" step="0.01" min="0" max="100"
+                                           class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
+                                           @bind="ticket.DiscountPercent" disabled="@isReadOnly" />
+                                </div>
+                                break;
                         }
-                    </div>
-                </div>
+                    }
+                    else if (ff.MetaField is not null && IsMetaFieldVisible(ff.MetaField))
+                    {
+                        var field = ff.MetaField;
+                        <div class="mb-4">
+                            <label class="block text-xs text-gray-500 mb-1">
+                                @field.Label
+                                @if (field.IsRequired) { <span class="text-red-500">*</span> }
+                            </label>
+                            @if (field.FieldType == "select" && !string.IsNullOrEmpty(field.Options))
+                            {
+                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
+                                        value="@GetMetaValue(field.Id)" disabled="@isReadOnly"
+                                        @onchange="e => OnMetaChange(field, e)">
+                                    <option value="">@L.Common_Select</option>
+                                    @foreach (var opt in field.Options.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                                    {
+                                        <option value="@opt">@opt</option>
+                                    }
+                                </select>
+                            }
+                            else
+                            {
+                                <input type="@field.FieldType"
+                                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
+                                       value="@GetMetaValue(field.Id)" disabled="@isReadOnly"
+                                       placeholder="@(field.FormatMask ?? "")"
+                                       @oninput="e => OnMetaInput(field, e)"
+                                       @onfocusout="() => OnMetaBlur(field)" />
+                            }
+                            @if (metaFieldErrors.TryGetValue(field.Id, out var err))
+                            {
+                                <p class="text-xs text-red-500 mt-1">@err</p>
+                            }
+                        </div>
+                    }
+                }
             }
 
             @* Products *@
@@ -156,21 +177,6 @@
                     @L.Common_AddProducts
                 </button>
             }
-
-            @* Notes *@
-            <div class="mb-4">
-                <label class="block text-sm font-semibold text-gray-700 mb-1">@L.Common_Notes</label>
-                <textarea class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
-                          rows="3" @bind="ticket.Description" placeholder="@L.Common_NotesPlaceholder" disabled="@isReadOnly"></textarea>
-            </div>
-
-            @* Discount *@
-            <div class="mb-4">
-                <label class="block text-sm text-gray-600 mb-1">@L.Common_DiscountPercent</label>
-                <input type="number" step="0.01" min="0" max="100"
-                       class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
-                       @bind="ticket.DiscountPercent" disabled="@isReadOnly" />
-            </div>
 
             @* Total *@
             <div class="border-t border-gray-200 pt-3 mb-4">
@@ -224,6 +230,73 @@
                     <span><i class="fa-solid fa-pen mr-1"></i>@L.Common_UpdatedBy @updatedByDisplay · @ticket.UpdatedAt.ToString("g", culture)</span>
                 }
             </div>
+
+        </div>
+
+        @* Timeline sidebar *@
+        <div class="w-72 flex-shrink-0 bg-white rounded-xl shadow-sm border border-gray-200 p-4 sticky top-6 max-h-[calc(100vh-4rem)] overflow-y-auto">
+            <h4 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-clock-rotate-left text-gray-400"></i> @L.Tickets_Timeline
+            </h4>
+
+            @* Status progress tracker *@
+            <div class="mb-6">
+                @for (var i = 0; i < statusSteps.Count; i++)
+                {
+                    var step = statusSteps[i];
+                    var isLast = i == statusSteps.Count - 1;
+                    var dotBg = step.State == StepState.Completed ? "#22c55e"
+                              : step.State == StepState.Current ? "#f97316"
+                              : "#e5e7eb";
+                    var dotColor = step.State == StepState.Upcoming ? "#9ca3af" : "#ffffff";
+                    var lineBg = step.State == StepState.Completed ? "#86efac" : "#e5e7eb";
+
+                    <div class="flex gap-3" style="position: relative; @(!isLast ? "padding-bottom: 1.5rem;" : "")">
+                        @* Connector line *@
+                        @if (!isLast)
+                        {
+                            <div style="position: absolute; left: 11px; top: 24px; bottom: 0; width: 2px; background: @lineBg;"></div>
+                        }
+                        @* Status dot *@
+                        <div class="flex-shrink-0 flex items-center justify-center"
+                             style="width: 24px; height: 24px; border-radius: 50%; background: @dotBg; color: @dotColor; position: relative; z-index: 1;
+                                    @(step.State == StepState.Current ? "box-shadow: 0 0 0 4px rgba(249,115,22,0.2);" : "")">
+                            @if (step.State == StepState.Completed)
+                            {
+                                <i class="fa-solid fa-check" style="font-size: 10px;"></i>
+                            }
+                            else if (step.State == StepState.Current)
+                            {
+                                <div style="width: 8px; height: 8px; border-radius: 50%; background: white;"></div>
+                            }
+                        </div>
+                        @* Label + timestamp *@
+                        <div style="padding-top: 2px;" class="flex-1">
+                            <p class="text-sm" style="@(step.State == StepState.Current ? "font-weight: 600; color: #c2410c;" : step.State == StepState.Completed ? "font-weight: 500; color: #374151;" : "color: #9ca3af;")">
+                                @step.Label
+                            </p>
+                            @if (!string.IsNullOrEmpty(step.Timestamp))
+                            {
+                                <p class="text-gray-400" style="font-size: 11px;">@step.Timestamp</p>
+                            }
+                            @if (!string.IsNullOrEmpty(step.Actor))
+                            {
+                                <p class="text-gray-400" style="font-size: 11px;">@step.Actor</p>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @* Activity log *@
+            @if (timelineItems.Any())
+            {
+                <div class="border-t border-gray-200 pt-4">
+                    <p class="text-[10px] text-gray-400 uppercase tracking-wide mb-3">@L.Tickets_Timeline</p>
+                    <EntityTimeline Items="timelineItems" Culture="culture" />
+                </div>
+            }
+        </div>
         </div>
     }
     else
@@ -304,10 +377,21 @@
     private string? createdByDisplay;
     private string? updatedByDisplay;
 
-    // Meta fields
+    // Timeline
+    private List<EntityTimeline.TimelineItem> timelineItems = new();
+
+    // Snapshot for change detection
+    private TicketStatus originalStatus;
+    private string? originalMechanicId;
+    private string? originalDescription;
+    private decimal originalDiscountPercent;
+    private Dictionary<string, string> originalMetaValues = new();
+
+    // Meta fields + form layout
     private List<MetaFieldDefinition> metaFields = new();
     private Dictionary<string, string> metaValues = new();
     private Dictionary<string, string> metaFieldErrors = new();
+    private List<FormBlockGroup> ticketBlockGroups = new();
 
     private bool isPaid => ticket?.Status == TicketStatus.Charged;
     private bool isCancelled => ticket?.Status == TicketStatus.Cancelled;
@@ -369,6 +453,217 @@
         {
             if (!string.IsNullOrEmpty(field.DefaultValue) && !metaValues.ContainsKey(field.Id))
                 metaValues[field.Id] = field.DefaultValue;
+        }
+
+        // Load base field layouts and build unified form field list
+        var baseLayouts = await context.BaseFieldLayout
+            .Where(b => b.EntityType == "ServiceTicket" && b.CompanyId == Tenant.CompanyId)
+            .OrderBy(b => b.SortOrder)
+            .ToListAsync();
+        if (!baseLayouts.Any())
+        {
+            var defaults = BaseFieldLayout.GetBaseFields("ServiceTicket");
+            foreach (var d in defaults) d.CompanyId = Tenant.CompanyId;
+            context.BaseFieldLayout.AddRange(defaults);
+            await context.SaveChangesAsync();
+            baseLayouts = defaults;
+        }
+        BuildTicketFormFields(baseLayouts);
+
+        // Snapshot original values for change detection
+        originalStatus = ticket.Status;
+        originalMechanicId = ticket.MechanicId;
+        originalDescription = ticket.Description;
+        originalDiscountPercent = ticket.DiscountPercent;
+        originalMetaValues = new Dictionary<string, string>(metaValues);
+
+        // Load timeline
+        await LoadTimeline(context);
+    }
+
+    private async Task LoadTimeline(BikePOS.Data.BikePosContext context)
+    {
+        var events = await context.TicketEvent
+            .Where(e => e.ServiceTicketId == Id)
+            .OrderByDescending(e => e.CreatedAt)
+            .ToListAsync();
+
+        timelineItems = new();
+        foreach (var evt in events)
+        {
+            var actor = await AuditDisplay.ResolveAsync(evt.CreatedBy);
+            var (bg, color) = EventDotColors(evt.EventType);
+            timelineItems.Add(new EntityTimeline.TimelineItem
+            {
+                Icon = EventIcon(evt.EventType),
+                DotBg = bg,
+                DotColor = color,
+                Title = EventTitle(evt.EventType),
+                Description = evt.Description,
+                Actor = actor,
+                Timestamp = evt.CreatedAt,
+            });
+        }
+
+        await BuildStatusSteps(context);
+    }
+
+    private string EventTitle(TicketEventType type) => type switch
+    {
+        TicketEventType.Created => L.Timeline_Created,
+        TicketEventType.StatusChanged => L.Timeline_StatusChanged,
+        TicketEventType.MechanicAssigned => L.Timeline_MechanicAssigned,
+        TicketEventType.NoteUpdated => L.Timeline_NoteUpdated,
+        TicketEventType.ProductAdded => L.Timeline_ProductAdded,
+        TicketEventType.ProductRemoved => L.Timeline_ProductRemoved,
+        TicketEventType.ChargeProcessed => L.Timeline_ChargeProcessed,
+        TicketEventType.Cancelled => L.Timeline_Cancelled,
+        TicketEventType.DiscountChanged => L.Timeline_DiscountChanged,
+        TicketEventType.MetaFieldChanged => L.Timeline_MetaFieldChanged,
+        _ => type.ToString()
+    };
+
+    private static string EventIcon(TicketEventType type) => type switch
+    {
+        TicketEventType.Created => "fa-solid fa-plus",
+        TicketEventType.StatusChanged => "fa-solid fa-arrows-rotate",
+        TicketEventType.MechanicAssigned => "fa-solid fa-user-gear",
+        TicketEventType.NoteUpdated => "fa-solid fa-pen",
+        TicketEventType.ProductAdded => "fa-solid fa-box-open",
+        TicketEventType.ProductRemoved => "fa-solid fa-box-open",
+        TicketEventType.ChargeProcessed => "fa-solid fa-cash-register",
+        TicketEventType.Cancelled => "fa-solid fa-circle-xmark",
+        TicketEventType.DiscountChanged => "fa-solid fa-percent",
+        TicketEventType.MetaFieldChanged => "fa-solid fa-sliders",
+        _ => "fa-solid fa-circle"
+    };
+
+    private static (string bg, string color) EventDotColors(TicketEventType type) => type switch
+    {
+        TicketEventType.Created => ("#dbeafe", "#2563eb"),
+        TicketEventType.StatusChanged => ("#fef3c7", "#d97706"),
+        TicketEventType.MechanicAssigned => ("#f3e8ff", "#9333ea"),
+        TicketEventType.NoteUpdated => ("#f3f4f6", "#4b5563"),
+        TicketEventType.ProductAdded => ("#dcfce7", "#16a34a"),
+        TicketEventType.ProductRemoved => ("#fee2e2", "#dc2626"),
+        TicketEventType.ChargeProcessed => ("#dcfce7", "#15803d"),
+        TicketEventType.Cancelled => ("#fee2e2", "#b91c1c"),
+        TicketEventType.DiscountChanged => ("#ffedd5", "#ea580c"),
+        TicketEventType.MetaFieldChanged => ("#e0e7ff", "#4f46e5"),
+        _ => ("#f3f4f6", "#6b7280")
+    };
+
+    // ===== Status Progress Tracker =====
+
+    private List<StatusStep> statusSteps = new();
+
+    private enum StepState { Completed, Current, Upcoming }
+
+    private class StatusStep
+    {
+        public TicketStatus Status { get; set; }
+        public string Label { get; set; } = "";
+        public StepState State { get; set; }
+        public string? Timestamp { get; set; }
+        public string? Actor { get; set; }
+    }
+
+    private async Task BuildStatusSteps(BikePOS.Data.BikePosContext context)
+    {
+        var lifecycle = new[] { TicketStatus.Open, TicketStatus.InProgress, TicketStatus.WaitingForParts, TicketStatus.Completed, TicketStatus.Charged };
+        var currentStatus = ticket!.Status;
+        var currentIndex = Array.IndexOf(lifecycle, currentStatus);
+
+        // Load status-change events to get timestamps per status
+        var statusEvents = await context.TicketEvent
+            .Where(e => e.ServiceTicketId == ticket.Id &&
+                (e.EventType == TicketEventType.StatusChanged || e.EventType == TicketEventType.Created || e.EventType == TicketEventType.Cancelled))
+            .OrderBy(e => e.CreatedAt)
+            .ToListAsync();
+
+        // Map: which statuses have event timestamps
+        var eventByStatus = new Dictionary<TicketStatus, TicketEvent>();
+        var createdEvt = statusEvents.FirstOrDefault(e => e.EventType == TicketEventType.Created);
+        if (createdEvt != null) eventByStatus[TicketStatus.Open] = createdEvt;
+
+        foreach (var evt in statusEvents.Where(e => e.EventType == TicketEventType.StatusChanged))
+        {
+            var parts = evt.Description?.Split(" → ");
+            if (parts?.Length == 2 && Enum.TryParse<TicketStatus>(parts[1].Trim(), out var toStatus))
+                eventByStatus[toStatus] = evt;
+        }
+
+        var cancelledEvt = statusEvents.FirstOrDefault(e => e.EventType == TicketEventType.Cancelled);
+        statusSteps = new();
+
+        if (currentStatus == TicketStatus.Cancelled)
+        {
+            // Show all steps up to where we were before cancel, then the cancel step
+            foreach (var status in lifecycle)
+            {
+                var idx = Array.IndexOf(lifecycle, status);
+                if (eventByStatus.TryGetValue(status, out var evt))
+                {
+                    var actor = await AuditDisplay.ResolveAsync(evt.CreatedBy);
+                    statusSteps.Add(new StatusStep { Status = status, Label = StatusLabel(status), State = StepState.Completed, Timestamp = evt.CreatedAt.ToString("g", culture), Actor = actor });
+                }
+                else if (status == TicketStatus.Open)
+                {
+                    // Open always happened
+                    var actor = await AuditDisplay.ResolveAsync(ticket.CreatedBy);
+                    statusSteps.Add(new StatusStep { Status = status, Label = StatusLabel(status), State = StepState.Completed, Timestamp = ticket.CreatedAt.ToString("g", culture), Actor = actor });
+                }
+                else break;
+            }
+            var cancelActor = cancelledEvt != null ? await AuditDisplay.ResolveAsync(cancelledEvt.CreatedBy) : null;
+            statusSteps.Add(new StatusStep { Status = TicketStatus.Cancelled, Label = StatusLabel(TicketStatus.Cancelled), State = StepState.Current, Timestamp = cancelledEvt?.CreatedAt.ToString("g", culture), Actor = cancelActor });
+        }
+        else
+        {
+            for (int i = 0; i < lifecycle.Length; i++)
+            {
+                var status = lifecycle[i];
+                StepState state;
+                string? timestamp = null;
+                string? actor = null;
+
+                if (i < currentIndex)
+                {
+                    // Past step — completed
+                    state = StepState.Completed;
+                    if (eventByStatus.TryGetValue(status, out var evt))
+                    {
+                        timestamp = evt.CreatedAt.ToString("g", culture);
+                        actor = await AuditDisplay.ResolveAsync(evt.CreatedBy);
+                    }
+                    else if (status == TicketStatus.Open)
+                    {
+                        timestamp = ticket.CreatedAt.ToString("g", culture);
+                        actor = await AuditDisplay.ResolveAsync(ticket.CreatedBy);
+                    }
+                }
+                else if (i == currentIndex)
+                {
+                    // Current step
+                    state = StepState.Current;
+                    if (eventByStatus.TryGetValue(status, out var evt))
+                    {
+                        timestamp = evt.CreatedAt.ToString("g", culture);
+                        actor = await AuditDisplay.ResolveAsync(evt.CreatedBy);
+                    }
+                    else if (status == TicketStatus.Open)
+                    {
+                        timestamp = ticket.CreatedAt.ToString("g", culture);
+                        actor = await AuditDisplay.ResolveAsync(ticket.CreatedBy);
+                    }
+                }
+                else
+                {
+                    state = StepState.Upcoming;
+                }
+
+                statusSteps.Add(new StatusStep { Status = status, Label = StatusLabel(status), State = state, Timestamp = timestamp, Actor = actor });
+            }
         }
     }
 
@@ -485,7 +780,49 @@
 
         await SaveMetaValues(context);
         await context.SaveChangesAsync();
+
+        // Record timeline events for changes
+        var user = Tenant.UserIdentifier;
+        var store = Tenant.StoreId;
+        if (ticket.Status != originalStatus)
+            await TicketEvents.RecordStatusChange(ticket.Id, originalStatus, ticket.Status, user, store);
+        if (ticket.MechanicId != originalMechanicId)
+        {
+            var mechName = mechanics.FirstOrDefault(m => m.Id == ticket.MechanicId)?.Name;
+            await TicketEvents.RecordMechanicAssigned(ticket.Id, mechName, user, store);
+        }
+        if (ticket.Description != originalDescription)
+            await TicketEvents.RecordNoteUpdated(ticket.Id, user, store);
+        if (ticket.DiscountPercent != originalDiscountPercent)
+            await TicketEvents.RecordDiscountChanged(ticket.Id, originalDiscountPercent, ticket.DiscountPercent, user, store);
+        foreach (var removed in removedProducts)
+            await TicketEvents.RecordProductRemoved(ticket.Id, removed.Product?.Name ?? "?", removed.Quantity, user, store);
+        foreach (var tp in ticketProducts.Where(tp => !savedProductIds.Contains(tp.Id)))
+            await TicketEvents.RecordProductAdded(ticket.Id, tp.Product?.Name ?? "?", tp.Quantity, user, store);
+
+        // Check meta field changes
+        foreach (var field in metaFields)
+        {
+            var oldVal = originalMetaValues.GetValueOrDefault(field.Id, "");
+            var newVal = metaValues.GetValueOrDefault(field.Id, "");
+            if (oldVal != newVal)
+                await TicketEvents.RecordMetaFieldChanged(ticket.Id, field.Label, user, store);
+        }
+
+        // Update snapshots
+        originalStatus = ticket.Status;
+        originalMechanicId = ticket.MechanicId;
+        originalDescription = ticket.Description;
+        originalDiscountPercent = ticket.DiscountPercent;
+        originalMetaValues = new Dictionary<string, string>(metaValues);
+        savedProductIds = ticketProducts.Select(tp => tp.Id).ToHashSet();
+
         removedProducts.Clear();
+
+        // Reload timeline
+        using var ctx2 = DbFactory.CreateDbContext();
+        await LoadTimeline(ctx2);
+
         await snackbar.Show();
     }
 
@@ -520,10 +857,18 @@
 
         await context.SaveChangesAsync();
 
+        // Record cancellation event
+        await TicketEvents.RecordCancellation(ticket.Id, Tenant.UserIdentifier, Tenant.StoreId);
+
         // Update local state
         ticket.Status = TicketStatus.Cancelled;
         ticketProducts.Clear();
         removedProducts.Clear();
+
+        // Reload timeline
+        using var ctx2 = DbFactory.CreateDbContext();
+        await LoadTimeline(ctx2);
+
         await snackbar.Show();
     }
 
@@ -676,5 +1021,45 @@
         TicketStatus.Cancelled => "bg-red-100 text-red-700",
         _ => "bg-gray-100 text-gray-600"
     };
+
+    // Block-based form field ordering
+    private void BuildTicketFormFields(List<BaseFieldLayout> baseLayouts)
+    {
+        var blocks = FormBlockDefinition.GetBlocks("ServiceTicket");
+        var defaultBlock = FormBlockDefinition.DefaultBlock("ServiceTicket");
+        var editableBaseKeys = new HashSet<string> { "Status", "Mechanic", "Notes", "DiscountPercent" };
+        var allFields = new List<FormField>();
+
+        foreach (var bl in baseLayouts.Where(b => editableBaseKeys.Contains(b.FieldKey)))
+            allFields.Add(new FormField { FieldKey = bl.FieldKey, SortOrder = bl.SortOrder, IsBase = true, Block = bl.Block });
+        foreach (var mf in metaFields)
+            allFields.Add(new FormField { FieldKey = mf.Key, SortOrder = mf.SortOrder, IsBase = false, MetaField = mf, Block = mf.Block ?? defaultBlock });
+
+        ticketBlockGroups = blocks
+            .Where(b => !b.IsFixed) // Skip fixed blocks (header, products, totals) — rendered structurally
+            .OrderBy(b => b.DisplayOrder)
+            .Select(b => new FormBlockGroup
+            {
+                BlockKey = b.Key,
+                Fields = allFields.Where(f => f.Block == b.Key).OrderBy(f => f.SortOrder).ThenBy(f => f.FieldKey).ToList()
+            })
+            .Where(g => g.Fields.Any())
+            .ToList();
+    }
+
+    private class FormField
+    {
+        public string FieldKey { get; set; } = "";
+        public int SortOrder { get; set; }
+        public bool IsBase { get; set; }
+        public string Block { get; set; } = "details";
+        public MetaFieldDefinition? MetaField { get; set; }
+    }
+
+    private class FormBlockGroup
+    {
+        public string BlockKey { get; set; } = "";
+        public List<FormField> Fields { get; set; } = new();
+    }
 
 }

@@ -10,6 +10,8 @@
 @inject ShopCultureService CultureService
 @inject TenantContext Tenant
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
 <PageTitle>@L.Settings_Title</PageTitle>
 
@@ -33,7 +35,7 @@
             <li>
                 <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("meta")"
                         @onclick='() => NavigateToSection("meta")'>
-                    <i class="fa-solid fa-sliders w-5 text-center mr-2"></i>@L.Settings_MetaFields
+                    <i class="fa-solid fa-table-columns w-5 text-center mr-2"></i>@L.Settings_FormEditor
                 </button>
             </li>
             <li>
@@ -205,13 +207,13 @@
                 </div>
             }
 
-            @* ==================== Meta Field Definitions ==================== *@
+            @* ==================== Form Editor ==================== *@
             @if (activeSection == "meta")
             {
                 <div class="flex items-center justify-between mb-4">
                     <div>
-                        <h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_MetaFields</h1>
-                        <p class="text-sm text-gray-500">@L.Settings_MetaFieldsSubtitle</p>
+                        <h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_FormEditor</h1>
+                        <p class="text-sm text-gray-500">@L.Settings_FormEditorSubtitle</p>
                     </div>
                     <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex-shrink-0"
                             @onclick="ShowAddField">
@@ -235,7 +237,7 @@
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
                         <h4 class="text-sm font-semibold text-gray-800 mb-4">@(!string.IsNullOrEmpty(editingFieldId) ? L.Settings_EditField : L.Settings_NewField)</h4>
 
-                        <div class="grid grid-cols-3 gap-3 mb-4">
+                        <div class="grid grid-cols-2 gap-3 mb-4">
                             <div>
                                 <label class="block text-xs text-gray-500 mb-1">@L.Settings_Label <span class="text-red-500">*</span></label>
                                 <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
@@ -245,11 +247,6 @@
                                 <label class="block text-xs text-gray-500 mb-1">@L.Settings_Key <span class="text-red-500">*</span></label>
                                 <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300"
                                        placeholder="@L.Settings_KeyPlaceholder" @bind="fieldKey" />
-                            </div>
-                            <div>
-                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_Order</label>
-                                <input type="number" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                       @bind="fieldSortOrder" />
                             </div>
                         </div>
 
@@ -274,6 +271,18 @@
                                            placeholder="@L.Settings_OptionsPlaceholder" @bind="fieldOptions" />
                                 </div>
                             }
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_FieldBlock</label>
+                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" @bind="fieldBlock">
+                                    @foreach (var b in FormBlockDefinition.GetBlocks(selectedEntityType).Where(b => !b.IsFixed))
+                                    {
+                                        <option value="@b.Key">@ResolveBlockLabel(b.LabelKey)</option>
+                                    }
+                                </select>
+                            </div>
                         </div>
 
                         <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">@L.Settings_Validation</p>
@@ -379,84 +388,108 @@
                     </div>
                 }
 
-                @if (metaFields.Any())
+                @* Block-based field list *@
+                @if (editorBlockGroups.Any(g => g.Fields.Any()))
                 {
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                        <table class="w-full text-sm">
-                            <thead class="bg-gray-50">
-                                <tr class="text-left text-gray-500 text-xs uppercase tracking-wide">
-                                    <th class="py-3 px-4 font-medium">@L.Settings_FieldTableOrder</th>
-                                    <th class="py-3 px-4 font-medium">@L.Settings_FieldTableLabel</th>
-                                    <th class="py-3 px-4 font-medium">@L.Settings_FieldTableType</th>
-                                    <th class="py-3 px-4 font-medium">@L.Settings_FieldTableValidation</th>
-                                    <th class="py-3 px-4 font-medium">@L.Settings_FieldTableCondition</th>
-                                    <th class="py-3 px-4 font-medium">@L.Settings_FieldTableStatus</th>
-                                    <th class="py-3 px-4"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var field in metaFields)
-                                {
-                                    <tr class="border-t border-gray-100 hover:bg-gray-50">
-                                        <td class="py-3 px-4 text-gray-400">@field.SortOrder</td>
-                                        <td class="py-3 px-4">
-                                            <span class="text-gray-800 font-medium">@field.Label</span>
-                                            <span class="text-gray-400 text-xs font-mono ml-1">@field.Key</span>
-                                            @if (field.IsRequired) { <span class="text-red-500 ml-1">*</span> }
-                                        </td>
-                                        <td class="py-3 px-4 text-gray-500">
-                                            @field.FieldType
-                                            @if (field.FieldType == "select" && !string.IsNullOrEmpty(field.Options))
+                    @if (!string.IsNullOrEmpty(editorSaveMessage))
+                    {
+                        <div class="text-sm text-green-600 bg-green-50 rounded-lg px-3 py-2 mb-3">@editorSaveMessage</div>
+                    }
+
+                    <div class="space-y-4">
+                        @foreach (var block in editorBlockGroups.OrderBy(b => b.DisplayOrder))
+                        {
+                            @if (!block.Fields.Any()) continue;
+
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                                @* Block header *@
+                                <div class="flex items-center gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+                                    @if (block.IsFixed)
+                                    {
+                                        <i class="fa-solid fa-lock text-gray-400 text-[10px]"></i>
+                                    }
+                                    else
+                                    {
+                                        <i class="fa-solid fa-grip-lines text-gray-400 text-xs"></i>
+                                    }
+                                    <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">@block.BlockLabel</span>
+                                    @if (block.IsFixed)
+                                    {
+                                        <span class="text-[10px] text-gray-400 ml-1">@L.Settings_FixedBlock</span>
+                                    }
+                                </div>
+
+                                @* Fields container — DnD enabled per non-fixed block *@
+                                <div class="form-editor-block space-y-1 p-2 min-h-[2.5rem]"
+                                     data-block="@block.BlockKey" data-fixed="@(block.IsFixed ? "true" : "false")">
+                                    @foreach (var ef in block.Fields)
+                                    {
+                                        <div data-field-id="@ef.UniqueId" draggable="@(!block.IsFixed)"
+                                             class="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 hover:shadow-sm transition-shadow @(!block.IsFixed ? "cursor-grab active:cursor-grabbing" : "bg-gray-50")">
+                                            @if (!block.IsFixed)
                                             {
-                                                <span class="text-gray-400 text-xs block">@field.Options</span>
+                                                <i class="fa-solid fa-grip-vertical text-gray-300 flex-shrink-0"></i>
                                             }
-                                        </td>
-                                        <td class="py-3 px-4">
-                                            @if (!string.IsNullOrEmpty(field.RegexPattern))
+
+                                            <span class="text-xs text-gray-400 w-6 text-center flex-shrink-0">@ef.SortOrder</span>
+
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-sm font-medium text-gray-800 truncate">@ef.Label</span>
+                                                    <span class="text-xs font-mono text-gray-400">@ef.FieldKey</span>
+                                                    @if (ef.IsRequired)
+                                                    {
+                                                        <span class="text-red-500 text-xs">*</span>
+                                                    }
+                                                </div>
+                                            </div>
+
+                                            <span class="text-xs px-2 py-0.5 rounded-full flex-shrink-0 @(ef.IsBase ? "bg-gray-100 text-gray-500" : "bg-indigo-50 text-indigo-600")">
+                                                @ef.FieldType
+                                            </span>
+
+                                            @if (ef.IsBase)
                                             {
-                                                <span class="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded" title="@field.RegexPattern">regex</span>
-                                            }
-                                            @if (!string.IsNullOrEmpty(field.FormatMask))
-                                            {
-                                                <span class="text-xs text-gray-400 block">@field.FormatMask</span>
-                                            }
-                                        </td>
-                                        <td class="py-3 px-4 text-xs text-gray-500">
-                                            @if (!string.IsNullOrEmpty(field.ConditionalOnFieldId))
-                                            {
-                                                var parent = metaFields.FirstOrDefault(f => f.Id == field.ConditionalOnFieldId);
-                                                <span>@(parent?.Label ?? "?") = @field.ConditionalOnValue</span>
-                                            }
-                                        </td>
-                                        <td class="py-3 px-4">
-                                            @if (field.IsActive)
-                                            {
-                                                <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">@L.Common_Active</span>
+                                                <span class="flex items-center gap-1 text-xs text-gray-400 flex-shrink-0">
+                                                    <i class="fa-solid fa-lock text-[10px]"></i> @L.Settings_BaseField
+                                                </span>
                                             }
                                             else
                                             {
-                                                <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">@L.Common_Inactive</span>
+                                                <span class="text-xs text-indigo-500 flex-shrink-0">@L.Settings_CustomField</span>
                                             }
-                                        </td>
-                                        <td class="py-3 px-4 text-right">
-                                            <button class="text-indigo-600 hover:text-indigo-800 text-xs mr-2" @onclick="() => EditField(field)">@L.Common_Edit</button>
-                                            <button class="text-gray-400 hover:text-gray-600 text-xs mr-2" @onclick="() => ToggleFieldActive(field)">
-                                                @(field.IsActive ? L.Settings_Deactivate : L.Settings_Activate)
-                                            </button>
-                                            <button class="text-red-400 hover:text-red-600 text-xs" @onclick="() => DeleteField(field)">@L.Common_Delete</button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
+
+                                            @if (!ef.IsBase)
+                                            {
+                                                @if (ef.MetaField!.IsActive)
+                                                {
+                                                    <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex-shrink-0">@L.Common_Active</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full flex-shrink-0">@L.Common_Inactive</span>
+                                                }
+
+                                                <div class="flex items-center gap-1 flex-shrink-0">
+                                                    <button class="text-indigo-600 hover:text-indigo-800 text-xs px-1" @onclick="() => EditField(ef.MetaField!)">@L.Common_Edit</button>
+                                                    <button class="text-gray-400 hover:text-gray-600 text-xs px-1" @onclick="() => ToggleFieldActive(ef.MetaField!)">
+                                                        @(ef.MetaField!.IsActive ? L.Settings_Deactivate : L.Settings_Activate)
+                                                    </button>
+                                                    <button class="text-red-400 hover:text-red-600 text-xs px-1" @onclick="() => DeleteField(ef.MetaField!)">@L.Common_Delete</button>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
                     </div>
                 }
                 else if (!showFieldForm)
                 {
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-                        <i class="fa-solid fa-sliders text-gray-300 text-3xl mb-3"></i>
-                        <p class="text-sm text-gray-400">@L.Settings_NoFieldsConfigured</p>
-                        <p class="text-xs text-gray-400 mt-1">@L.Settings_NoFieldsHint</p>
+                        <i class="fa-solid fa-table-columns text-gray-300 text-3xl mb-3"></i>
+                        <p class="text-sm text-gray-400">@L.Settings_FormEditorNoFields</p>
                     </div>
                 }
             }
@@ -592,9 +625,14 @@
 
     private static readonly string[] DefaultComponentTypes = ["Bicicleta", "Aro", "Pedal", "Marco", "Rueda", "Otro"];
 
-    // --- Meta Fields ---
+    // --- Form Editor ---
     private string selectedEntityType = "Customer";
     private List<MetaFieldDefinition> metaFields = new();
+    private List<BaseFieldLayout> baseFields = new();
+    private List<EditorBlockGroup> editorBlockGroups = new();
+    private string? editorSaveMessage;
+    private DotNetObjectReference<Index>? _dotNetRef;
+    private bool _dndInitialized;
     private bool showFieldForm = false;
     private string? editingFieldId;
     private string fieldLabel = "";
@@ -611,6 +649,7 @@
     private string fieldConditionalOnValue = "";
     private string fieldActionEvent = "";
     private string fieldActionScript = "";
+    private string fieldBlock = "";
     private string? fieldError;
 
     // --- Shop Settings ---
@@ -797,6 +836,94 @@
         // Auto-apply country presets for company-scoped entity types
         if (!isOrgType)
             await AutoApplyPresets(context);
+
+        // Load base field layouts
+        await LoadBaseFields(context);
+
+        // Build merged editor field list
+        BuildEditorFields();
+    }
+
+    private async Task LoadBaseFields(BikePOS.Data.BikePosContext context)
+    {
+        var isOrgType = OrgEntityTypes.Contains(selectedEntityType);
+        var companyId = isOrgType ? null : Tenant.CompanyId;
+
+        baseFields = await context.BaseFieldLayout
+            .Where(b => b.EntityType == selectedEntityType && b.CompanyId == companyId)
+            .OrderBy(b => b.SortOrder)
+            .ToListAsync();
+
+        // Auto-seed if no base fields exist for this entity type
+        if (!baseFields.Any())
+        {
+            var defaults = BaseFieldLayout.GetBaseFields(selectedEntityType);
+            foreach (var d in defaults)
+                d.CompanyId = companyId;
+            context.BaseFieldLayout.AddRange(defaults);
+            await context.SaveChangesAsync();
+            baseFields = defaults;
+        }
+    }
+
+    private void BuildEditorFields()
+    {
+        var blocks = FormBlockDefinition.GetBlocks(selectedEntityType);
+        var defaultBlock = FormBlockDefinition.DefaultBlock(selectedEntityType);
+        var allFields = new List<EditorField>();
+
+        foreach (var bf in baseFields)
+        {
+            allFields.Add(new EditorField
+            {
+                UniqueId = "base_" + bf.Id,
+                BaseFieldId = bf.Id,
+                FieldKey = bf.FieldKey,
+                Label = bf.Label,
+                FieldType = "base",
+                SortOrder = bf.SortOrder,
+                IsBase = true,
+                IsRequired = false,
+                Block = bf.Block,
+            });
+        }
+
+        foreach (var mf in metaFields)
+        {
+            allFields.Add(new EditorField
+            {
+                UniqueId = "meta_" + mf.Id,
+                MetaFieldId = mf.Id,
+                FieldKey = mf.Key,
+                Label = mf.Label,
+                FieldType = mf.FieldType,
+                SortOrder = mf.SortOrder,
+                IsBase = false,
+                IsRequired = mf.IsRequired,
+                MetaField = mf,
+                Block = mf.Block ?? defaultBlock,
+            });
+        }
+
+        editorBlockGroups = blocks.Select(b => new EditorBlockGroup
+        {
+            BlockKey = b.Key,
+            BlockLabel = ResolveBlockLabel(b.LabelKey),
+            IsFixed = b.IsFixed,
+            DisplayOrder = b.DisplayOrder,
+            Fields = allFields
+                .Where(f => f.Block == b.Key)
+                .OrderBy(f => f.SortOrder).ThenBy(f => f.Label)
+                .ToList()
+        }).ToList();
+    }
+
+    private string ResolveBlockLabel(string labelKey)
+    {
+        // Use reflection-like lookup on i18n Text object
+        var prop = typeof(Text).GetProperty(labelKey);
+        if (prop != null) return prop.GetValue(L)?.ToString() ?? labelKey;
+        return labelKey;
     }
 
     private async Task AutoApplyPresets(BikePOS.Data.BikePosContext context)
@@ -859,14 +986,70 @@
     {
         selectedEntityType = entityType;
         showFieldForm = false;
+        _dndInitialized = false;
         await LoadMetaFields();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (activeSection == "meta" && editorBlockGroups.Any(g => g.Fields.Any()) && !_dndInitialized)
+        {
+            _dndInitialized = true;
+            _dotNetRef ??= DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("FormEditorDnD.init", ".form-editor-block", _dotNetRef);
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnFieldReordered(string blockKey, string[] orderedIds)
+    {
+        using var context = DbFactory.CreateDbContext();
+        var isOrgType = OrgEntityTypes.Contains(selectedEntityType);
+        var companyId = isOrgType ? null : Tenant.CompanyId;
+
+        for (int i = 0; i < orderedIds.Length; i++)
+        {
+            var uid = orderedIds[i];
+            if (uid.StartsWith("base_"))
+            {
+                var id = uid["base_".Length..];
+                var bf = await context.BaseFieldLayout.FindAsync(id);
+                if (bf != null) { bf.SortOrder = i; bf.Block = blockKey; }
+            }
+            else if (uid.StartsWith("meta_"))
+            {
+                var id = uid["meta_".Length..];
+                var mf = await context.MetaFieldDefinition.FindAsync(id);
+                if (mf != null) { mf.SortOrder = i; mf.Block = blockKey; }
+            }
+        }
+
+        await context.SaveChangesAsync();
+
+        // Reload to reflect new order
+        var metaQuery = context.MetaFieldDefinition
+            .Where(f => f.EntityType == selectedEntityType);
+        if (!isOrgType)
+            metaQuery = metaQuery.Where(f => f.CompanyId == companyId);
+        metaFields = await metaQuery.OrderBy(f => f.SortOrder).ThenBy(f => f.Label).ToListAsync();
+
+        baseFields = await context.BaseFieldLayout
+            .Where(b => b.EntityType == selectedEntityType && b.CompanyId == companyId)
+            .OrderBy(b => b.SortOrder)
+            .ToListAsync();
+
+        BuildEditorFields();
+        editorSaveMessage = L.Settings_FormEditorSaved;
+        await InvokeAsync(StateHasChanged);
     }
 
     private void ShowAddField()
     {
         editingFieldId = null;
         fieldLabel = ""; fieldKey = ""; fieldType = "text"; fieldIsRequired = false;
-        fieldSortOrder = metaFields.Any() ? metaFields.Max(f => f.SortOrder) + 1 : 0;
+        fieldBlock = FormBlockDefinition.DefaultBlock(selectedEntityType);
+        var blockFields = editorBlockGroups.SelectMany(g => g.Fields);
+        fieldSortOrder = blockFields.Any() ? blockFields.Max(f => f.SortOrder) + 1 : 0;
         fieldRegex = ""; fieldRegexMessage = ""; fieldFormatMask = ""; fieldDefaultValue = ""; fieldOptions = "";
         fieldConditionalOnId = ""; fieldConditionalOnValue = "";
         fieldActionEvent = ""; fieldActionScript = ""; fieldError = null;
@@ -883,6 +1066,7 @@
         fieldConditionalOnId = field.ConditionalOnFieldId ?? "";
         fieldConditionalOnValue = field.ConditionalOnValue ?? "";
         fieldActionEvent = field.ActionEvent ?? ""; fieldActionScript = field.ActionScript ?? "";
+        fieldBlock = field.Block ?? FormBlockDefinition.DefaultBlock(selectedEntityType);
         fieldError = null; showFieldForm = true;
     }
 
@@ -940,6 +1124,7 @@
                 field.Options = NullIfEmpty(fieldOptions);
                 field.ConditionalOnFieldId = conditionalId; field.ConditionalOnValue = NullIfEmpty(fieldConditionalOnValue);
                 field.ActionEvent = NullIfEmpty(fieldActionEvent); field.ActionScript = NullIfEmpty(fieldActionScript);
+                field.Block = NullIfEmpty(fieldBlock);
             }
         }
         else
@@ -955,11 +1140,13 @@
                 Options = NullIfEmpty(fieldOptions),
                 ConditionalOnFieldId = conditionalId, ConditionalOnValue = NullIfEmpty(fieldConditionalOnValue),
                 ActionEvent = NullIfEmpty(fieldActionEvent), ActionScript = NullIfEmpty(fieldActionScript),
+                Block = NullIfEmpty(fieldBlock),
             });
         }
 
         await context.SaveChangesAsync();
         showFieldForm = false;
+        _dndInitialized = false;
         await LoadMetaFields();
     }
 
@@ -971,6 +1158,7 @@
         {
             entity.IsActive = !entity.IsActive;
             await context.SaveChangesAsync();
+            _dndInitialized = false;
             await LoadMetaFields();
         }
     }
@@ -994,6 +1182,7 @@
 
         context.MetaFieldDefinition.Remove(entity);
         await context.SaveChangesAsync();
+        _dndInitialized = false;
         await LoadMetaFields();
     }
 
@@ -1049,4 +1238,36 @@
 
     private static string? NullIfEmpty(string? s) =>
         string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    // ===== Form Editor types =====
+
+    private class EditorField
+    {
+        public string UniqueId { get; set; } = "";
+        public string? BaseFieldId { get; set; }
+        public string? MetaFieldId { get; set; }
+        public string FieldKey { get; set; } = "";
+        public string Label { get; set; } = "";
+        public string FieldType { get; set; } = "";
+        public int SortOrder { get; set; }
+        public bool IsBase { get; set; }
+        public bool IsRequired { get; set; }
+        public string Block { get; set; } = "details";
+        public MetaFieldDefinition? MetaField { get; set; }
+    }
+
+    private class EditorBlockGroup
+    {
+        public string BlockKey { get; set; } = "";
+        public string BlockLabel { get; set; } = "";
+        public bool IsFixed { get; set; }
+        public int DisplayOrder { get; set; }
+        public List<EditorField> Fields { get; set; } = new();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("FormEditorDnD.dispose"); } catch { }
+        _dotNetRef?.Dispose();
+    }
 }

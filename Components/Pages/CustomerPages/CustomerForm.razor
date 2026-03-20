@@ -10,75 +10,82 @@
 <div class="space-y-4">
     <h3 class="text-lg font-semibold text-gray-800">@(IsEditMode ? L.Customers_Edit : L.Customers_New)</h3>
 
-    @* Name *@
-    <div class="grid grid-cols-2 gap-3">
-        <div>
-            <label class="block text-sm text-gray-600 mb-1">@L.Customers_FirstName <span class="text-red-500">*</span></label>
-            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="firstName" placeholder="@L.Customers_FirstName" />
-        </div>
-        <div>
-            <label class="block text-sm text-gray-600 mb-1">@L.Customers_LastName <span class="text-red-500">*</span></label>
-            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="lastName" placeholder="@L.Customers_LastName" />
-        </div>
-    </div>
-
-    @* Contact *@
-    <div class="grid grid-cols-2 gap-3">
-        <div>
-            <label class="block text-sm text-gray-600 mb-1">@L.Common_Phone</label>
-            <input type="tel" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="phone" placeholder="@L.Common_Phone" />
-        </div>
-        <div>
-            <label class="block text-sm text-gray-600 mb-1">@L.Common_Email</label>
-            <input type="email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="email" placeholder="@L.Common_Email" />
-        </div>
-    </div>
-
-    @* Address *@
-    <div>
-        <label class="block text-sm text-gray-600 mb-1">@L.Common_Address</label>
-        <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-               @bind="street" placeholder="@L.Customers_StreetPlaceholder" />
-    </div>
-    <div class="grid grid-cols-2 gap-3">
-        <div>
-            <label class="block text-sm text-gray-600 mb-1">@L.Common_City</label>
-            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="city" placeholder="@L.Common_City" />
-        </div>
-        <div>
-            <label class="block text-sm text-gray-600 mb-1">@L.Common_State</label>
-            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="state" placeholder="@L.Common_State" />
-        </div>
-    </div>
-    <div class="grid grid-cols-2 gap-3">
-        <div>
-            <label class="block text-sm text-gray-600 mb-1">@L.Common_ZipCode</label>
-            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="zipCode" placeholder="@L.Common_ZipCode" />
-        </div>
-        <div>
-            <label class="block text-sm text-gray-600 mb-1">@L.Common_Country</label>
-            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                   @bind="country" placeholder="@L.Common_Country" />
-        </div>
-    </div>
-
-    @* Dynamic Meta Fields *@
-    @if (metaFields.Any())
+    @* Block-based field rendering — base + meta fields grouped by block, sorted within *@
+    @foreach (var blockGroup in formBlockGroups)
     {
-        <hr class="border-gray-200" />
-        <p class="text-xs text-gray-400 uppercase tracking-wide">@L.Customers_AdditionalFields</p>
         <div class="grid grid-cols-2 gap-3">
-            @foreach (var field in metaFields)
+            @foreach (var ff in blockGroup.Fields)
             {
-                @if (IsFieldVisible(field))
+                @if (ff.IsBase)
                 {
+                    @switch (ff.FieldKey)
+                    {
+                        case "FirstName":
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">@L.Customers_FirstName <span class="text-red-500">*</span></label>
+                                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                       @bind="firstName" placeholder="@L.Customers_FirstName" />
+                            </div>
+                            break;
+                        case "LastName":
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">@L.Customers_LastName <span class="text-red-500">*</span></label>
+                                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                       @bind="lastName" placeholder="@L.Customers_LastName" />
+                            </div>
+                            break;
+                        case "Phone":
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">@L.Common_Phone</label>
+                                <input type="tel" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                       @bind="phone" placeholder="@L.Common_Phone" />
+                            </div>
+                            break;
+                        case "Email":
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">@L.Common_Email</label>
+                                <input type="email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                       @bind="email" placeholder="@L.Common_Email" />
+                            </div>
+                            break;
+                        case "Address":
+                            <div class="col-span-2 space-y-3">
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">@L.Common_Address</label>
+                                    <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                           @bind="street" placeholder="@L.Customers_StreetPlaceholder" />
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-sm text-gray-600 mb-1">@L.Common_City</label>
+                                        <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                               @bind="city" placeholder="@L.Common_City" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm text-gray-600 mb-1">@L.Common_State</label>
+                                        <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                               @bind="state" placeholder="@L.Common_State" />
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-sm text-gray-600 mb-1">@L.Common_ZipCode</label>
+                                        <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                               @bind="zipCode" placeholder="@L.Common_ZipCode" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm text-gray-600 mb-1">@L.Common_Country</label>
+                                        <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                               @bind="country" placeholder="@L.Common_Country" />
+                                    </div>
+                                </div>
+                            </div>
+                            break;
+                    }
+                }
+                else if (ff.MetaField is not null && IsFieldVisible(ff.MetaField))
+                {
+                    var field = ff.MetaField;
                     <div>
                         <label class="block text-sm text-gray-600 mb-1">
                             @field.Label
@@ -157,6 +164,8 @@
     private string? validationError;
 
     private List<MetaFieldDefinition> metaFields = new();
+    private List<BaseFieldLayout> baseFields = new();
+    private List<FormBlockGroup> formBlockGroups = new();
     private Dictionary<string, string> metaValues = new();
     private Dictionary<string, string> fieldErrors = new();
 
@@ -167,8 +176,8 @@
     {
         if (AuthState != null)
         {
-            var state = await AuthState;
-            Tenant.PopulateFromClaims(state.User);
+            var authState = await AuthState;
+            Tenant.PopulateFromClaims(authState.User);
         }
 
         L = await I18nText.GetTextTableAsync<Text>(this);
@@ -187,16 +196,13 @@
                         .Where(f => f.EntityType == "Customer" && f.CompanyId == Tenant.CompanyId)
                         .ToListAsync();
                     var existingByKey = existing.ToDictionary(f => f.Key, StringComparer.OrdinalIgnoreCase);
-                    // Build a map from preset key → saved DB id (for conditional linking)
                     var presetKeyToDbId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                     var changed = false;
 
                     foreach (var preset in presets)
                     {
                         if (existingByKey.TryGetValue(preset.Key, out var dbField))
-                        {
                             presetKeyToDbId[preset.Key] = dbField.Id;
-                        }
                         else
                         {
                             preset.CompanyId = Tenant.CompanyId;
@@ -206,12 +212,10 @@
                         }
                     }
 
-                    // Patch conditional links on existing fields that are missing them
                     foreach (var preset in presets)
                     {
                         if (preset.ConditionalOnFieldId == null) continue;
                         if (!existingByKey.TryGetValue(preset.Key, out var dbField)) continue;
-                        // Find which preset key the condition points to
                         var parentPreset = presets.FirstOrDefault(p => p.Id == preset.ConditionalOnFieldId);
                         if (parentPreset == null) continue;
                         var parentDbId = presetKeyToDbId.GetValueOrDefault(parentPreset.Key);
@@ -232,6 +236,25 @@
             .Where(f => f.IsActive && f.EntityType == "Customer" && f.CompanyId == Tenant.CompanyId)
             .OrderBy(f => f.SortOrder)
             .ToListAsync();
+
+        // Load base field layouts
+        baseFields = await context.BaseFieldLayout
+            .Where(b => b.EntityType == "Customer" && b.CompanyId == Tenant.CompanyId)
+            .OrderBy(b => b.SortOrder)
+            .ToListAsync();
+
+        // Auto-seed base fields if none exist
+        if (!baseFields.Any())
+        {
+            var defaults = BaseFieldLayout.GetBaseFields("Customer");
+            foreach (var d in defaults) d.CompanyId = Tenant.CompanyId;
+            context.BaseFieldLayout.AddRange(defaults);
+            await context.SaveChangesAsync();
+            baseFields = defaults;
+        }
+
+        // Build unified sorted field list
+        BuildFormFields();
 
         if (ExistingCustomer is not null)
         {
@@ -262,6 +285,28 @@
         }
     }
 
+    private void BuildFormFields()
+    {
+        var blocks = FormBlockDefinition.GetBlocks("Customer");
+        var defaultBlock = FormBlockDefinition.DefaultBlock("Customer");
+        var allFields = new List<FormField>();
+
+        foreach (var bf in baseFields)
+            allFields.Add(new FormField { FieldKey = bf.FieldKey, SortOrder = bf.SortOrder, IsBase = true, Block = bf.Block });
+        foreach (var mf in metaFields)
+            allFields.Add(new FormField { FieldKey = mf.Key, SortOrder = mf.SortOrder, IsBase = false, MetaField = mf, Block = mf.Block ?? defaultBlock });
+
+        formBlockGroups = blocks
+            .OrderBy(b => b.DisplayOrder)
+            .Select(b => new FormBlockGroup
+            {
+                BlockKey = b.Key,
+                Fields = allFields.Where(f => f.Block == b.Key).OrderBy(f => f.SortOrder).ThenBy(f => f.FieldKey).ToList()
+            })
+            .Where(g => g.Fields.Any())
+            .ToList();
+    }
+
     private async Task RunMetaAction(MetaFieldDefinition field, string eventName)
     {
         if (string.IsNullOrEmpty(field.ActionEvent) || string.IsNullOrEmpty(field.ActionScript)) return;
@@ -286,7 +331,7 @@
     {
         SetMetaValue(field.Id, e.Value?.ToString());
         await RunMetaAction(field, "change");
-        StateHasChanged(); // re-evaluate conditional visibility
+        StateHasChanged();
     }
 
     private async Task OnMetaBlur(MetaFieldDefinition field)
@@ -321,7 +366,6 @@
     private void SetMetaValue(string fieldId, string? value)
     {
         metaValues[fieldId] = value ?? "";
-        // Clear field-level error on change
         fieldErrors.Remove(fieldId);
     }
 
@@ -329,7 +373,6 @@
     {
         if (string.IsNullOrEmpty(field.ConditionalOnFieldId))
             return true;
-
         var parentValue = GetMetaValue(field.ConditionalOnFieldId);
         return string.Equals(parentValue, field.ConditionalOnValue, StringComparison.OrdinalIgnoreCase);
     }
@@ -345,30 +388,22 @@
             return;
         }
 
-        // Validate visible meta fields
         foreach (var field in metaFields.Where(IsFieldVisible))
         {
             var val = GetMetaValue(field.Id);
-
             if (field.IsRequired && string.IsNullOrWhiteSpace(val))
             {
                 fieldErrors[field.Id] = string.Format(L.Validation_FieldRequired, field.Label);
                 continue;
             }
-
             if (!string.IsNullOrWhiteSpace(val) && !string.IsNullOrWhiteSpace(field.RegexPattern))
             {
                 try
                 {
                     if (!Regex.IsMatch(val, field.RegexPattern))
-                    {
                         fieldErrors[field.Id] = field.RegexMessage ?? string.Format(L.Validation_InvalidFormat, field.Label);
-                    }
                 }
-                catch
-                {
-                    // Invalid regex pattern — skip validation
-                }
+                catch { }
             }
         }
 
@@ -404,7 +439,6 @@
 
         await context.SaveChangesAsync();
 
-        // Upsert meta values (only for visible fields)
         var existingMeta = await context.CustomerMetaValue
             .Where(mv => mv.CustomerId == customer.Id)
             .ToListAsync();
@@ -417,18 +451,12 @@
 
             if (!isVisible)
             {
-                // Clear hidden conditional field values
-                if (existing is not null)
-                {
-                    existing.Value = null;
-                }
+                if (existing is not null) existing.Value = null;
                 continue;
             }
 
             if (existing is not null)
-            {
                 existing.Value = val;
-            }
             else if (!string.IsNullOrWhiteSpace(val))
             {
                 context.CustomerMetaValue.Add(new CustomerMetaValue
@@ -445,4 +473,19 @@
     }
 
     private async Task Cancel() => await OnCancelled.InvokeAsync();
+
+    private class FormField
+    {
+        public string FieldKey { get; set; } = "";
+        public int SortOrder { get; set; }
+        public bool IsBase { get; set; }
+        public string Block { get; set; } = "info";
+        public MetaFieldDefinition? MetaField { get; set; }
+    }
+
+    private class FormBlockGroup
+    {
+        public string BlockKey { get; set; } = "";
+        public List<FormField> Fields { get; set; } = new();
+    }
 }
