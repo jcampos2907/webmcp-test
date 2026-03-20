@@ -5,7 +5,6 @@
 @using BikePOS.Models
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
-@inject I18nText I18nText
 
 <PageTitle>@L.Services_Edit</PageTitle>
 
@@ -57,7 +56,7 @@ else
 </div>
 
 @code {
-    Text L = new();
+    [CascadingParameter] public Text L { get; set; } = default!;
     [SupplyParameterFromQuery]
     private string Id { get; set; } = "";
 
@@ -66,7 +65,6 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        L = await I18nText.GetTextTableAsync<Text>(this);
         using var context = DbFactory.CreateDbContext();
         Service ??= await context.Service.FirstOrDefaultAsync(m => m.Id == Id);
 
