@@ -5,7 +5,6 @@
 @using BikePOS.Models
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
-@inject I18nText I18nText
 @inject TenantContext Tenant
 
 <PageTitle>@L.Mechanics_Create</PageTitle>
@@ -50,11 +49,10 @@
 </div>
 
 @code {
-    Text L = new();
+    [CascadingParameter] public Text L { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {
-        L = await I18nText.GetTextTableAsync<Text>(this);
     }
     [SupplyParameterFromForm]
     private Mechanic Mechanic { get; set; } = default!;

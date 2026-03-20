@@ -599,7 +599,7 @@
 </div>
 
 @code {
-    Text L = new();
+    [CascadingParameter] public Text L { get; set; } = default!;
     private string activeSection = "profile";
 
     [Parameter]
@@ -723,7 +723,6 @@
         await LoadProfile();
         await LoadLanguage();
         await I18nText.SetCurrentLanguageAsync(selectedLanguage);
-        L = await I18nText.GetTextTableAsync<Text>(this);
     }
 
     // ===== Profile =====
@@ -743,6 +742,9 @@
         UpsertSetting(context, settings, "user_phone", profilePhone);
         UpsertSetting(context, settings, "user_language", selectedLanguage);
         await context.SaveChangesAsync();
+
+        // Write lang cookie so middleware picks it up on next request (365 days)
+        await JS.InvokeVoidAsync("eval", $"document.cookie='lang={selectedLanguage};path=/;max-age=31536000;SameSite=Lax'");
 
         await I18nText.SetCurrentLanguageAsync(selectedLanguage);
         L = await I18nText.GetTextTableAsync<Text>(this);

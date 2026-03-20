@@ -8,7 +8,6 @@
 @implements IAsyncDisposable
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
-@inject I18nText I18nText
 
 <PageTitle>@L.Mechanics_Title</PageTitle>
 
@@ -32,11 +31,10 @@
 </QuickGrid>
 
 @code {
-    Text L = new();
+    [CascadingParameter] public Text L { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {
-        L = await I18nText.GetTextTableAsync<Text>(this);
     }
     private BikePosContext context = default!;
 
