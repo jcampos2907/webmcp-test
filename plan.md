@@ -409,11 +409,11 @@ No PCI scope — terminals handle card data on-device. The app only sends the am
 
 - [ ] Customer component history (all components + service history per component)
 - [x] Ticket timeline/activity log (status changes, notes, who did what)
-- [ ] Mechanic workload view (assigned tickets dashboard)
+- [x] Mechanic workload view (assigned tickets dashboard)
 - [ ] Inventory alerts (stock below threshold)
 - [x] Reports: daily sales, revenue by service type, mechanic productivity (Chart.js)
 - [ ] Notification system (WhatsApp/email when service is ready)
-- [ ] Billing/invoicing (electronic invoicing for CR tax compliance)
+- ~~Billing/invoicing~~ — deferred to ERP integration phase
 - [x] Print/email receipt after charge
 - [ ] Refund flow (reverse charge, reopen ticket)
 - [x] CSV export for reports

@@ -435,5 +435,15 @@
   "Receipt_Qty": "Cant.",
   "Receipt_PaymentMethod": "Pago",
   "Receipt_AmountPaid": "Pagado",
-  "Receipt_ThankYou": "¡Gracias por su preferencia!"
+  "Receipt_ThankYou": "¡Gracias por su preferencia!",
+
+  "Nav_Workload": "Carga de Trabajo",
+
+  "Workload_Title": "Carga de Trabajo de Mecánicos",
+  "Workload_OpenTickets": "Boletas Abiertas",
+  "Workload_InProgress": "En Progreso",
+  "Workload_WaitingParts": "Esperando Repuestos",
+  "Workload_Unassigned": "Sin Asignar",
+  "Workload_NoMechanics": "No se encontraron mecánicos activos.",
+  "Workload_NoAssignedTickets": "No hay boletas activas asignadas."
 }

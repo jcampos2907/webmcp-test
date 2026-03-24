@@ -435,5 +435,15 @@
   "Receipt_Qty": "Qty",
   "Receipt_PaymentMethod": "Payment",
   "Receipt_AmountPaid": "Paid",
-  "Receipt_ThankYou": "Thank you for your business!"
+  "Receipt_ThankYou": "Thank you for your business!",
+
+  "Nav_Workload": "Workload",
+
+  "Workload_Title": "Mechanic Workload",
+  "Workload_OpenTickets": "Open Tickets",
+  "Workload_InProgress": "In Progress",
+  "Workload_WaitingParts": "Waiting for Parts",
+  "Workload_Unassigned": "Unassigned",
+  "Workload_NoMechanics": "No active mechanics found.",
+  "Workload_NoAssignedTickets": "No active tickets assigned."
 }

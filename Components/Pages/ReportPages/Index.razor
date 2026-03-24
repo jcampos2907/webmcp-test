@@ -7,7 +7,6 @@
 @using BikePOS.Services
 @inject IJSRuntime JS
 @inject ReportService Reports
-@inject I18nText I18nText
 @inject ShopCultureService CultureService
 @inject TenantContext Tenant
 
@@ -174,7 +173,7 @@
 </div>
 
 @code {
-    Text L = new();
+    [CascadingParameter] public Text L { get; set; } = default!;
     CultureInfo culture = CultureInfo.CurrentCulture;
 
     private IJSObjectReference? module;
@@ -200,7 +199,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        L = await I18nText.GetTextTableAsync<Text>(this);
         culture = await CultureService.GetCultureAsync();
 
         if (AuthState != null)
