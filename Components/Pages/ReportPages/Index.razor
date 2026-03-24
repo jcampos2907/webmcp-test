@@ -1,0 +1,340 @@
+@page "/reports"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@implements IAsyncDisposable
+@using BikePOS.Models
+@using BikePOS.Services
+@inject IJSRuntime JS
+@inject ReportService Reports
+@inject I18nText I18nText
+@inject ShopCultureService CultureService
+@inject TenantContext Tenant
+
+<PageTitle>@L.Reports_Title</PageTitle>
+
+<div class="p-6">
+    <h1 class="text-2xl font-bold text-gray-800 mb-6">@L.Reports_Title</h1>
+
+    @* Tabs *@
+    <div class="flex border-b border-gray-200 mb-6">
+        <button class="px-4 py-2 text-sm font-medium @(activeTab == 0 ? "border-b-2 border-indigo-500 text-indigo-600" : "text-gray-500 hover:text-gray-700")"
+                @onclick="() => SetTab(0)">
+            @L.Reports_DailySales
+        </button>
+        <button class="px-4 py-2 text-sm font-medium @(activeTab == 1 ? "border-b-2 border-indigo-500 text-indigo-600" : "text-gray-500 hover:text-gray-700")"
+                @onclick="() => SetTab(1)">
+            @L.Reports_ByService
+        </button>
+        <button class="px-4 py-2 text-sm font-medium @(activeTab == 2 ? "border-b-2 border-indigo-500 text-indigo-600" : "text-gray-500 hover:text-gray-700")"
+                @onclick="() => SetTab(2)">
+            @L.Reports_MechanicProductivity
+        </button>
+    </div>
+
+    @* Date range + Generate *@
+    <div class="flex items-end gap-4 mb-6">
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">@L.Reports_From</label>
+            <input type="date" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                   @bind="dateFrom" />
+        </div>
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">@L.Reports_To</label>
+            <input type="date" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                   @bind="dateTo" />
+        </div>
+        <button class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+                @onclick="GenerateReport" disabled="@loading">
+            @(loading ? L.Common_Loading : L.Reports_Generate)
+        </button>
+        @if (hasData)
+        {
+            <button class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-4 py-2 rounded-lg transition-colors"
+                    @onclick="ExportCsv">
+                <i class="fa-solid fa-file-csv mr-1"></i> @L.Reports_ExportCsv
+            </button>
+        }
+    </div>
+
+    @* Chart area *@
+    @if (hasData)
+    {
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div style="height: 350px; position: relative;">
+                <canvas id="reportChart"></canvas>
+            </div>
+        </div>
+    }
+
+    @* Daily Sales Tab *@
+    @if (activeTab == 0 && dailySales.Any())
+    {
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-600">
+                    <tr>
+                        <th class="text-left px-4 py-3">@L.Reports_Date</th>
+                        <th class="text-right px-4 py-3">@L.Reports_Revenue</th>
+                        <th class="text-right px-4 py-3">@L.Reports_Transactions</th>
+                        <th class="text-right px-4 py-3">@L.Pos_Cash</th>
+                        <th class="text-right px-4 py-3">@L.Pos_Card</th>
+                        <th class="text-right px-4 py-3">@L.Pos_Transfer</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in dailySales)
+                    {
+                        <tr class="border-t border-gray-100 hover:bg-gray-50">
+                            <td class="px-4 py-3">@row.Date.ToString("d", culture)</td>
+                            <td class="text-right px-4 py-3 font-medium">@row.Revenue.ToString("C", culture)</td>
+                            <td class="text-right px-4 py-3">@row.Transactions</td>
+                            <td class="text-right px-4 py-3">@row.Cash.ToString("C", culture)</td>
+                            <td class="text-right px-4 py-3">@row.Card.ToString("C", culture)</td>
+                            <td class="text-right px-4 py-3">@row.Transfer.ToString("C", culture)</td>
+                        </tr>
+                    }
+                    <tr class="border-t-2 border-gray-300 bg-gray-50 font-bold">
+                        <td class="px-4 py-3">@L.Common_Total</td>
+                        <td class="text-right px-4 py-3">@dailySales.Sum(r => r.Revenue).ToString("C", culture)</td>
+                        <td class="text-right px-4 py-3">@dailySales.Sum(r => r.Transactions)</td>
+                        <td class="text-right px-4 py-3">@dailySales.Sum(r => r.Cash).ToString("C", culture)</td>
+                        <td class="text-right px-4 py-3">@dailySales.Sum(r => r.Card).ToString("C", culture)</td>
+                        <td class="text-right px-4 py-3">@dailySales.Sum(r => r.Transfer).ToString("C", culture)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @* Service Revenue Tab *@
+    @if (activeTab == 1 && serviceRevenue.Any())
+    {
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            @{ var totalServiceRevenue = serviceRevenue.Sum(r => r.Revenue); }
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-600">
+                    <tr>
+                        <th class="text-left px-4 py-3">@L.Reports_ServiceName</th>
+                        <th class="text-right px-4 py-3">@L.Reports_Revenue</th>
+                        <th class="text-right px-4 py-3">@L.Reports_Tickets</th>
+                        <th class="text-right px-4 py-3">%</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in serviceRevenue)
+                    {
+                        var pct = totalServiceRevenue > 0 ? (row.Revenue / totalServiceRevenue * 100) : 0;
+                        <tr class="border-t border-gray-100 hover:bg-gray-50">
+                            <td class="px-4 py-3">@row.ServiceName</td>
+                            <td class="text-right px-4 py-3 font-medium">@row.Revenue.ToString("C", culture)</td>
+                            <td class="text-right px-4 py-3">@row.TicketCount</td>
+                            <td class="text-right px-4 py-3">@pct.ToString("F1")%</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @* Mechanic Productivity Tab *@
+    @if (activeTab == 2 && mechanicProductivity.Any())
+    {
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-600">
+                    <tr>
+                        <th class="text-left px-4 py-3">@L.Reports_MechanicName</th>
+                        <th class="text-right px-4 py-3">@L.Reports_Tickets</th>
+                        <th class="text-right px-4 py-3">@L.Reports_AvgHours</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in mechanicProductivity)
+                    {
+                        <tr class="border-t border-gray-100 hover:bg-gray-50">
+                            <td class="px-4 py-3">@row.MechanicName</td>
+                            <td class="text-right px-4 py-3">@row.TicketCount</td>
+                            <td class="text-right px-4 py-3">@row.AvgHoursToComplete.ToString("F1") h</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @* Empty state *@
+    @if (!hasData && !loading)
+    {
+        <div class="text-center py-12 text-gray-400">
+            <i class="fa-solid fa-chart-bar text-4xl mb-3"></i>
+            <p>@L.Reports_NoData</p>
+        </div>
+    }
+</div>
+
+@code {
+    Text L = new();
+    CultureInfo culture = CultureInfo.CurrentCulture;
+
+    private IJSObjectReference? module;
+    private int activeTab;
+    private DateTime dateFrom = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+    private DateTime dateTo = DateTime.Now;
+    private bool loading;
+
+    private List<DailySalesRow> dailySales = new();
+    private List<ServiceRevenueRow> serviceRevenue = new();
+    private List<MechanicProductivityRow> mechanicProductivity = new();
+
+    private bool hasData => activeTab switch
+    {
+        0 => dailySales.Any(),
+        1 => serviceRevenue.Any(),
+        2 => mechanicProductivity.Any(),
+        _ => false
+    };
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        L = await I18nText.GetTextTableAsync<Text>(this);
+        culture = await CultureService.GetCultureAsync();
+
+        if (AuthState != null)
+        {
+            var state = await AuthState;
+            Tenant.PopulateFromClaims(state.User);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/charts.js");
+        }
+    }
+
+    private void SetTab(int tab)
+    {
+        activeTab = tab;
+    }
+
+    private async Task GenerateReport()
+    {
+        loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var from = DateOnly.FromDateTime(dateFrom);
+            var to = DateOnly.FromDateTime(dateTo);
+
+            switch (activeTab)
+            {
+                case 0:
+                    dailySales = await Reports.GetDailySalesAsync(from, to);
+                    break;
+                case 1:
+                    serviceRevenue = await Reports.GetRevenueByServiceTypeAsync(from, to);
+                    break;
+                case 2:
+                    mechanicProductivity = await Reports.GetMechanicProductivityAsync(from, to);
+                    break;
+            }
+        }
+        finally
+        {
+            loading = false;
+            StateHasChanged();
+        }
+
+        // Render chart after data is loaded
+        await Task.Yield();
+        await RenderChart();
+    }
+
+    private async Task RenderChart()
+    {
+        if (module is null) return;
+
+        switch (activeTab)
+        {
+            case 0 when dailySales.Any():
+                var labels0 = dailySales.Select(r => r.Date.ToString("MM/dd")).ToArray();
+                var datasets = new object[]
+                {
+                    new { label = L.Pos_Cash, data = dailySales.Select(r => (double)r.Cash).ToArray(), backgroundColor = "#10b981" },
+                    new { label = L.Pos_Card, data = dailySales.Select(r => (double)r.Card).ToArray(), backgroundColor = "#6366f1" },
+                    new { label = L.Pos_Transfer, data = dailySales.Select(r => (double)r.Transfer).ToArray(), backgroundColor = "#f59e0b" }
+                };
+                await module.InvokeVoidAsync("renderBarChart", "reportChart", labels0, datasets, new { stacked = true });
+                break;
+
+            case 1 when serviceRevenue.Any():
+                var labels1 = serviceRevenue.Select(r => r.ServiceName).ToArray();
+                var data1 = serviceRevenue.Select(r => (double)r.Revenue).ToArray();
+                await module.InvokeVoidAsync("renderDoughnutChart", "reportChart", labels1, data1, (string[]?)null);
+                break;
+
+            case 2 when mechanicProductivity.Any():
+                var labels2 = mechanicProductivity.Select(r => r.MechanicName).ToArray();
+                var datasets2 = new object[]
+                {
+                    new { label = L.Reports_Tickets, data = mechanicProductivity.Select(r => (double)r.TicketCount).ToArray(), backgroundColor = "#6366f1" }
+                };
+                await module.InvokeVoidAsync("renderBarChart", "reportChart", labels2, datasets2, (object?)null);
+                break;
+        }
+    }
+
+    private async Task ExportCsv()
+    {
+        if (module is null) return;
+
+        string csv;
+        string filename;
+
+        switch (activeTab)
+        {
+            case 0:
+                csv = "Date,Revenue,Transactions,Cash,Card,Transfer\n"
+                    + string.Join("\n", dailySales.Select(r =>
+                        $"{r.Date:yyyy-MM-dd},{r.Revenue},{r.Transactions},{r.Cash},{r.Card},{r.Transfer}"));
+                filename = $"daily-sales-{dateFrom:yyyyMMdd}-{dateTo:yyyyMMdd}.csv";
+                break;
+            case 1:
+                csv = "Service,Revenue,Tickets\n"
+                    + string.Join("\n", serviceRevenue.Select(r =>
+                        $"\"{r.ServiceName}\",{r.Revenue},{r.TicketCount}"));
+                filename = $"service-revenue-{dateFrom:yyyyMMdd}-{dateTo:yyyyMMdd}.csv";
+                break;
+            case 2:
+                csv = "Mechanic,Tickets,AvgHours\n"
+                    + string.Join("\n", mechanicProductivity.Select(r =>
+                        $"\"{r.MechanicName}\",{r.TicketCount},{r.AvgHoursToComplete}"));
+                filename = $"mechanic-productivity-{dateFrom:yyyyMMdd}-{dateTo:yyyyMMdd}.csv";
+                break;
+            default:
+                return;
+        }
+
+        await module.InvokeVoidAsync("downloadCsv", filename, csv);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (module is not null)
+        {
+            try
+            {
+                await module.InvokeVoidAsync("destroyChart", "reportChart");
+            }
+            catch { }
+            await module.DisposeAsync();
+        }
+    }
+}

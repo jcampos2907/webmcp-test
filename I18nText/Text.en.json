@@ -405,5 +405,35 @@
   "Timeline_ChargeProcessed": "Payment processed",
   "Timeline_Cancelled": "Ticket cancelled",
   "Timeline_DiscountChanged": "Discount changed",
-  "Timeline_MetaFieldChanged": "Field updated"
+  "Timeline_MetaFieldChanged": "Field updated",
+
+  "Nav_Reports": "Reports",
+
+  "Reports_Title": "Reports",
+  "Reports_DailySales": "Daily Sales",
+  "Reports_ByService": "By Service",
+  "Reports_MechanicProductivity": "Mechanic Productivity",
+  "Reports_From": "From",
+  "Reports_To": "To",
+  "Reports_Generate": "Generate",
+  "Reports_ExportCsv": "Export CSV",
+  "Reports_Date": "Date",
+  "Reports_Revenue": "Revenue",
+  "Reports_Transactions": "Transactions",
+  "Reports_ServiceName": "Service",
+  "Reports_Tickets": "Tickets",
+  "Reports_MechanicName": "Mechanic",
+  "Reports_AvgHours": "Avg. Hours",
+  "Reports_NoData": "Select a date range and click Generate to view reports.",
+
+  "Receipt_Print": "Print Receipt",
+  "Receipt_TaxId": "Tax ID",
+  "Receipt_Customer": "Customer",
+  "Receipt_Component": "Component",
+  "Receipt_Service": "Service",
+  "Receipt_Item": "Item",
+  "Receipt_Qty": "Qty",
+  "Receipt_PaymentMethod": "Payment",
+  "Receipt_AmountPaid": "Paid",
+  "Receipt_ThankYou": "Thank you for your business!"
 }

@@ -67,6 +67,7 @@ builder.Services.AddI18nText(options =>
 builder.Services.AddScoped<ShopCultureService>();
 builder.Services.AddScoped<TenantContext>();
 builder.Services.AddScoped<AuditDisplayService>();
+builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<TicketEventService>();
 builder.Services.AddSingleton<SecretProtector>();
 builder.Services.AddSingleton<IPaymentTerminalProvider, ManualPaymentProvider>();

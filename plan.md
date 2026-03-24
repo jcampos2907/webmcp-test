@@ -411,12 +411,12 @@ No PCI scope — terminals handle card data on-device. The app only sends the am
 - [x] Ticket timeline/activity log (status changes, notes, who did what)
 - [ ] Mechanic workload view (assigned tickets dashboard)
 - [ ] Inventory alerts (stock below threshold)
-- [ ] Reports: daily sales, revenue by service type, mechanic productivity (Chart.js)
+- [x] Reports: daily sales, revenue by service type, mechanic productivity (Chart.js)
 - [ ] Notification system (WhatsApp/email when service is ready)
 - [ ] Billing/invoicing (electronic invoicing for CR tax compliance)
-- [ ] Print/email receipt after charge
+- [x] Print/email receipt after charge
 - [ ] Refund flow (reverse charge, reopen ticket)
-- [ ] CSV export for reports
+- [x] CSV export for reports
 - [ ] Zero-flash i18n — eliminate the English flash on page load (see below)
 
 ### Zero-Flash i18n

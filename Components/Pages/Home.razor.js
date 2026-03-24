@@ -51,3 +51,7 @@ export function saveCashierName(name) {
 export function loadCashierName() {
     return localStorage.getItem("bikepos_cashier");
 }
+
+export function printReceipt() {
+    window.print();
+}

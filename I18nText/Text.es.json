@@ -405,5 +405,35 @@
   "Timeline_ChargeProcessed": "Pago procesado",
   "Timeline_Cancelled": "Ticket cancelado",
   "Timeline_DiscountChanged": "Descuento cambiado",
-  "Timeline_MetaFieldChanged": "Campo actualizado"
+  "Timeline_MetaFieldChanged": "Campo actualizado",
+
+  "Nav_Reports": "Reportes",
+
+  "Reports_Title": "Reportes",
+  "Reports_DailySales": "Ventas Diarias",
+  "Reports_ByService": "Por Servicio",
+  "Reports_MechanicProductivity": "Productividad de Mecánicos",
+  "Reports_From": "Desde",
+  "Reports_To": "Hasta",
+  "Reports_Generate": "Generar",
+  "Reports_ExportCsv": "Exportar CSV",
+  "Reports_Date": "Fecha",
+  "Reports_Revenue": "Ingresos",
+  "Reports_Transactions": "Transacciones",
+  "Reports_ServiceName": "Servicio",
+  "Reports_Tickets": "Boletas",
+  "Reports_MechanicName": "Mecánico",
+  "Reports_AvgHours": "Hrs. Promedio",
+  "Reports_NoData": "Selecciona un rango de fechas y haz clic en Generar para ver reportes.",
+
+  "Receipt_Print": "Imprimir Recibo",
+  "Receipt_TaxId": "Cédula jurídica",
+  "Receipt_Customer": "Cliente",
+  "Receipt_Component": "Componente",
+  "Receipt_Service": "Servicio",
+  "Receipt_Item": "Artículo",
+  "Receipt_Qty": "Cant.",
+  "Receipt_PaymentMethod": "Pago",
+  "Receipt_AmountPaid": "Pagado",
+  "Receipt_ThankYou": "¡Gracias por su preferencia!"
 }

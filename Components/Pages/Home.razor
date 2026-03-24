@@ -12,6 +12,7 @@
 @inject TenantContext Tenant
 @inject PaymentTerminalService TerminalService
 @inject TicketEventService TicketEvents
+@inject ReportService ReportSvc
 
 <PageTitle>@L.Pos_Title</PageTitle>
 
@@ -220,7 +221,13 @@
                     <div class="mt-3 p-2 rounded-lg text-sm text-center @(chargeSuccess.Value ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")">
                         @if (chargeSuccess.Value)
                         {
-                            @L.Pos_ChargeSuccess
+                            <span>@L.Pos_ChargeSuccess</span>
+                            @if (!string.IsNullOrEmpty(lastChargeId))
+                            {
+                                <button class="ml-2 underline font-medium" @onclick="PrintReceipt">
+                                    <i class="fa-solid fa-print mr-1"></i>@L.Receipt_Print
+                                </button>
+                            }
                         }
                         else
                         {
@@ -264,6 +271,62 @@
     </div>
 </div>
 
+@* Hidden receipt for print *@
+@if (receiptData is not null)
+{
+    <div class="receipt-print">
+        <div class="receipt-header">
+            <h2>@receiptData.StoreName</h2>
+            @if (!string.IsNullOrEmpty(receiptData.StoreAddress)) { <p>@receiptData.StoreAddress</p> }
+            @if (!string.IsNullOrEmpty(receiptData.StorePhone)) { <p>@L.Common_Phone: @receiptData.StorePhone</p> }
+            @if (!string.IsNullOrEmpty(receiptData.CompanyTaxId)) { <p>@L.Receipt_TaxId: @receiptData.CompanyTaxId</p> }
+        </div>
+        <div class="receipt-info">
+            <p><strong>@receiptData.TicketDisplay</strong> — @receiptData.ChargeDate.ToLocalTime().ToString("g", culture)</p>
+            @if (!string.IsNullOrEmpty(receiptData.CustomerName)) { <p>@L.Receipt_Customer: @receiptData.CustomerName</p> }
+            @if (!string.IsNullOrEmpty(receiptData.ComponentName)) { <p>@L.Receipt_Component: @receiptData.ComponentName</p> }
+            @if (!string.IsNullOrEmpty(receiptData.ServiceName)) { <p>@L.Receipt_Service: @receiptData.ServiceName</p> }
+        </div>
+        @if (receiptData.Products.Any())
+        {
+            <table class="receipt-items">
+                <thead>
+                    <tr>
+                        <th>@L.Receipt_Item</th>
+                        <th>@L.Receipt_Qty</th>
+                        <th>@L.Common_Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in receiptData.Products)
+                    {
+                        <tr>
+                            <td>@item.Name</td>
+                            <td>@item.Quantity x @item.UnitPrice.ToString("C", culture)</td>
+                            <td>@item.LineTotal.ToString("C", culture)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        <div class="receipt-totals">
+            @if (receiptData.DiscountPercent > 0)
+            {
+                <div class="total-line"><span>@L.Common_Subtotal</span><span>@receiptData.Subtotal.ToString("C", culture)</span></div>
+                <div class="total-line"><span>@L.Common_Discount (@receiptData.DiscountPercent%)</span><span>-@((receiptData.Subtotal - receiptData.Total).ToString("C", culture))</span></div>
+            }
+            <div class="total-line grand-total"><span>@L.Common_Total</span><span>@receiptData.Total.ToString("C", culture)</span></div>
+        </div>
+        <div class="receipt-payment">
+            <p>@L.Receipt_PaymentMethod: @receiptData.PaymentMethod</p>
+            <p>@L.Receipt_AmountPaid: @receiptData.AmountPaid.ToString("C", culture)</p>
+            @if (!string.IsNullOrEmpty(receiptData.CashierName)) { <p>@L.Pos_Cashier: @receiptData.CashierName</p> }
+        </div>
+        <div class="receipt-footer">
+            <p>@L.Receipt_ThankYou</p>
+        </div>
+    </div>
+}
 
 @code {
     [CascadingParameter] public Text L { get; set; } = default!;
@@ -320,6 +383,10 @@
     private List<Charge> ticketCharges = new();
     private decimal remainingBalance;
     private bool isPartialPayment;
+
+    // Receipt
+    private string? lastChargeId;
+    private ReceiptData? receiptData;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -620,6 +687,7 @@
 
             chargeSuccess = true;
             terminalPolling = false;
+            lastChargeId = charge.Id;
 
             // If fully paid, clear selection; otherwise refresh partial state
             if (ticket?.Status == TicketStatus.Charged)
@@ -681,6 +749,16 @@
         TicketStatus.Cancelled => "bg-red-100 text-red-700",
         _ => "bg-gray-100 text-gray-700"
     };
+
+    private async Task PrintReceipt()
+    {
+        if (string.IsNullOrEmpty(lastChargeId)) return;
+        receiptData = await ReportSvc.GetReceiptDataAsync(lastChargeId);
+        StateHasChanged();
+        await Task.Yield();
+        if (module is not null)
+            await module.InvokeVoidAsync("printReceipt");
+    }
 
     public async ValueTask DisposeAsync()
     {
