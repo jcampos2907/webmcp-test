@@ -445,5 +445,17 @@
   "Workload_WaitingParts": "Waiting for Parts",
   "Workload_Unassigned": "Unassigned",
   "Workload_NoMechanics": "No active mechanics found.",
-  "Workload_NoAssignedTickets": "No active tickets assigned."
+  "Workload_NoAssignedTickets": "No active tickets assigned.",
+
+  "Refund_Button": "Refund",
+  "Refund_Title": "Process Refund",
+  "Refund_Process": "Process Refund",
+  "Refund_Success": "Refund processed. Ticket reopened.",
+  "Refund_Failed": "Failed to process refund.",
+
+  "Timeline_Refunded": "Refund processed",
+
+  "Customer_ComponentHistory": "Component & Service History",
+  "Customer_NoHistory": "No components registered for this customer.",
+  "Customer_NoTickets": "No service tickets for this component."
 }

@@ -25,9 +25,57 @@
     {
         @if (isPaid)
         {
-            <div class="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 flex items-center gap-2">
-                <i class="fa-solid fa-circle-check text-green-600"></i>
-                <span class="text-sm text-green-800 font-medium">@L.Tickets_AlreadyChargedBanner</span>
+            <div class="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-green-600"></i>
+                    <span class="text-sm text-green-800 font-medium">@L.Tickets_AlreadyChargedBanner</span>
+                </div>
+                @if (!showRefundForm)
+                {
+                    <button class="text-sm bg-red-50 hover:bg-red-100 text-red-600 font-medium px-3 py-1.5 rounded-lg border border-red-200 transition-colors"
+                            @onclick="() => showRefundForm = true">
+                        <i class="fa-solid fa-rotate-left mr-1"></i>@L.Refund_Button
+                    </button>
+                }
+            </div>
+        }
+
+        @if (showRefundForm && isPaid)
+        {
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <h4 class="text-sm font-semibold text-red-800 mb-3">@L.Refund_Title</h4>
+                <div class="flex items-end gap-4">
+                    <div>
+                        <label class="block text-xs text-red-700 mb-1">@L.Pos_Amount</label>
+                        <input type="number" step="0.01" min="0.01" max="@totalCharged"
+                               class="border border-red-300 rounded-lg px-3 py-2 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-red-300"
+                               @bind="refundAmount" />
+                    </div>
+                    <div>
+                        <label class="block text-xs text-red-700 mb-1">@L.Pos_PaymentMethod</label>
+                        <select class="border border-red-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
+                                @bind="refundMethod">
+                            <option value="@PaymentMethod.Cash">@L.Pos_Cash</option>
+                            <option value="@PaymentMethod.Card">@L.Pos_Card</option>
+                            <option value="@PaymentMethod.Transfer">@L.Pos_Transfer</option>
+                        </select>
+                    </div>
+                    <button class="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+                            @onclick="ProcessRefund"
+                            disabled="@(refundAmount <= 0 || refundAmount > totalCharged)">
+                        @L.Refund_Process
+                    </button>
+                    <button class="text-sm text-gray-500 hover:text-gray-700 px-3 py-2"
+                            @onclick="() => showRefundForm = false">
+                        @L.Common_Cancel
+                    </button>
+                </div>
+                @if (refundSuccess is not null)
+                {
+                    <div class="mt-2 text-sm @(refundSuccess.Value ? "text-green-700" : "text-red-700")">
+                        @(refundSuccess.Value ? L.Refund_Success : L.Refund_Failed)
+                    </div>
+                }
             </div>
         }
 
@@ -394,6 +442,13 @@
 
     private bool isPaid => ticket?.Status == TicketStatus.Charged;
     private bool isCancelled => ticket?.Status == TicketStatus.Cancelled;
+
+    // Refund
+    private bool showRefundForm;
+    private decimal refundAmount;
+    private PaymentMethod refundMethod = PaymentMethod.Cash;
+    private bool? refundSuccess;
+    private decimal totalCharged;
     private bool isReadOnly => isPaid || isCancelled;
 
     private Snackbar snackbar = null!;
@@ -475,6 +530,16 @@
         originalDiscountPercent = ticket.DiscountPercent;
         originalMetaValues = new Dictionary<string, string>(metaValues);
 
+        // Load total charged for refund cap
+        totalCharged = await context.Charge
+            .Where(c => c.ServiceTicketId == Id && c.PaymentStatus == PaymentStatus.Completed)
+            .SumAsync(c => c.Amount);
+        // Subtract any existing refunds
+        var refunded = await context.Charge
+            .Where(c => c.ServiceTicketId == Id && c.PaymentStatus == PaymentStatus.Completed && c.Amount < 0)
+            .SumAsync(c => c.Amount);
+        totalCharged += refunded; // refunded is negative, so this subtracts
+
         // Load timeline
         await LoadTimeline(context);
     }
@@ -518,6 +583,7 @@
         TicketEventType.Cancelled => L.Timeline_Cancelled,
         TicketEventType.DiscountChanged => L.Timeline_DiscountChanged,
         TicketEventType.MetaFieldChanged => L.Timeline_MetaFieldChanged,
+        TicketEventType.Refunded => L.Timeline_Refunded,
         _ => type.ToString()
     };
 
@@ -533,6 +599,7 @@
         TicketEventType.Cancelled => "fa-solid fa-circle-xmark",
         TicketEventType.DiscountChanged => "fa-solid fa-percent",
         TicketEventType.MetaFieldChanged => "fa-solid fa-sliders",
+        TicketEventType.Refunded => "fa-solid fa-rotate-left",
         _ => "fa-solid fa-circle"
     };
 
@@ -548,6 +615,7 @@
         TicketEventType.Cancelled => ("#fee2e2", "#b91c1c"),
         TicketEventType.DiscountChanged => ("#ffedd5", "#ea580c"),
         TicketEventType.MetaFieldChanged => ("#e0e7ff", "#4f46e5"),
+        TicketEventType.Refunded => ("#fef2f2", "#dc2626"),
         _ => ("#f3f4f6", "#6b7280")
     };
 
@@ -868,6 +936,63 @@
         await LoadTimeline(ctx2);
 
         await snackbar.Show();
+    }
+
+    private async Task ProcessRefund()
+    {
+        if (ticket is null || refundAmount <= 0 || refundAmount > totalCharged) return;
+        refundSuccess = null;
+
+        try
+        {
+            using var context = DbFactory.CreateDbContext();
+
+            // Create a negative charge for the refund
+            var charge = new Charge
+            {
+                ServiceTicketId = ticket.Id,
+                Amount = -refundAmount,
+                ChargedAt = DateTime.UtcNow,
+                CashierName = Tenant.UserIdentifier,
+                PaymentMethod = refundMethod,
+                PaymentStatus = PaymentStatus.Completed,
+                CompletedAt = DateTime.UtcNow,
+                Notes = "Refund",
+                StoreId = Tenant.StoreId,
+                CreatedBy = Tenant.UserIdentifier
+            };
+            context.Charge.Add(charge);
+
+            // Reopen ticket
+            var dbTicket = await context.ServiceTicket.FindAsync(ticket.Id);
+            if (dbTicket is not null)
+            {
+                dbTicket.Status = TicketStatus.Completed;
+                dbTicket.UpdatedAt = DateTime.UtcNow;
+                dbTicket.UpdatedBy = Tenant.UserIdentifier;
+            }
+
+            await context.SaveChangesAsync();
+
+            // Record events
+            await TicketEvents.RecordRefund(ticket.Id, refundAmount, refundMethod.ToString(), Tenant.UserIdentifier, Tenant.StoreId);
+            await TicketEvents.RecordStatusChange(ticket.Id, TicketStatus.Charged, TicketStatus.Completed, Tenant.UserIdentifier, Tenant.StoreId);
+
+            // Update local state
+            ticket.Status = TicketStatus.Completed;
+            totalCharged -= refundAmount;
+            refundSuccess = true;
+            showRefundForm = false;
+            refundAmount = 0;
+
+            // Reload timeline
+            using var ctx2 = DbFactory.CreateDbContext();
+            await LoadTimeline(ctx2);
+        }
+        catch
+        {
+            refundSuccess = false;
+        }
     }
 
     private async Task GoToCharge()

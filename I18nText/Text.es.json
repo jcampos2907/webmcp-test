@@ -445,5 +445,17 @@
   "Workload_WaitingParts": "Esperando Repuestos",
   "Workload_Unassigned": "Sin Asignar",
   "Workload_NoMechanics": "No se encontraron mecánicos activos.",
-  "Workload_NoAssignedTickets": "No hay boletas activas asignadas."
+  "Workload_NoAssignedTickets": "No hay boletas activas asignadas.",
+
+  "Refund_Button": "Reembolso",
+  "Refund_Title": "Procesar Reembolso",
+  "Refund_Process": "Procesar Reembolso",
+  "Refund_Success": "Reembolso procesado. Boleta reabierta.",
+  "Refund_Failed": "Error al procesar el reembolso.",
+
+  "Timeline_Refunded": "Reembolso procesado",
+
+  "Customer_ComponentHistory": "Historial de Componentes y Servicios",
+  "Customer_NoHistory": "No hay componentes registrados para este cliente.",
+  "Customer_NoTickets": "No hay boletas de servicio para este componente."
 }

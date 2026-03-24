@@ -13,7 +13,8 @@ public enum TicketEventType
     MetaFieldChanged,
     DiscountChanged,
     ChargeProcessed,
-    Cancelled
+    Cancelled,
+    Refunded
 }
 
 public class TicketEvent

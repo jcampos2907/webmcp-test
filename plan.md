@@ -407,17 +407,17 @@ No PCI scope — terminals handle card data on-device. The app only sends the am
 
 ## Phase 7: Enhancements
 
-- [ ] Customer component history (all components + service history per component)
+- [x] Customer component history (all components + service history per component)
 - [x] Ticket timeline/activity log (status changes, notes, who did what)
 - [x] Mechanic workload view (assigned tickets dashboard)
-- [ ] Inventory alerts (stock below threshold)
+- ~~Inventory alerts~~ — deferred to ERP integration phase
 - [x] Reports: daily sales, revenue by service type, mechanic productivity (Chart.js)
 - [ ] Notification system (WhatsApp/email when service is ready)
 - ~~Billing/invoicing~~ — deferred to ERP integration phase
 - [x] Print/email receipt after charge
-- [ ] Refund flow (reverse charge, reopen ticket)
+- [x] Refund flow (reverse charge, reopen ticket)
 - [x] CSV export for reports
-- [ ] Zero-flash i18n — eliminate the English flash on page load (see below)
+- [x] Zero-flash i18n — eliminate the English flash on page load (see below)
 
 ### Zero-Flash i18n
 

@@ -57,4 +57,7 @@ public class TicketEventService
 
     public Task RecordMetaFieldChanged(string ticketId, string fieldLabel, string? createdBy, string? storeId) =>
         RecordAsync(ticketId, TicketEventType.MetaFieldChanged, fieldLabel, null, createdBy, storeId);
+
+    public Task RecordRefund(string ticketId, decimal amount, string? paymentMethod, string? createdBy, string? storeId) =>
+        RecordAsync(ticketId, TicketEventType.Refunded, $"{amount:C} ({paymentMethod})", null, createdBy, storeId);
 }
