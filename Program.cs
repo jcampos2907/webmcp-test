@@ -35,7 +35,35 @@ builder.Services.AddRazorComponents()
 
 
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddI18nText();
+builder.Services.AddI18nText(options =>
+{
+    options.GetInitialLanguageAsync = (serviceProvider, _) =>
+    {
+        var httpContextAccessor = serviceProvider.GetService<IHttpContextAccessor>();
+        var request = httpContextAccessor?.HttpContext?.Request;
+
+        // 1) Cookie (set by Settings page on language change)
+        var lang = request?.Cookies["lang"];
+
+        // 2) Fallback: Accept-Language header (first visit)
+        if (string.IsNullOrEmpty(lang))
+        {
+            var acceptLang = request?.Headers["Accept-Language"].ToString();
+            if (!string.IsNullOrEmpty(acceptLang))
+            {
+                var primary = acceptLang.Split(',').FirstOrDefault()?.Trim().Split(';').FirstOrDefault();
+                lang = primary?.Split('-').FirstOrDefault();
+            }
+        }
+
+        // 3) Default to Spanish
+        var supported = new HashSet<string> { "en", "es" };
+        if (string.IsNullOrEmpty(lang) || !supported.Contains(lang))
+            lang = "es";
+
+        return ValueTask.FromResult(lang);
+    };
+});
 builder.Services.AddScoped<ShopCultureService>();
 builder.Services.AddScoped<TenantContext>();
 builder.Services.AddScoped<AuditDisplayService>();

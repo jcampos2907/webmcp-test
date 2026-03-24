@@ -1,26 +1,34 @@
 @inherits LayoutComponentBase
 @inject TenantContext Tenant
+@inject I18nText I18nText
 @implements IDisposable
 
-<TenantInitializer>
-    <div class="flex h-screen bg-gray-100">
-        <NavMenu />
+@if (L != null)
+{
+    <CascadingValue Value="L">
+        <TenantInitializer>
+            <div class="flex h-screen bg-gray-100">
+                <NavMenu />
 
-        <div class="flex-1 flex flex-col min-h-0">
-            <TopBar />
-            <main class="flex-1 overflow-y-auto" @key="contextKey">
-                @Body
-            </main>
-        </div>
-    </div>
-</TenantInitializer>
+                <div class="flex-1 flex flex-col min-h-0">
+                    <TopBar />
+                    <main class="flex-1 overflow-y-auto" @key="contextKey">
+                        @Body
+                    </main>
+                </div>
+            </div>
+        </TenantInitializer>
+    </CascadingValue>
+}
 
 @code {
+    private Text? L;
     private int contextKey;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         Tenant.OnContextChanged += HandleContextChanged;
+        L = await I18nText.GetTextTableAsync<Text>(this);
     }
 
     private void HandleContextChanged()
