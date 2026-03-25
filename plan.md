@@ -412,7 +412,7 @@ No PCI scope — terminals handle card data on-device. The app only sends the am
 - [x] Mechanic workload view (assigned tickets dashboard)
 - ~~Inventory alerts~~ — deferred to ERP integration phase
 - [x] Reports: daily sales, revenue by service type, mechanic productivity (Chart.js)
-- [ ] Notification system (WhatsApp/email when service is ready)
+- [x] Notification system (WhatsApp/email when service is ready)
 - ~~Billing/invoicing~~ — deferred to ERP integration phase
 - [x] Print/email receipt after charge
 - [x] Refund flow (reverse charge, reopen ticket)

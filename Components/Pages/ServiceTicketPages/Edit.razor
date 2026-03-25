@@ -11,6 +11,7 @@
 @inject TenantContext Tenant
 @inject AuditDisplayService AuditDisplay
 @inject TicketEventService TicketEvents
+@inject NotificationService Notifications
 @inject IJSRuntime JS
 @using BikePOS.Components.Shared
 
@@ -851,7 +852,18 @@
         var user = Tenant.UserIdentifier;
         var store = Tenant.StoreId;
         if (ticket.Status != originalStatus)
+        {
             await TicketEvents.RecordStatusChange(ticket.Id, originalStatus, ticket.Status, user, store);
+            // Auto-notify customer when ticket is completed
+            if (ticket.Status == TicketStatus.Completed)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try { await Notifications.NotifyTicketReadyAsync(ticket.Id); }
+                    catch { /* logged inside service */ }
+                });
+            }
+        }
         if (ticket.MechanicId != originalMechanicId)
         {
             var mechName = mechanics.FirstOrDefault(m => m.Id == ticket.MechanicId)?.Name;

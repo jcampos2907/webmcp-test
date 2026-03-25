@@ -33,6 +33,7 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
     public DbSet<PaymentSession> PaymentSession { get; set; } = default!;
     public DbSet<BaseFieldLayout> BaseFieldLayout { get; set; } = default!;
     public DbSet<TicketEvent> TicketEvent { get; set; } = default!;
+    public DbSet<NotificationLog> NotificationLog { get; set; } = default!;
 
     public override int SaveChanges()
     {
@@ -191,6 +192,14 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
             entity.HasOne(e => e.Store).WithMany().HasForeignKey(e => e.StoreId).OnDelete(DeleteBehavior.SetNull);
             entity.HasIndex(e => e.ServiceTicketId);
             entity.HasIndex(e => e.CreatedAt);
+        });
+
+        modelBuilder.Entity<NotificationLog>(entity =>
+        {
+            entity.HasOne(n => n.ServiceTicket).WithMany().HasForeignKey(n => n.ServiceTicketId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(n => n.Customer).WithMany().HasForeignKey(n => n.CustomerId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(n => n.Store).WithMany().HasForeignKey(n => n.StoreId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasIndex(n => new { n.StoreId, n.CreatedAt });
         });
 
         // Tenant hierarchy

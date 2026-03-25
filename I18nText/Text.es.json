@@ -457,5 +457,19 @@
 
   "Customer_ComponentHistory": "Historial de Componentes y Servicios",
   "Customer_NoHistory": "No hay componentes registrados para este cliente.",
-  "Customer_NoTickets": "No hay boletas de servicio para este componente."
+  "Customer_NoTickets": "No hay boletas de servicio para este componente.",
+
+  "Notify_MessageTemplate": "Plantilla de Mensaje",
+  "Notify_TemplatePlaceholders": "Variables: {CustomerName}, {ServiceName}, {ComponentName}, {TicketNumber}, {StoreName}",
+  "Notify_Email": "Email (SMTP)",
+  "Notify_Enabled": "Habilitado",
+  "Notify_SmtpHost": "Servidor SMTP",
+  "Notify_SmtpPort": "Puerto",
+  "Notify_SmtpUser": "Usuario",
+  "Notify_SmtpPassword": "Contraseña",
+  "Notify_FromEmail": "Email remitente",
+  "Notify_EmailSubject": "Asunto del email",
+  "Notify_WebhookUrl": "URL del Webhook",
+  "Notify_ApiToken": "Token de API",
+  "Notify_WebhookHint": "Webhook POST que recibe {phone, message, ticketId, ticketNumber} como JSON."
 }

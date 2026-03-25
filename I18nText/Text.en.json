@@ -457,5 +457,19 @@
 
   "Customer_ComponentHistory": "Component & Service History",
   "Customer_NoHistory": "No components registered for this customer.",
-  "Customer_NoTickets": "No service tickets for this component."
+  "Customer_NoTickets": "No service tickets for this component.",
+
+  "Notify_MessageTemplate": "Message Template",
+  "Notify_TemplatePlaceholders": "Placeholders: {CustomerName}, {ServiceName}, {ComponentName}, {TicketNumber}, {StoreName}",
+  "Notify_Email": "Email (SMTP)",
+  "Notify_Enabled": "Enabled",
+  "Notify_SmtpHost": "SMTP Host",
+  "Notify_SmtpPort": "Port",
+  "Notify_SmtpUser": "Username",
+  "Notify_SmtpPassword": "Password",
+  "Notify_FromEmail": "From Email",
+  "Notify_EmailSubject": "Email Subject",
+  "Notify_WebhookUrl": "Webhook URL",
+  "Notify_ApiToken": "API Token",
+  "Notify_WebhookHint": "POST webhook receiving {phone, message, ticketId, ticketNumber} as JSON."
 }
