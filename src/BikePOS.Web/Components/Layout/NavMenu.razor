@@ -1,0 +1,81 @@
+@using BikePOS.Models
+@inject NavigationManager NavigationManager
+@inject TenantContext Tenant
+
+<aside class="w-20 bg-gray-800 flex flex-col items-center py-4 gap-1 flex-shrink-0">
+    <a href="/"
+           class="w-12 h-12 bg-indigo-500 rounded-lg flex items-center justify-center mb-4 hover:bg-indigo-600 transition-colors"
+           title="@L.Nav_Home">
+        <i class="fa-solid fa-cash-register text-white text-lg"></i>
+    </a>
+
+    <NavButton Href="/" Icon="fa-house" Label="@L.Nav_Home" Match="NavLinkMatch.All" />
+
+    @if (HasRole(StoreRole.SuperAdmin, StoreRole.Admin, StoreRole.Mechanic))
+    {
+        <NavButton Href="/tickets" Icon="fa-ticket" Label="@L.Nav_Tickets" />
+    }
+
+    <NavButton Href="/customers" Icon="fa-users" Label="@L.Nav_Customers" />
+
+    @if (HasRole(StoreRole.SuperAdmin, StoreRole.Admin))
+    {
+        <hr class="w-10 border-gray-600 my-2" />
+        <NavButton Href="/mechanics" Icon="fa-wrench" Label="@L.Nav_Mechanics" />
+        <NavButton Href="/mechanics/workload" Icon="fa-clipboard-list" Label="@L.Nav_Workload" />
+        <NavButton Href="/services" Icon="fa-gears" Label="@L.Nav_Services" />
+        <NavButton Href="/products" Icon="fa-box-open" Label="@L.Nav_Products" />
+        <NavButton Href="/reports" Icon="fa-chart-bar" Label="@L.Nav_Reports" />
+    }
+
+    <div class="mt-auto flex flex-col items-center gap-1">
+        @if (HasRole(StoreRole.SuperAdmin) || HasRole(StoreRole.Admin) || HasRole(StoreRole.Developer))
+        {
+            <NavButton Href="/settings" Icon="fa-gear" Label="@L.Nav_Settings" />
+        }
+
+        <AuthorizeView>
+            <Authorized>
+                @* User avatar *@
+                <div class="w-12 h-12 flex items-center justify-center" title="@Tenant.DisplayName">
+                    <div class="w-8 h-8 bg-indigo-400 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                        @GetInitials(Tenant.DisplayName)
+                    </div>
+                </div>
+                <a href="/account/logout"
+                   class="w-12 h-12 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+                   title="Logout">
+                    <i class="fa-solid fa-right-from-bracket text-sm"></i>
+                </a>
+            </Authorized>
+        </AuthorizeView>
+    </div>
+</aside>
+
+@code {
+    [CascadingParameter] public Text L { get; set; } = default!;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState != null)
+        {
+            var state = await AuthState;
+            Tenant.PopulateFromClaims(state.User);
+        }
+    }
+
+    private bool HasRole(params StoreRole[] roles) =>
+        Tenant.Role.HasValue && roles.Contains(Tenant.Role.Value);
+
+    private static string GetInitials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2
+            ? $"{parts[0][0]}{parts[1][0]}".ToUpper()
+            : parts[0][..1].ToUpper();
+    }
+}

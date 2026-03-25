@@ -1,0 +1,1032 @@
+@page "/tickets/create"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@using Microsoft.EntityFrameworkCore
+@using BikePOS.Models
+@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject NavigationManager NavigationManager
+@inject ShopCultureService CultureService
+@inject TenantContext Tenant
+@inject IJSRuntime JS
+@inject TicketEventService TicketEvents
+@inject SyncTriggerService SyncTrigger
+@using BikePOS.Components.Pages.CustomerPages
+
+<PageTitle>@L.Tickets_Create_Title</PageTitle>
+
+<div class="p-6 max-w-5xl mx-auto">
+
+    @* Step indicator *@
+    <div class="flex items-center gap-2 mb-6 text-sm text-gray-400">
+        <span class="@(step >= 1 ? "text-indigo-600 font-semibold" : "")">@L.Tickets_Create_Step1</span>
+        <span>&rsaquo;</span>
+        <span class="@(step >= 2 ? "text-indigo-600 font-semibold" : "")">@L.Tickets_Create_Step2</span>
+        <span>&rsaquo;</span>
+        <span class="@(step >= 3 ? "text-indigo-600 font-semibold" : "")">@L.Tickets_Create_Step3</span>
+        <span>&rsaquo;</span>
+        <span class="@(step >= 4 ? "text-indigo-600 font-semibold" : "")">@L.Tickets_Create_Step4</span>
+    </div>
+
+    @* Create Customer Modal *@
+    @if (showCreateCustomer)
+    {
+        <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999;">
+            <div style="background: white; border-radius: 12px; box-shadow: 0 25px 50px rgba(0,0,0,0.25); max-width: 672px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 24px;">
+                <CustomerForm OnSaved="HandleNewCustomerSaved" OnCancelled="() => showCreateCustomer = false" CompanyId="Tenant.CompanyId" />
+            </div>
+        </div>
+    }
+
+    @* ==================== STEP 1: Select Customer ==================== *@
+    @if (step == 1)
+    {
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3 flex-1">
+                    <input type="text" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                           placeholder="@L.Tickets_Create_SearchCustomer"
+                           @bind="customerSearch" @bind:event="oninput" @onkeyup="SearchCustomers" />
+                </div>
+                <button class="ml-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                        @onclick="() => showCreateCustomer = true">
+                    @L.Tickets_Create_CreateCustomer
+                </button>
+            </div>
+
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-200 text-left text-gray-500">
+                        <th class="py-2 font-medium">@L.Common_Name</th>
+                        <th class="py-2 font-medium">@L.Common_Phone</th>
+                        <th class="py-2 font-medium">@L.Common_Email</th>
+                        <th class="py-2"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var customer in customerResults)
+                    {
+                        <tr class="border-b border-gray-100 hover:bg-gray-50">
+                            <td class="py-2 text-gray-800">@customer.FullName</td>
+                            <td class="py-2 text-gray-500">@customer.Phone</td>
+                            <td class="py-2 text-gray-500">@customer.Email</td>
+                            <td class="py-2 text-right">
+                                <button class="bg-white border border-gray-300 hover:bg-indigo-50 hover:border-indigo-300 text-sm px-3 py-1 rounded-md transition-colors"
+                                        @onclick="() => SelectCustomer(customer)">@L.Common_Use</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (!customerResults.Any() && !string.IsNullOrEmpty(customerSearch))
+            {
+                <p class="text-sm text-gray-400 mt-4 text-center">@L.Tickets_Create_NoCustomers</p>
+            }
+        </div>
+    }
+
+    @* ==================== STEP 2: Select Component ==================== *@
+    @if (step == 2)
+    {
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3 flex-1">
+                    <input type="text" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                           placeholder="@L.Tickets_Create_SearchComponent"
+                           @bind="componentSearch" @bind:event="oninput" @onkeyup="SearchComponents" />
+                </div>
+                <button class="ml-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                        @onclick="() => showCreateComponent = true">
+                    @L.Tickets_Create_CreateComponent
+                </button>
+            </div>
+
+            @if (showCreateComponent)
+            {
+                <div class="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3">@L.Tickets_Create_NewComponent</h4>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="@L.Tickets_Create_NamePlaceholder" @bind="newComponentName" />
+                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="@L.Tickets_Create_SkuPlaceholder" @bind="newComponentSku" />
+                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="@L.Tickets_Create_ColorPlaceholder" @bind="newComponentColor" />
+                        <input type="text" class="border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="@L.Tickets_Create_BrandPlaceholder" @bind="newComponentBrand" />
+                        <select class="border border-gray-300 rounded-lg px-3 py-2 text-sm" @bind="newComponentType">
+                            @foreach (var ct in availableComponentTypes)
+                            {
+                                <option value="@ct">@ct</option>
+                            }
+                        </select>
+                    </div>
+                    @if (componentMetaFields.Any())
+                    {
+                        <div class="mt-3 pt-3 border-t border-gray-200">
+                            <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">@L.Customers_AdditionalFields</p>
+                            <div class="grid grid-cols-2 gap-3">
+                                @foreach (var field in componentMetaFields)
+                                {
+                                    @if (IsComponentMetaFieldVisible(field))
+                                    {
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-1">
+                                                @field.Label
+                                                @if (field.IsRequired) { <span class="text-red-500">*</span> }
+                                            </label>
+                                            @if (field.FieldType == "select" && !string.IsNullOrEmpty(field.Options))
+                                            {
+                                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                                        value="@GetComponentMetaValue(field.Id)"
+                                                        @onchange="e => OnComponentMetaChange(field, e)">
+                                                    <option value="">@L.Common_Select</option>
+                                                    @foreach (var opt in field.Options.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                                                    {
+                                                        <option value="@opt">@opt</option>
+                                                    }
+                                                </select>
+                                            }
+                                            else
+                                            {
+                                                <input type="@field.FieldType"
+                                                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                                       value="@GetComponentMetaValue(field.Id)"
+                                                       placeholder="@(field.FormatMask ?? "")"
+                                                       @oninput="e => OnComponentMetaInput(field, e)"
+                                                       @onfocusout="() => OnComponentMetaBlur(field)" />
+                                            }
+                                            @if (componentMetaFieldErrors.TryGetValue(field.Id, out var err))
+                                            {
+                                                <p class="text-xs text-red-500 mt-1">@err</p>
+                                            }
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    }
+                    <div class="flex gap-2 mt-3">
+                        <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-1.5 rounded-lg" @onclick="CreateComponent">@L.Common_Save</button>
+                        <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm px-4 py-1.5 rounded-lg" @onclick="() => showCreateComponent = false">@L.Common_Cancel</button>
+                    </div>
+                </div>
+            }
+
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-200 text-left text-gray-500">
+                        <th class="py-2 font-medium">@L.Common_Name</th>
+                        <th class="py-2 font-medium">@L.Component_Type</th>
+                        <th class="py-2 font-medium">@L.Common_SKU</th>
+                        <th class="py-2 font-medium">@L.Common_Brand</th>
+                        <th class="py-2 font-medium">@L.Common_Color</th>
+                        <th class="py-2"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var component in componentResults)
+                    {
+                        <tr class="border-b border-gray-100 hover:bg-gray-50">
+                            <td class="py-2 text-gray-800">@component.Name</td>
+                            <td class="py-2 text-gray-500">@component.ComponentType</td>
+                            <td class="py-2 text-gray-500">@component.Sku</td>
+                            <td class="py-2 text-gray-500">@component.Brand</td>
+                            <td class="py-2 text-gray-500">@component.Color</td>
+                            <td class="py-2 text-right">
+                                <button class="bg-white border border-gray-300 hover:bg-indigo-50 hover:border-indigo-300 text-sm px-3 py-1 rounded-md transition-colors"
+                                        @onclick="() => SelectComponent(component)">@L.Common_Use</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (!componentResults.Any() && !string.IsNullOrEmpty(componentSearch))
+            {
+                <p class="text-sm text-gray-400 mt-4 text-center">@L.Tickets_Create_NoComponents</p>
+            }
+
+            <div class="mt-4">
+                <button class="text-sm text-gray-500 hover:text-gray-700" @onclick="() => step = 1">&larr; @L.Common_Back</button>
+            </div>
+        </div>
+    }
+
+    @* ==================== STEP 3: Select Service ==================== *@
+    @if (step == 3)
+    {
+        <div class="flex items-center gap-3 mb-4">
+            <button class="text-sm text-gray-500 hover:text-gray-700" @onclick="() => step = 2">&larr; @L.Common_Back</button>
+            <input type="text" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                   placeholder="@L.Tickets_Create_SearchService" @bind="serviceSearch" @bind:event="oninput" />
+        </div>
+
+        <div class="grid grid-cols-3 gap-4">
+            @foreach (var service in FilteredServices)
+            {
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 cursor-pointer hover:shadow-md hover:border-indigo-300 transition-all"
+                     @onclick="() => SelectService(service)">
+                    <div class="w-full h-24 bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
+                        <i class="fa-solid fa-gears text-gray-300 text-3xl"></i>
+                    </div>
+                    <p class="text-sm font-medium text-gray-800">@service.Name</p>
+                    <p class="text-xs text-gray-500 mb-1">@(service.EstimatedMinutes.HasValue ? $"{service.EstimatedMinutes} min" : "")</p>
+                    <p class="text-sm text-gray-800 font-semibold">@service.DefaultPrice.ToString("C", culture)</p>
+                </div>
+            }
+        </div>
+
+        @if (!FilteredServices.Any())
+        {
+            <p class="text-sm text-gray-400 mt-4 text-center">@L.Tickets_Create_NoServices</p>
+        }
+    }
+
+    @* ==================== STEP 4: Summary + Products ==================== *@
+    @if (step == 4)
+    {
+        @if (!showProductSelector)
+        {
+            @* Ticket Summary *@
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-center justify-between mb-1">
+                    <h2 class="text-xl font-bold text-gray-800">@L.Tickets_ServiceTicket</h2>
+                    <span class="text-sm text-gray-500">@L.Tickets_Mechanic @selectedMechanic?.Name</span>
+                </div>
+
+                <div class="mb-4">
+                    <span class="text-sm text-gray-500">@selectedCustomer?.FullName</span>
+                    <span class="text-sm text-gray-800 ml-4 font-medium">@selectedComponent?.Name</span>
+                    <span class="text-xs text-gray-400 ml-2">(@selectedComponent?.ComponentType)</span>
+                </div>
+
+                <div class="mb-4">
+                    <p class="text-sm text-gray-700">@selectedService?.Name</p>
+                </div>
+
+                @* Render ticket fields grouped by block *@
+                @foreach (var blockGroup in ticketBlockGroups)
+                {
+                    @foreach (var ff in blockGroup.Fields)
+                    {
+                        @if (ff.IsBase)
+                        {
+                            @switch (ff.FieldKey)
+                            {
+                                case "Mechanic":
+                                    <div class="mb-4">
+                                        <label class="block text-sm text-gray-600 mb-1">@L.Tickets_AssignedMechanic</label>
+                                        <select class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                                @bind="selectedMechanicId">
+                                            <option value="">@L.Tickets_NoMechanic</option>
+                                            @foreach (var m in availableMechanics)
+                                            {
+                                                <option value="@m.Id">@m.Name</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    break;
+                                case "Notes":
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-semibold text-gray-700 mb-1">@L.Common_Notes</label>
+                                        <textarea class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                                  rows="3" @bind="ticketNotes" placeholder="@L.Common_NotesPlaceholder"></textarea>
+                                    </div>
+                                    break;
+                                case "DiscountPercent":
+                                    <div class="mb-4">
+                                        <label class="block text-sm text-gray-600 mb-1">@L.Common_DiscountPercent</label>
+                                        <input type="number" step="0.01" min="0" max="100"
+                                               class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                               @bind="discountPercent" />
+                                    </div>
+                                    break;
+                            }
+                        }
+                        else if (ff.MetaField is not null && IsMetaFieldVisible(ff.MetaField))
+                        {
+                            var field = ff.MetaField;
+                            <div class="mb-4">
+                                <label class="block text-xs text-gray-500 mb-1">
+                                    @field.Label
+                                    @if (field.IsRequired) { <span class="text-red-500">*</span> }
+                                </label>
+                                @if (field.FieldType == "select" && !string.IsNullOrEmpty(field.Options))
+                                {
+                                    <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                            value="@GetMetaValue(field.Id)"
+                                            @onchange="e => OnMetaChange(field, e)">
+                                        <option value="">@L.Common_Select</option>
+                                        @foreach (var opt in field.Options.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                                        {
+                                            <option value="@opt">@opt</option>
+                                        }
+                                    </select>
+                                }
+                                else
+                                {
+                                    <input type="@field.FieldType"
+                                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                           value="@GetMetaValue(field.Id)"
+                                           placeholder="@(field.FormatMask ?? "")"
+                                           @oninput="e => OnMetaInput(field, e)"
+                                           @onfocusout="() => OnMetaBlur(field)" />
+                                }
+                                @if (metaFieldErrors.TryGetValue(field.Id, out var err))
+                                {
+                                    <p class="text-xs text-red-500 mt-1">@err</p>
+                                }
+                            </div>
+                        }
+                    }
+                }
+
+                @* Product list *@
+                @if (ticketProducts.Any())
+                {
+                    <div class="mb-4">
+                        <h4 class="text-sm font-semibold text-gray-700 mb-2">@L.Common_Products</h4>
+                        @foreach (var tp in ticketProducts)
+                        {
+                            <div class="flex items-center justify-between text-sm py-1 border-b border-gray-100">
+                                <span class="text-gray-700">@tp.Product.Name x @tp.Quantity</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-gray-800">@((tp.UnitPrice * tp.Quantity).ToString("C", culture))</span>
+                                    <button class="text-red-400 hover:text-red-600 text-xs" @onclick="() => RemoveProduct(tp)">@L.Common_Remove</button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
+                <button class="text-sm text-indigo-600 hover:underline mb-4 block" @onclick="OpenProductSelector">
+                    @L.Common_AddProducts
+                </button>
+
+                @* Total *@
+                <div class="border-t border-gray-200 pt-3 mb-4">
+                    @if (discountPercent > 0)
+                    {
+                        <div class="flex justify-between items-center text-sm text-gray-500 mb-1">
+                            <span>@L.Common_Subtotal</span>
+                            <span>@CalculateSubtotal().ToString("C", culture)</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm text-red-500 mb-1">
+                            <span>@L.Common_Discount (@discountPercent%)</span>
+                            <span>-@((CalculateSubtotal() * discountPercent / 100m).ToString("C", culture))</span>
+                        </div>
+                    }
+                    <div class="flex justify-between items-center text-sm font-semibold">
+                        <span class="text-gray-700">@L.Common_Total</span>
+                        <span class="text-gray-800 text-lg">@CalculateTotal().ToString("C", culture)</span>
+                    </div>
+                </div>
+
+                <div class="flex gap-3">
+                    <button class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors"
+                            @onclick="SaveTicket">
+                        @L.Tickets_SaveTicket
+                    </button>
+                    <button class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2" @onclick="() => step = 3">&larr; @L.Common_Back</button>
+                </div>
+            </div>
+        }
+        else
+        {
+            @* Product Selector *@
+            <div class="flex gap-6">
+                @* Product grid *@
+                <div class="flex-1">
+                    <div class="flex items-center gap-3 mb-4">
+                        <button class="text-sm text-gray-500 hover:text-gray-700" @onclick="CloseProductSelector">&larr; @L.Common_Back</button>
+                        <input type="text" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                               placeholder="@L.Common_SearchProduct" @bind="productSearch" @bind:event="oninput" @onkeyup="SearchProducts" />
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4">
+                        @foreach (var product in productResults)
+                        {
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 cursor-pointer hover:shadow-md hover:border-indigo-300 transition-all"
+                                 @onclick="() => AddProduct(product)">
+                                <div class="w-full h-24 bg-gray-100 rounded-lg mb-3"></div>
+                                <p class="text-sm font-medium text-gray-800">@product.Name</p>
+                                <p class="text-sm text-gray-500">@product.Price.ToString("C", culture)</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @* Ticket sidebar summary *@
+                <div class="w-72 bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-fit sticky top-6">
+                    <h4 class="text-sm font-bold text-gray-800 mb-1">@L.Tickets_ServiceTicket</h4>
+                    <p class="text-xs text-gray-500 mb-3">@selectedCustomer?.FullName</p>
+
+                    <div class="text-xs text-gray-700 mb-1">@selectedService?.Name</div>
+                    <div class="text-xs text-gray-500 mb-3 text-right">@selectedService?.DefaultPrice.ToString("C", culture)</div>
+
+                    @foreach (var tp in ticketProducts)
+                    {
+                        <div class="flex justify-between text-xs text-gray-700 mb-1">
+                            <span>@tp.Product.Name</span>
+                            <span>@((tp.UnitPrice * tp.Quantity).ToString("C", culture))</span>
+                        </div>
+                    }
+
+                    <div class="flex justify-between text-sm font-semibold border-t border-gray-200 pt-2 mt-3">
+                        <span>@L.Common_Total</span>
+                        <span>@CalculateTotal().ToString("C", culture)</span>
+                    </div>
+
+                    <button class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2 rounded-lg mt-3 transition-colors"
+                            @onclick="SaveTicket">
+                        @L.Common_Save
+                    </button>
+                    <button class="w-full border border-gray-300 text-gray-700 text-sm py-2 rounded-lg mt-2 hover:bg-gray-50 transition-colors"
+                            @onclick="SaveAndCharge">
+                        @L.Tickets_ContinueToCharge
+                    </button>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [CascadingParameter] public Text L { get; set; } = default!;
+    CultureInfo culture = CultureInfo.CurrentCulture;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private int step = 1;
+
+    // Step 1 — Customer
+    private string customerSearch = "";
+    private List<Customer> customerResults = new();
+    private Customer? selectedCustomer;
+    private bool showCreateCustomer = false;
+
+    // Step 2 — Component
+    private string componentSearch = "";
+    private List<Component> componentResults = new();
+    private Component? selectedComponent;
+    private bool showCreateComponent = false;
+    private string newComponentName = "";
+    private string newComponentSku = "";
+    private string newComponentColor = "";
+    private string newComponentBrand = "";
+    private string newComponentType = "Bicicleta";
+    private List<string> availableComponentTypes = new();
+
+    // Step 3 — Service
+    private List<Service> availableServices = new();
+    private Service? selectedService;
+    private string serviceSearch = "";
+    private IEnumerable<Service> FilteredServices =>
+        string.IsNullOrWhiteSpace(serviceSearch)
+            ? availableServices
+            : availableServices.Where(s => s.Name.Contains(serviceSearch, StringComparison.OrdinalIgnoreCase));
+
+    // Step 4 — Summary
+    private List<Mechanic> availableMechanics = new();
+    private string? selectedMechanicId;
+    private Mechanic? selectedMechanic => availableMechanics.FirstOrDefault(m => m.Id == selectedMechanicId);
+    private string ticketNotes = "";
+    private decimal discountPercent = 0;
+    private List<TicketProductEntry> ticketProducts = new();
+    private bool showProductSelector = false;
+    private string productSearch = "";
+    private List<Product> productResults = new();
+
+    // Ticket meta fields + form layout
+    private List<MetaFieldDefinition> metaFields = new();
+    private Dictionary<string, string> metaValues = new();
+    private Dictionary<string, string> metaFieldErrors = new();
+    private List<FormBlockGroup> ticketBlockGroups = new();
+
+    // Component meta fields
+    private List<MetaFieldDefinition> componentMetaFields = new();
+    private Dictionary<string, string> componentMetaValues = new();
+    private Dictionary<string, string> componentMetaFieldErrors = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState != null)
+        {
+            var state = await AuthState;
+            Tenant.PopulateFromClaims(state.User);
+        }
+
+        culture = await CultureService.GetCultureAsync();
+        await LoadCustomers();
+        await LoadComponentTypes();
+    }
+
+    private async Task LoadComponentTypes()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var setting = await context.ShopSetting.FirstOrDefaultAsync(s => s.Key == "component_types");
+        if (setting is not null && !string.IsNullOrWhiteSpace(setting.Value))
+        {
+            availableComponentTypes = setting.Value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
+        }
+        else
+        {
+            availableComponentTypes = new List<string> { "Bicicleta", "Aro", "Pedal", "Marco", "Rueda", "Otro" };
+        }
+        if (availableComponentTypes.Any())
+        {
+            newComponentType = availableComponentTypes[0];
+        }
+
+        componentMetaFields = await context.MetaFieldDefinition
+            .Where(f => f.IsActive && f.EntityType == "Component" && f.CompanyId == Tenant.CompanyId)
+            .OrderBy(f => f.SortOrder).ThenBy(f => f.Label)
+            .ToListAsync();
+        foreach (var field in componentMetaFields)
+        {
+            if (!string.IsNullOrEmpty(field.DefaultValue) && !componentMetaValues.ContainsKey(field.Id))
+                componentMetaValues[field.Id] = field.DefaultValue;
+        }
+    }
+
+    // --- Customer ---
+    private async Task LoadCustomers()
+    {
+        using var context = DbFactory.CreateDbContext();
+        customerResults = await context.Customer.OrderBy(c => c.LastName).ThenBy(c => c.FirstName).ToListAsync();
+    }
+
+    private async Task SearchCustomers()
+    {
+        using var context = DbFactory.CreateDbContext();
+        if (string.IsNullOrWhiteSpace(customerSearch))
+        {
+            customerResults = await context.Customer.OrderBy(c => c.LastName).ThenBy(c => c.FirstName).ToListAsync();
+        }
+        else
+        {
+            customerResults = await context.Customer
+                .Where(c => c.FirstName.Contains(customerSearch) || c.LastName.Contains(customerSearch) ||
+                       (c.Phone != null && c.Phone.Contains(customerSearch)) ||
+                       (c.Email != null && c.Email.Contains(customerSearch)))
+                .OrderBy(c => c.LastName).ThenBy(c => c.FirstName)
+                .ToListAsync();
+        }
+    }
+
+    private void HandleNewCustomerSaved(Customer customer)
+    {
+        showCreateCustomer = false;
+        SelectCustomer(customer);
+    }
+
+    private void SelectCustomer(Customer customer)
+    {
+        selectedCustomer = customer;
+        step = 2;
+        _ = LoadComponentsForCustomer();
+    }
+
+    // --- Component ---
+    private async Task LoadComponentsForCustomer()
+    {
+        using var context = DbFactory.CreateDbContext();
+        componentResults = await context.Component
+            .Where(c => c.CustomerId == selectedCustomer!.Id)
+            .OrderBy(c => c.Name)
+            .ToListAsync();
+    }
+
+    private async Task SearchComponents()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var query = context.Component.Where(c => c.CustomerId == selectedCustomer!.Id);
+        if (!string.IsNullOrWhiteSpace(componentSearch))
+        {
+            query = query.Where(c => c.Name!.Contains(componentSearch) || c.Sku.Contains(componentSearch) || c.Brand.Contains(componentSearch));
+        }
+        componentResults = await query.OrderBy(c => c.Name).ToListAsync();
+    }
+
+    private async Task CreateComponent()
+    {
+        if (string.IsNullOrWhiteSpace(newComponentName)) return;
+        using var context = DbFactory.CreateDbContext();
+        var component = new Component
+        {
+            Name = newComponentName, Sku = newComponentSku, Color = newComponentColor,
+            Brand = newComponentBrand, ComponentType = newComponentType, CustomerId = selectedCustomer!.Id,
+            StoreId = Tenant.StoreId
+        };
+        context.Component.Add(component);
+        await context.SaveChangesAsync();
+
+        // Save component meta values
+        foreach (var field in componentMetaFields)
+        {
+            var val = componentMetaValues.TryGetValue(field.Id, out var v) ? v : null;
+            if (!string.IsNullOrWhiteSpace(val) && IsComponentMetaFieldVisible(field))
+            {
+                context.EntityMetaValue.Add(new EntityMetaValue
+                {
+                    EntityType = "Component",
+                    EntityId = component.Id,
+                    MetaFieldDefinitionId = field.Id,
+                    Value = val
+                });
+            }
+        }
+        await context.SaveChangesAsync();
+
+        showCreateComponent = false;
+        newComponentName = ""; newComponentSku = ""; newComponentColor = ""; newComponentBrand = ""; newComponentType = "Bicicleta";
+        componentMetaValues.Clear(); componentMetaFieldErrors.Clear();
+        SelectComponent(component);
+    }
+
+    private void SelectComponent(Component component)
+    {
+        selectedComponent = component;
+        step = 3;
+        _ = LoadServices();
+    }
+
+    // --- Service ---
+    private async Task LoadServices()
+    {
+        using var context = DbFactory.CreateDbContext();
+        availableServices = await context.Service.OrderBy(s => s.Name).ToListAsync();
+    }
+
+    private async Task SelectService(Service service)
+    {
+        selectedService = service;
+        step = 4;
+        using var context = DbFactory.CreateDbContext();
+        availableMechanics = await context.Mechanic.Where(m => m.IsActive).OrderBy(m => m.Name).ToListAsync();
+        metaFields = await context.MetaFieldDefinition
+            .Where(f => f.IsActive && f.EntityType == "ServiceTicket" && f.CompanyId == Tenant.CompanyId)
+            .OrderBy(f => f.SortOrder).ThenBy(f => f.Label)
+            .ToListAsync();
+        foreach (var field in metaFields)
+        {
+            if (!string.IsNullOrEmpty(field.DefaultValue) && !metaValues.ContainsKey(field.Id))
+                metaValues[field.Id] = field.DefaultValue;
+        }
+
+        // Load base field layouts and build unified form field list
+        var baseLayouts = await context.BaseFieldLayout
+            .Where(b => b.EntityType == "ServiceTicket" && b.CompanyId == Tenant.CompanyId)
+            .OrderBy(b => b.SortOrder)
+            .ToListAsync();
+        if (!baseLayouts.Any())
+        {
+            var defaults = BaseFieldLayout.GetBaseFields("ServiceTicket");
+            foreach (var d in defaults) d.CompanyId = Tenant.CompanyId;
+            context.BaseFieldLayout.AddRange(defaults);
+            await context.SaveChangesAsync();
+            baseLayouts = defaults;
+        }
+        BuildTicketFormFields(baseLayouts);
+    }
+
+    // --- Products ---
+    private async Task OpenProductSelector()
+    {
+        showProductSelector = true;
+        using var context = DbFactory.CreateDbContext();
+        productResults = await context.Product.Where(p => p.QuantityInStock > 0).OrderBy(p => p.Name).ToListAsync();
+    }
+
+    private void CloseProductSelector() => showProductSelector = false;
+
+    private async Task SearchProducts()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var query = context.Product.Where(p => p.QuantityInStock > 0);
+        if (!string.IsNullOrWhiteSpace(productSearch))
+        {
+            query = query.Where(p => p.Name.Contains(productSearch) || (p.Sku != null && p.Sku.Contains(productSearch)));
+        }
+        productResults = await query.OrderBy(p => p.Name).ToListAsync();
+    }
+
+    private void AddProduct(Product product)
+    {
+        var existing = ticketProducts.FirstOrDefault(tp => tp.Product.Id == product.Id);
+        if (existing is not null)
+        {
+            existing.Quantity++;
+        }
+        else
+        {
+            ticketProducts.Add(new TicketProductEntry { Product = product, UnitPrice = product.Price, Quantity = 1 });
+        }
+    }
+
+    private void RemoveProduct(TicketProductEntry tp) => ticketProducts.Remove(tp);
+
+    private decimal CalculateSubtotal()
+    {
+        var servicePrice = selectedService?.DefaultPrice ?? 0;
+        var productsTotal = ticketProducts.Sum(tp => tp.UnitPrice * tp.Quantity);
+        return servicePrice + productsTotal;
+    }
+
+    private decimal CalculateTotal()
+    {
+        var subtotal = CalculateSubtotal();
+        return subtotal - (subtotal * discountPercent / 100m);
+    }
+
+    // ===== Meta Field Helpers =====
+
+    private async Task RunMetaAction(MetaFieldDefinition field, string eventName)
+    {
+        if (string.IsNullOrEmpty(field.ActionEvent) || string.IsNullOrEmpty(field.ActionScript)) return;
+        if (!string.Equals(field.ActionEvent, eventName, StringComparison.OrdinalIgnoreCase)) return;
+        var currentVal = GetMetaValue(field.Id);
+        var result = await JS.InvokeAsync<string>("MetaFieldActions.execute", field.ActionScript, currentVal);
+        if (result != currentVal) { metaValues[field.Id] = result; StateHasChanged(); }
+    }
+
+    private async Task OnMetaInput(MetaFieldDefinition field, ChangeEventArgs e)
+    {
+        var val = e.Value?.ToString() ?? "";
+        if (!string.IsNullOrEmpty(field.FormatMask))
+            val = await JS.InvokeAsync<string>("MetaFieldActions.applyMask", field.FormatMask, val);
+        SetMetaValue(field.Id, val);
+        await RunMetaAction(field, "input");
+    }
+
+    private async Task OnMetaChange(MetaFieldDefinition field, ChangeEventArgs e)
+    {
+        SetMetaValue(field.Id, e.Value?.ToString());
+        await RunMetaAction(field, "change");
+        StateHasChanged();
+    }
+
+    private async Task OnMetaBlur(MetaFieldDefinition field)
+    {
+        await RunMetaAction(field, "blur");
+        ValidateMetaField(field);
+    }
+
+    private void ValidateMetaField(MetaFieldDefinition field)
+    {
+        var val = GetMetaValue(field.Id);
+        metaFieldErrors.Remove(field.Id);
+        if (field.IsRequired && string.IsNullOrWhiteSpace(val))
+        {
+            metaFieldErrors[field.Id] = string.Format(L.Validation_FieldRequired, field.Label);
+            return;
+        }
+        if (!string.IsNullOrWhiteSpace(val) && !string.IsNullOrWhiteSpace(field.RegexPattern))
+        {
+            try
+            {
+                if (!System.Text.RegularExpressions.Regex.IsMatch(val, field.RegexPattern))
+                    metaFieldErrors[field.Id] = field.RegexMessage ?? string.Format(L.Validation_InvalidFormat, field.Label);
+            }
+            catch { }
+        }
+    }
+
+    private string GetMetaValue(string fieldId) =>
+        metaValues.TryGetValue(fieldId, out var val) ? val : "";
+
+    private void SetMetaValue(string fieldId, string? value)
+    {
+        metaValues[fieldId] = value ?? "";
+        metaFieldErrors.Remove(fieldId);
+    }
+
+    private bool IsMetaFieldVisible(MetaFieldDefinition field)
+    {
+        if (string.IsNullOrEmpty(field.ConditionalOnFieldId)) return true;
+        var parentValue = GetMetaValue(field.ConditionalOnFieldId);
+        return string.Equals(parentValue, field.ConditionalOnValue, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool ValidateMetaFields()
+    {
+        metaFieldErrors.Clear();
+        foreach (var field in metaFields.Where(IsMetaFieldVisible))
+        {
+            var val = GetMetaValue(field.Id);
+            if (field.IsRequired && string.IsNullOrWhiteSpace(val))
+            {
+                metaFieldErrors[field.Id] = string.Format(L.Validation_FieldRequired, field.Label);
+                continue;
+            }
+            if (!string.IsNullOrWhiteSpace(val) && !string.IsNullOrWhiteSpace(field.RegexPattern))
+            {
+                try
+                {
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(val, field.RegexPattern))
+                        metaFieldErrors[field.Id] = field.RegexMessage ?? string.Format(L.Validation_InvalidFormat, field.Label);
+                }
+                catch { }
+            }
+        }
+        return !metaFieldErrors.Any();
+    }
+
+    // ===== Component Meta Field Helpers =====
+
+    private async Task RunComponentMetaAction(MetaFieldDefinition field, string eventName)
+    {
+        if (string.IsNullOrEmpty(field.ActionEvent) || string.IsNullOrEmpty(field.ActionScript)) return;
+        if (!string.Equals(field.ActionEvent, eventName, StringComparison.OrdinalIgnoreCase)) return;
+        var currentVal = GetComponentMetaValue(field.Id);
+        var result = await JS.InvokeAsync<string>("MetaFieldActions.execute", field.ActionScript, currentVal);
+        if (result != currentVal) { componentMetaValues[field.Id] = result; StateHasChanged(); }
+    }
+
+    private async Task OnComponentMetaInput(MetaFieldDefinition field, ChangeEventArgs e)
+    {
+        var val = e.Value?.ToString() ?? "";
+        if (!string.IsNullOrEmpty(field.FormatMask))
+            val = await JS.InvokeAsync<string>("MetaFieldActions.applyMask", field.FormatMask, val);
+        SetComponentMetaValue(field.Id, val);
+        await RunComponentMetaAction(field, "input");
+    }
+
+    private async Task OnComponentMetaChange(MetaFieldDefinition field, ChangeEventArgs e)
+    {
+        SetComponentMetaValue(field.Id, e.Value?.ToString());
+        await RunComponentMetaAction(field, "change");
+        StateHasChanged();
+    }
+
+    private async Task OnComponentMetaBlur(MetaFieldDefinition field)
+    {
+        await RunComponentMetaAction(field, "blur");
+        ValidateComponentMetaField(field);
+    }
+
+    private void ValidateComponentMetaField(MetaFieldDefinition field)
+    {
+        var val = GetComponentMetaValue(field.Id);
+        componentMetaFieldErrors.Remove(field.Id);
+        if (field.IsRequired && string.IsNullOrWhiteSpace(val))
+        {
+            componentMetaFieldErrors[field.Id] = string.Format(L.Validation_FieldRequired, field.Label);
+            return;
+        }
+        if (!string.IsNullOrWhiteSpace(val) && !string.IsNullOrWhiteSpace(field.RegexPattern))
+        {
+            try
+            {
+                if (!System.Text.RegularExpressions.Regex.IsMatch(val, field.RegexPattern))
+                    componentMetaFieldErrors[field.Id] = field.RegexMessage ?? string.Format(L.Validation_InvalidFormat, field.Label);
+            }
+            catch { }
+        }
+    }
+
+    private string GetComponentMetaValue(string fieldId) =>
+        componentMetaValues.TryGetValue(fieldId, out var val) ? val : "";
+
+    private void SetComponentMetaValue(string fieldId, string? value)
+    {
+        componentMetaValues[fieldId] = value ?? "";
+        componentMetaFieldErrors.Remove(fieldId);
+    }
+
+    private bool IsComponentMetaFieldVisible(MetaFieldDefinition field)
+    {
+        if (string.IsNullOrEmpty(field.ConditionalOnFieldId)) return true;
+        var parentValue = GetComponentMetaValue(field.ConditionalOnFieldId);
+        return string.Equals(parentValue, field.ConditionalOnValue, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // --- Save ---
+    private async Task SaveTicketInternal(bool navigateToCharge)
+    {
+        if (!ValidateMetaFields()) return;
+
+        using var context = DbFactory.CreateDbContext();
+
+        // Assign store-scoped sequential TicketNumber
+        var maxTicketNum = await context.ServiceTicket
+            .Where(t => t.StoreId == Tenant.StoreId)
+            .MaxAsync(t => (int?)t.TicketNumber) ?? 0;
+
+        var ticket = new ServiceTicket
+        {
+            ComponentId = selectedComponent!.Id,
+            CustomerId = selectedCustomer!.Id,
+            MechanicId = selectedMechanicId,
+            BaseServiceId = selectedService!.Id,
+            Description = ticketNotes,
+            Price = CalculateTotal(),
+            DiscountPercent = discountPercent,
+            Status = TicketStatus.Open,
+            TicketNumber = maxTicketNum + 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+            CreatedBy = Tenant.UserIdentifier,
+            StoreId = Tenant.StoreId,
+        };
+        context.ServiceTicket.Add(ticket);
+        await context.SaveChangesAsync();
+
+        // Save meta field values
+        foreach (var field in metaFields)
+        {
+            var val = metaValues.TryGetValue(field.Id, out var v) ? v : null;
+            if (!string.IsNullOrWhiteSpace(val) && IsMetaFieldVisible(field))
+            {
+                context.EntityMetaValue.Add(new EntityMetaValue
+                {
+                    EntityType = "ServiceTicket",
+                    EntityId = ticket.Id,
+                    MetaFieldDefinitionId = field.Id,
+                    Value = val
+                });
+            }
+        }
+
+        foreach (var tp in ticketProducts)
+        {
+            context.TicketProduct.Add(new TicketProduct
+            {
+                ServiceTicketId = ticket.Id,
+                ProductId = tp.Product.Id,
+                Quantity = tp.Quantity,
+                UnitPrice = tp.UnitPrice
+            });
+
+            // Decrement inventory
+            var product = await context.Product.FindAsync(tp.Product.Id);
+            if (product is not null)
+            {
+                product.QuantityInStock -= tp.Quantity;
+            }
+        }
+        await context.SaveChangesAsync();
+
+        // Record timeline events
+        await TicketEvents.RecordCreated(ticket.Id, ticket.TicketDisplay, Tenant.UserIdentifier, Tenant.StoreId);
+        foreach (var tp in ticketProducts)
+            await TicketEvents.RecordProductAdded(ticket.Id, tp.Product.Name, tp.Quantity, Tenant.UserIdentifier, Tenant.StoreId);
+        if (!string.IsNullOrEmpty(selectedMechanicId))
+        {
+            var mechName = availableMechanics.FirstOrDefault(m => m.Id == selectedMechanicId)?.Name;
+            await TicketEvents.RecordMechanicAssigned(ticket.Id, mechName, Tenant.UserIdentifier, Tenant.StoreId);
+        }
+
+        SyncTrigger.TriggerPush("ServiceTicket", ticket.Id);
+        NavigationManager.NavigateTo(navigateToCharge ? "/" : $"/tickets/details?id={ticket.Id}");
+    }
+
+    private Task SaveTicket() => SaveTicketInternal(navigateToCharge: false);
+    private Task SaveAndCharge() => SaveTicketInternal(navigateToCharge: true);
+
+    private class TicketProductEntry
+    {
+        public Product Product { get; set; } = null!;
+        public decimal UnitPrice { get; set; }
+        public int Quantity { get; set; }
+    }
+
+    // Block-based form field ordering
+    private void BuildTicketFormFields(List<BaseFieldLayout> baseLayouts)
+    {
+        var blocks = FormBlockDefinition.GetBlocks("ServiceTicket");
+        var defaultBlock = FormBlockDefinition.DefaultBlock("ServiceTicket");
+        var editableBaseKeys = new HashSet<string> { "Mechanic", "Notes", "DiscountPercent" };
+        var allFields = new List<FormField>();
+
+        foreach (var bl in baseLayouts.Where(b => editableBaseKeys.Contains(b.FieldKey)))
+            allFields.Add(new FormField { FieldKey = bl.FieldKey, SortOrder = bl.SortOrder, IsBase = true, Block = bl.Block });
+        foreach (var mf in metaFields)
+            allFields.Add(new FormField { FieldKey = mf.Key, SortOrder = mf.SortOrder, IsBase = false, MetaField = mf, Block = mf.Block ?? defaultBlock });
+
+        ticketBlockGroups = blocks
+            .Where(b => !b.IsFixed)
+            .OrderBy(b => b.DisplayOrder)
+            .Select(b => new FormBlockGroup
+            {
+                BlockKey = b.Key,
+                Fields = allFields.Where(f => f.Block == b.Key).OrderBy(f => f.SortOrder).ThenBy(f => f.FieldKey).ToList()
+            })
+            .Where(g => g.Fields.Any())
+            .ToList();
+    }
+
+    private class FormField
+    {
+        public string FieldKey { get; set; } = "";
+        public int SortOrder { get; set; }
+        public bool IsBase { get; set; }
+        public string Block { get; set; } = "details";
+        public MetaFieldDefinition? MetaField { get; set; }
+    }
+
+    private class FormBlockGroup
+    {
+        public string BlockKey { get; set; } = "";
+        public List<FormField> Fields { get; set; } = new();
+    }
+}

@@ -1,0 +1,173 @@
+@page "/customers/edit"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@using Microsoft.EntityFrameworkCore
+@using BikePOS.Models
+@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject NavigationManager NavigationManager
+@inject TenantContext Tenant
+@inject ShopCultureService CultureService
+
+<PageTitle>@L.Customers_Edit</PageTitle>
+
+<div class="p-6 max-w-4xl mx-auto">
+    @if (customer is null)
+    {
+        <p class="text-sm text-gray-400">@L.Common_Loading</p>
+    }
+    else
+    {
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <CustomerForm ExistingCustomer="customer" OnSaved="HandleSaved" OnCancelled="HandleCancelled" CompanyId="Tenant.CompanyId" />
+        </div>
+
+        @* Component History *@
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-clock-rotate-left text-gray-400"></i> @L.Customer_ComponentHistory
+            </h3>
+
+            @if (!componentHistory.Any())
+            {
+                <p class="text-sm text-gray-400">@L.Customer_NoHistory</p>
+            }
+            else
+            {
+                <div class="space-y-4">
+                    @foreach (var comp in componentHistory)
+                    {
+                        <div class="border border-gray-100 rounded-lg overflow-hidden">
+                            @* Component header *@
+                            <div class="bg-gray-50 px-4 py-3 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                                        <i class="fa-solid fa-bicycle text-indigo-600 text-xs"></i>
+                                    </div>
+                                    <div>
+                                        <span class="text-sm font-medium text-gray-800">@comp.Name</span>
+                                        <span class="text-xs text-gray-500 ml-2">@comp.ComponentType</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2 text-xs text-gray-500">
+                                    @if (!string.IsNullOrEmpty(comp.Brand)) { <span>@comp.Brand</span> }
+                                    @if (!string.IsNullOrEmpty(comp.Color)) { <span>· @comp.Color</span> }
+                                    @if (!string.IsNullOrEmpty(comp.Sku)) { <span>· @comp.Sku</span> }
+                                </div>
+                            </div>
+
+                            @* Service tickets for this component *@
+                            @{
+                                var tickets = ticketsByComponent.GetValueOrDefault(comp.Id);
+                            }
+                            @if (tickets is not null && tickets.Any())
+                            {
+                                <div class="divide-y divide-gray-50">
+                                    @foreach (var ticket in tickets)
+                                    {
+                                        <div class="px-4 py-2.5 flex items-center justify-between hover:bg-gray-50 cursor-pointer"
+                                             @onclick="() => GoToTicket(ticket.Id)">
+                                            <div class="flex items-center gap-3">
+                                                <span class="text-sm font-medium text-gray-700">@ticket.TicketDisplay</span>
+                                                <span class="text-xs text-gray-500">@(ticket.BaseService?.Name ?? "—")</span>
+                                            </div>
+                                            <div class="flex items-center gap-3">
+                                                <span class="text-xs text-gray-400">@ticket.CreatedAt.ToLocalTime().ToString("d", culture)</span>
+                                                <span class="text-xs font-medium text-gray-700">@ticket.Price.ToString("C", culture)</span>
+                                                <span class="text-xs px-2 py-0.5 rounded-full @StatusBadgeClass(ticket.Status)">@StatusLabel(ticket.Status)</span>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="px-4 py-3 text-xs text-gray-400">@L.Customer_NoTickets</div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [CascadingParameter] public Text L { get; set; } = default!;
+    CultureInfo culture = CultureInfo.CurrentCulture;
+
+    [SupplyParameterFromQuery]
+    private string Id { get; set; } = "";
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private Customer? customer;
+    private List<Component> componentHistory = new();
+    private Dictionary<string, List<ServiceTicket>> ticketsByComponent = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState != null) { var s = await AuthState; Tenant.PopulateFromClaims(s.User); }
+        culture = await CultureService.GetCultureAsync();
+
+        using var context = DbFactory.CreateDbContext();
+        customer = await context.Customer.FirstOrDefaultAsync(c => c.Id == Id);
+        if (customer is null) { NavigationManager.NotFound(); return; }
+
+        // Load components owned by this customer
+        componentHistory = await context.Component
+            .Where(c => c.CustomerId == Id)
+            .OrderBy(c => c.Name)
+            .ToListAsync();
+
+        // Load tickets for these components
+        var componentIds = componentHistory.Select(c => c.Id).ToList();
+        var tickets = await context.ServiceTicket
+            .Include(t => t.BaseService)
+            .Where(t => componentIds.Contains(t.ComponentId))
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
+
+        ticketsByComponent = tickets
+            .GroupBy(t => t.ComponentId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+    }
+
+    private void GoToTicket(string ticketId)
+    {
+        NavigationManager.NavigateTo($"/tickets/edit?id={ticketId}");
+    }
+
+    private void HandleSaved(Customer saved)
+    {
+        NavigationManager.NavigateTo("/customers");
+    }
+
+    private void HandleCancelled()
+    {
+        NavigationManager.NavigateTo("/customers");
+    }
+
+    private static string StatusBadgeClass(TicketStatus status) => status switch
+    {
+        TicketStatus.Open => "bg-yellow-100 text-yellow-700",
+        TicketStatus.InProgress => "bg-blue-100 text-blue-700",
+        TicketStatus.WaitingForParts => "bg-orange-100 text-orange-700",
+        TicketStatus.Completed => "bg-green-100 text-green-700",
+        TicketStatus.Charged => "bg-purple-100 text-purple-700",
+        TicketStatus.Cancelled => "bg-red-100 text-red-700",
+        _ => "bg-gray-100 text-gray-700"
+    };
+
+    private string StatusLabel(TicketStatus status) => status switch
+    {
+        TicketStatus.Open => L.Status_Open,
+        TicketStatus.InProgress => L.Status_InProgress,
+        TicketStatus.WaitingForParts => L.Status_WaitingForParts,
+        TicketStatus.Completed => L.Status_Completed,
+        TicketStatus.Charged => L.Status_Charged,
+        TicketStatus.Cancelled => L.Status_Cancelled,
+        _ => status.ToString()
+    };
+}

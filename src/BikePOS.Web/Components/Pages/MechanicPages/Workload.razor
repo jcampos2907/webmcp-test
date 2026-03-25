@@ -1,0 +1,203 @@
+@page "/mechanics/workload"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@using Microsoft.EntityFrameworkCore
+@using BikePOS.Models
+@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject NavigationManager NavigationManager
+@inject ShopCultureService CultureService
+@inject TenantContext Tenant
+
+<PageTitle>@L.Workload_Title</PageTitle>
+
+<div class="p-6">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">@L.Workload_Title</h1>
+        <a href="/mechanics" class="text-sm text-indigo-600 hover:text-indigo-800">
+            <i class="fa-solid fa-arrow-left mr-1"></i>@L.Common_BackToList
+        </a>
+    </div>
+
+    @if (!mechanics.Any())
+    {
+        <div class="text-center py-12 text-gray-400">
+            <i class="fa-solid fa-wrench text-4xl mb-3"></i>
+            <p>@L.Workload_NoMechanics</p>
+        </div>
+    }
+    else
+    {
+        @* Summary cards *@
+        <div class="grid grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
+                <p class="text-3xl font-bold text-indigo-600">@totalOpen</p>
+                <p class="text-sm text-gray-500">@L.Workload_OpenTickets</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
+                <p class="text-3xl font-bold text-blue-600">@totalInProgress</p>
+                <p class="text-sm text-gray-500">@L.Workload_InProgress</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
+                <p class="text-3xl font-bold text-orange-500">@totalWaiting</p>
+                <p class="text-sm text-gray-500">@L.Workload_WaitingParts</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
+                <p class="text-3xl font-bold text-gray-500">@unassigned</p>
+                <p class="text-sm text-gray-500">@L.Workload_Unassigned</p>
+            </div>
+        </div>
+
+        @* Mechanic cards *@
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            @foreach (var mech in mechanics)
+            {
+                var tickets = ticketsByMechanic.GetValueOrDefault(mech.Id) ?? new();
+                var open = tickets.Count(t => t.Status == TicketStatus.Open);
+                var inProgress = tickets.Count(t => t.Status == TicketStatus.InProgress);
+                var waiting = tickets.Count(t => t.Status == TicketStatus.WaitingForParts);
+                var completed = tickets.Count(t => t.Status == TicketStatus.Completed);
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    @* Mechanic header *@
+                    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                                <i class="fa-solid fa-wrench text-indigo-600"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-800">@mech.Name</h3>
+                                <span class="text-xs @(mech.IsActive ? "text-green-600" : "text-red-500")">
+                                    @(mech.IsActive ? L.Common_Active : L.Common_Inactive)
+                                </span>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            @if (open > 0)
+                            {
+                                <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-700">@open @L.Status_Open</span>
+                            }
+                            @if (inProgress > 0)
+                            {
+                                <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">@inProgress @L.Status_InProgress</span>
+                            }
+                            @if (waiting > 0)
+                            {
+                                <span class="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-700">@waiting @L.Status_WaitingForParts</span>
+                            }
+                            @if (completed > 0)
+                            {
+                                <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">@completed @L.Status_Completed</span>
+                            }
+                        </div>
+                    </div>
+
+                    @* Ticket list *@
+                    @if (tickets.Any())
+                    {
+                        <div class="divide-y divide-gray-50 max-h-64 overflow-y-auto">
+                            @foreach (var ticket in tickets.OrderByDescending(t => t.Status == TicketStatus.InProgress)
+                                                          .ThenByDescending(t => t.Status == TicketStatus.WaitingForParts)
+                                                          .ThenBy(t => t.CreatedAt))
+                            {
+                                <div class="px-5 py-3 flex items-center justify-between hover:bg-gray-50 cursor-pointer"
+                                     @onclick="() => GoToTicket(ticket.Id)">
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-sm font-medium text-gray-800">@ticket.TicketDisplay</span>
+                                        <span class="text-sm text-gray-500">@ticket.Component?.Name</span>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-xs text-gray-400">@ticket.CreatedAt.ToLocalTime().ToString("d", culture)</span>
+                                        <span class="text-xs px-2 py-1 rounded-full @GetStatusBadgeClass(ticket.Status)">@GetStatusLabel(ticket.Status)</span>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="px-5 py-6 text-center text-sm text-gray-400">
+                            @L.Workload_NoAssignedTickets
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [CascadingParameter] public Text L { get; set; } = default!;
+    CultureInfo culture = CultureInfo.CurrentCulture;
+
+    private List<Mechanic> mechanics = new();
+    private Dictionary<string, List<ServiceTicket>> ticketsByMechanic = new();
+    private int totalOpen, totalInProgress, totalWaiting, unassigned;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        culture = await CultureService.GetCultureAsync();
+
+        if (AuthState != null)
+        {
+            var state = await AuthState;
+            Tenant.PopulateFromClaims(state.User);
+        }
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        using var db = DbFactory.CreateDbContext();
+
+        mechanics = await db.Mechanic
+            .Where(m => m.IsActive)
+            .OrderBy(m => m.Name)
+            .ToListAsync();
+
+        var activeStatuses = new[] { TicketStatus.Open, TicketStatus.InProgress, TicketStatus.WaitingForParts, TicketStatus.Completed };
+
+        var activeTickets = await db.ServiceTicket
+            .Include(t => t.Component)
+            .Where(t => activeStatuses.Contains(t.Status))
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
+
+        ticketsByMechanic = activeTickets
+            .Where(t => t.MechanicId != null)
+            .GroupBy(t => t.MechanicId!)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        totalOpen = activeTickets.Count(t => t.Status == TicketStatus.Open && t.MechanicId != null);
+        totalInProgress = activeTickets.Count(t => t.Status == TicketStatus.InProgress);
+        totalWaiting = activeTickets.Count(t => t.Status == TicketStatus.WaitingForParts);
+        unassigned = activeTickets.Count(t => t.MechanicId == null);
+    }
+
+    private static string GetStatusBadgeClass(TicketStatus status) => status switch
+    {
+        TicketStatus.Open => "bg-yellow-100 text-yellow-700",
+        TicketStatus.InProgress => "bg-blue-100 text-blue-700",
+        TicketStatus.WaitingForParts => "bg-orange-100 text-orange-700",
+        TicketStatus.Completed => "bg-green-100 text-green-700",
+        _ => "bg-gray-100 text-gray-700"
+    };
+
+    private void GoToTicket(string ticketId)
+    {
+        NavigationManager.NavigateTo($"/tickets/edit?id={ticketId}");
+    }
+
+    private string GetStatusLabel(TicketStatus status) => status switch
+    {
+        TicketStatus.Open => L.Status_Open,
+        TicketStatus.InProgress => L.Status_InProgress,
+        TicketStatus.WaitingForParts => L.Status_WaitingForParts,
+        TicketStatus.Completed => L.Status_Completed,
+        _ => status.ToString()
+    };
+}

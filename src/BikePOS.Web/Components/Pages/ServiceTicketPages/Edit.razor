@@ -1,0 +1,1205 @@
+@page "/tickets/edit"
+@page "/tickets/details"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin,Mechanic")]
+@using Microsoft.EntityFrameworkCore
+@using BikePOS.Models
+@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject NavigationManager NavigationManager
+@inject ShopCultureService CultureService
+@inject TenantContext Tenant
+@inject AuditDisplayService AuditDisplay
+@inject TicketEventService TicketEvents
+@inject NotificationService Notifications
+@inject SyncTriggerService SyncTrigger
+@inject IJSRuntime JS
+@using BikePOS.Components.Shared
+
+<PageTitle>@(isPaid ? L.Tickets_ServiceTicket : L.Common_Edit + " " + L.Tickets_ServiceTicket)</PageTitle>
+
+<div class="p-6 max-w-6xl mx-auto">
+    @if (ticket is null)
+    {
+        <p class="text-sm text-gray-400">Cargando...</p>
+    }
+    else if (!showProductSelector)
+    {
+        @if (isPaid)
+        {
+            <div class="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-green-600"></i>
+                    <span class="text-sm text-green-800 font-medium">@L.Tickets_AlreadyChargedBanner</span>
+                </div>
+                @if (!showRefundForm)
+                {
+                    <button class="text-sm bg-red-50 hover:bg-red-100 text-red-600 font-medium px-3 py-1.5 rounded-lg border border-red-200 transition-colors"
+                            @onclick="() => showRefundForm = true">
+                        <i class="fa-solid fa-rotate-left mr-1"></i>@L.Refund_Button
+                    </button>
+                }
+            </div>
+        }
+
+        @if (showRefundForm && isPaid)
+        {
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <h4 class="text-sm font-semibold text-red-800 mb-3">@L.Refund_Title</h4>
+                <div class="flex items-end gap-4">
+                    <div>
+                        <label class="block text-xs text-red-700 mb-1">@L.Pos_Amount</label>
+                        <input type="number" step="0.01" min="0.01" max="@totalCharged"
+                               class="border border-red-300 rounded-lg px-3 py-2 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-red-300"
+                               @bind="refundAmount" />
+                    </div>
+                    <div>
+                        <label class="block text-xs text-red-700 mb-1">@L.Pos_PaymentMethod</label>
+                        <select class="border border-red-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
+                                @bind="refundMethod">
+                            <option value="@PaymentMethod.Cash">@L.Pos_Cash</option>
+                            <option value="@PaymentMethod.Card">@L.Pos_Card</option>
+                            <option value="@PaymentMethod.Transfer">@L.Pos_Transfer</option>
+                        </select>
+                    </div>
+                    <button class="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+                            @onclick="ProcessRefund"
+                            disabled="@(refundAmount <= 0 || refundAmount > totalCharged)">
+                        @L.Refund_Process
+                    </button>
+                    <button class="text-sm text-gray-500 hover:text-gray-700 px-3 py-2"
+                            @onclick="() => showRefundForm = false">
+                        @L.Common_Cancel
+                    </button>
+                </div>
+                @if (refundSuccess is not null)
+                {
+                    <div class="mt-2 text-sm @(refundSuccess.Value ? "text-green-700" : "text-red-700")">
+                        @(refundSuccess.Value ? L.Refund_Success : L.Refund_Failed)
+                    </div>
+                }
+            </div>
+        }
+
+        @if (isCancelled)
+        {
+            <div class="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-circle-xmark text-red-600"></i>
+                <span class="text-sm text-red-800 font-medium">@L.Tickets_CancelledBanner</span>
+            </div>
+        }
+
+        <div class="flex gap-6 items-start">
+        @* Main ticket card *@
+        <div class="flex-1 min-w-0 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between mb-1">
+                <h2 class="text-xl font-bold text-gray-800">@L.Tickets_ServiceTicket @ticket.TicketDisplay</h2>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs px-2 py-1 rounded-full @StatusBadgeClass(ticket.Status)">@StatusLabel(ticket.Status)</span>
+                    <span class="text-sm text-gray-500">@ticket.CreatedAt.ToString("g", culture)</span>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <span class="text-sm text-gray-500">@(ticket.Component?.Customer?.FullName ?? "—")</span>
+                <span class="text-sm text-gray-800 ml-4 font-medium">@ticket.Component?.Name</span>
+                <span class="text-xs text-gray-400 ml-2">(@(ticket.Component?.ComponentType ?? "—"))</span>
+            </div>
+
+            <div class="mb-4">
+                <p class="text-sm text-gray-700">@(ticket.BaseService?.Name ?? L.Services_NoBaseService)</p>
+            </div>
+
+            @* Render ticket fields grouped by block *@
+            @foreach (var blockGroup in ticketBlockGroups)
+            {
+                @foreach (var ff in blockGroup.Fields)
+                {
+                    @if (ff.IsBase)
+                    {
+                        @switch (ff.FieldKey)
+                        {
+                            case "Status":
+                                <div class="mb-4">
+                                    <label class="block text-sm text-gray-600 mb-1">@L.Common_Status</label>
+                                    <select class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
+                                            @bind="ticket.Status" disabled="@isReadOnly">
+                                        @foreach (var status in Enum.GetValues<TicketStatus>())
+                                        {
+                                            <option value="@status">@StatusLabel(status)</option>
+                                        }
+                                    </select>
+                                </div>
+                                break;
+                            case "Mechanic":
+                                <div class="mb-4">
+                                    <label class="block text-sm text-gray-600 mb-1">@L.Tickets_AssignedMechanic</label>
+                                    <select class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
+                                            @bind="ticket.MechanicId" disabled="@isReadOnly">
+                                        <option value="">@L.Tickets_NoMechanic</option>
+                                        @foreach (var m in mechanics)
+                                        {
+                                            <option value="@m.Id">@m.Name</option>
+                                        }
+                                    </select>
+                                </div>
+                                break;
+                            case "Notes":
+                                <div class="mb-4">
+                                    <label class="block text-sm font-semibold text-gray-700 mb-1">@L.Common_Notes</label>
+                                    <textarea class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
+                                              rows="3" @bind="ticket.Description" placeholder="@L.Common_NotesPlaceholder" disabled="@isReadOnly"></textarea>
+                                </div>
+                                break;
+                            case "DiscountPercent":
+                                <div class="mb-4">
+                                    <label class="block text-sm text-gray-600 mb-1">@L.Common_DiscountPercent</label>
+                                    <input type="number" step="0.01" min="0" max="100"
+                                           class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
+                                           @bind="ticket.DiscountPercent" disabled="@isReadOnly" />
+                                </div>
+                                break;
+                        }
+                    }
+                    else if (ff.MetaField is not null && IsMetaFieldVisible(ff.MetaField))
+                    {
+                        var field = ff.MetaField;
+                        <div class="mb-4">
+                            <label class="block text-xs text-gray-500 mb-1">
+                                @field.Label
+                                @if (field.IsRequired) { <span class="text-red-500">*</span> }
+                            </label>
+                            @if (field.FieldType == "select" && !string.IsNullOrEmpty(field.Options))
+                            {
+                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
+                                        value="@GetMetaValue(field.Id)" disabled="@isReadOnly"
+                                        @onchange="e => OnMetaChange(field, e)">
+                                    <option value="">@L.Common_Select</option>
+                                    @foreach (var opt in field.Options.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                                    {
+                                        <option value="@opt">@opt</option>
+                                    }
+                                </select>
+                            }
+                            else
+                            {
+                                <input type="@field.FieldType"
+                                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-gray-100 disabled:text-gray-500"
+                                       value="@GetMetaValue(field.Id)" disabled="@isReadOnly"
+                                       placeholder="@(field.FormatMask ?? "")"
+                                       @oninput="e => OnMetaInput(field, e)"
+                                       @onfocusout="() => OnMetaBlur(field)" />
+                            }
+                            @if (metaFieldErrors.TryGetValue(field.Id, out var err))
+                            {
+                                <p class="text-xs text-red-500 mt-1">@err</p>
+                            }
+                        </div>
+                    }
+                }
+            }
+
+            @* Products *@
+            @if (ticketProducts.Any())
+            {
+                <div class="mb-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">@L.Common_Products</h4>
+                    @foreach (var tp in ticketProducts)
+                    {
+                        <div class="flex items-center justify-between text-sm py-1 border-b border-gray-100">
+                            <span class="text-gray-700">@tp.Product?.Name x @tp.Quantity</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-gray-800">@((tp.UnitPrice * tp.Quantity).ToString("C", culture))</span>
+                                @if (!isReadOnly)
+                                {
+                                    <button class="text-red-400 hover:text-red-600 text-xs" @onclick="() => RemoveProduct(tp)">@L.Common_Remove</button>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (!isReadOnly)
+            {
+                <button class="text-sm text-indigo-600 hover:underline mb-4 block" @onclick="OpenProductSelector">
+                    @L.Common_AddProducts
+                </button>
+            }
+
+            @* Total *@
+            <div class="border-t border-gray-200 pt-3 mb-4">
+                @if (ticket.DiscountPercent > 0)
+                {
+                    <div class="flex justify-between items-center text-sm text-gray-500 mb-1">
+                        <span>@L.Common_Subtotal</span>
+                        <span>@CalculateSubtotal().ToString("C", culture)</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm text-red-500 mb-1">
+                        <span>@L.Common_Discount (@ticket.DiscountPercent%)</span>
+                        <span>-@((CalculateSubtotal() * ticket.DiscountPercent / 100m).ToString("C", culture))</span>
+                    </div>
+                }
+                <div class="flex justify-between items-center text-sm font-semibold">
+                    <span class="text-gray-700">@L.Common_Total</span>
+                    <span class="text-gray-800 text-lg">@CalculateTotal().ToString("C", culture)</span>
+                </div>
+            </div>
+
+            <div class="flex gap-3 items-center">
+                @if (!isReadOnly)
+                {
+                    <button class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors"
+                            @onclick="SaveTicket">
+                        @L.Common_Save
+                    </button>
+                    <button class="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors"
+                            @onclick="GoToCharge">
+                        <i class="fa-solid fa-cash-register mr-1"></i> @L.Tickets_Charge
+                    </button>
+                    @if (!isCancelled)
+                    {
+                        <button class="bg-red-50 hover:bg-red-100 text-red-600 font-semibold px-4 py-2 rounded-lg transition-colors border border-red-200"
+                                @onclick="CancelTicket">
+                            @L.Tickets_CancelTicket
+                        </button>
+                    }
+                }
+                <a href="/tickets" class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">&larr; @L.Common_BackToList</a>
+            </div>
+
+            @* Audit trail *@
+            <div class="mt-6 pt-4 border-t border-gray-100 flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-gray-400">
+                @if (!string.IsNullOrEmpty(ticket.CreatedBy))
+                {
+                    <span><i class="fa-solid fa-user-plus mr-1"></i>@L.Common_CreatedBy @createdByDisplay · @ticket.CreatedAt.ToString("g", culture)</span>
+                }
+                @if (!string.IsNullOrEmpty(ticket.UpdatedBy))
+                {
+                    <span><i class="fa-solid fa-pen mr-1"></i>@L.Common_UpdatedBy @updatedByDisplay · @ticket.UpdatedAt.ToString("g", culture)</span>
+                }
+            </div>
+
+        </div>
+
+        @* Timeline sidebar *@
+        <div class="w-72 flex-shrink-0 bg-white rounded-xl shadow-sm border border-gray-200 p-4 sticky top-6 max-h-[calc(100vh-4rem)] overflow-y-auto">
+            <h4 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-clock-rotate-left text-gray-400"></i> @L.Tickets_Timeline
+            </h4>
+
+            @* Status progress tracker *@
+            <div class="mb-6">
+                @for (var i = 0; i < statusSteps.Count; i++)
+                {
+                    var step = statusSteps[i];
+                    var isLast = i == statusSteps.Count - 1;
+                    var dotBg = step.State == StepState.Completed ? "#22c55e"
+                              : step.State == StepState.Current ? "#f97316"
+                              : "#e5e7eb";
+                    var dotColor = step.State == StepState.Upcoming ? "#9ca3af" : "#ffffff";
+                    var lineBg = step.State == StepState.Completed ? "#86efac" : "#e5e7eb";
+
+                    <div class="flex gap-3" style="position: relative; @(!isLast ? "padding-bottom: 1.5rem;" : "")">
+                        @* Connector line *@
+                        @if (!isLast)
+                        {
+                            <div style="position: absolute; left: 11px; top: 24px; bottom: 0; width: 2px; background: @lineBg;"></div>
+                        }
+                        @* Status dot *@
+                        <div class="flex-shrink-0 flex items-center justify-center"
+                             style="width: 24px; height: 24px; border-radius: 50%; background: @dotBg; color: @dotColor; position: relative; z-index: 1;
+                                    @(step.State == StepState.Current ? "box-shadow: 0 0 0 4px rgba(249,115,22,0.2);" : "")">
+                            @if (step.State == StepState.Completed)
+                            {
+                                <i class="fa-solid fa-check" style="font-size: 10px;"></i>
+                            }
+                            else if (step.State == StepState.Current)
+                            {
+                                <div style="width: 8px; height: 8px; border-radius: 50%; background: white;"></div>
+                            }
+                        </div>
+                        @* Label + timestamp *@
+                        <div style="padding-top: 2px;" class="flex-1">
+                            <p class="text-sm" style="@(step.State == StepState.Current ? "font-weight: 600; color: #c2410c;" : step.State == StepState.Completed ? "font-weight: 500; color: #374151;" : "color: #9ca3af;")">
+                                @step.Label
+                            </p>
+                            @if (!string.IsNullOrEmpty(step.Timestamp))
+                            {
+                                <p class="text-gray-400" style="font-size: 11px;">@step.Timestamp</p>
+                            }
+                            @if (!string.IsNullOrEmpty(step.Actor))
+                            {
+                                <p class="text-gray-400" style="font-size: 11px;">@step.Actor</p>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @* Activity log *@
+            @if (timelineItems.Any())
+            {
+                <div class="border-t border-gray-200 pt-4">
+                    <p class="text-[10px] text-gray-400 uppercase tracking-wide mb-3">@L.Tickets_Timeline</p>
+                    <EntityTimeline Items="timelineItems" Culture="culture" />
+                </div>
+            }
+        </div>
+        </div>
+    }
+    else
+    {
+        @* Product Selector *@
+        <div class="flex gap-6">
+            <div class="flex-1">
+                <div class="flex items-center gap-3 mb-4">
+                    <button class="text-sm text-gray-500 hover:text-gray-700" @onclick="CloseProductSelector">&larr; Volver</button>
+                    <input type="text" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                           placeholder="@L.Common_SearchProduct" @bind="productSearch" @bind:event="oninput" @onkeyup="SearchProducts" />
+                </div>
+
+                <div class="grid grid-cols-3 gap-4">
+                    @foreach (var product in productResults)
+                    {
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 cursor-pointer hover:shadow-md hover:border-indigo-300 transition-all"
+                             @onclick="() => AddProduct(product)">
+                            <div class="w-full h-24 bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
+                                <i class="fa-solid fa-box-open text-gray-300 text-3xl"></i>
+                            </div>
+                            <p class="text-sm font-medium text-gray-800">@product.Name</p>
+                            <p class="text-sm text-gray-500">@product.Price.ToString("C", culture)</p>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="w-72 bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-fit sticky top-6">
+                <h4 class="text-sm font-bold text-gray-800 mb-1">@L.Tickets_ServiceTicket</h4>
+                <p class="text-xs text-gray-500 mb-3">@(ticket.Component?.Customer?.FullName ?? "—")</p>
+
+                <div class="text-xs text-gray-700 mb-1">@(ticket.BaseService?.Name ?? "—")</div>
+                <div class="text-xs text-gray-500 mb-3 text-right">@(ticket.BaseService?.DefaultPrice.ToString("C", culture) ?? "—")</div>
+
+                @foreach (var tp in ticketProducts)
+                {
+                    <div class="flex justify-between text-xs text-gray-700 mb-1">
+                        <span>@tp.Product?.Name</span>
+                        <span>@((tp.UnitPrice * tp.Quantity).ToString("C", culture))</span>
+                    </div>
+                }
+
+                <div class="flex justify-between text-sm font-semibold border-t border-gray-200 pt-2 mt-3">
+                    <span>@L.Common_Total</span>
+                    <span>@CalculateTotal().ToString("C", culture)</span>
+                </div>
+
+                <button class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2 rounded-lg mt-3 transition-colors"
+                        @onclick="SaveAndCloseProducts">
+                    @L.Common_Save
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+<Snackbar @ref="snackbar" Color="SnackbarColor.Success" Interval="3000" Location="SnackbarLocation.BottomEnd">
+    <SnackbarBody>@L.Tickets_TicketSaved</SnackbarBody>
+</Snackbar>
+
+@code {
+    [CascadingParameter] public Text L { get; set; } = default!;
+    CultureInfo culture = CultureInfo.CurrentCulture;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string Id { get; set; } = "";
+
+    private ServiceTicket? ticket;
+    private List<Mechanic> mechanics = new();
+    private List<TicketProduct> ticketProducts = new();
+    private List<TicketProduct> removedProducts = new();
+    private HashSet<string> savedProductIds = new();
+
+    private string? createdByDisplay;
+    private string? updatedByDisplay;
+
+    // Timeline
+    private List<EntityTimeline.TimelineItem> timelineItems = new();
+
+    // Snapshot for change detection
+    private TicketStatus originalStatus;
+    private string? originalMechanicId;
+    private string? originalDescription;
+    private decimal originalDiscountPercent;
+    private Dictionary<string, string> originalMetaValues = new();
+
+    // Meta fields + form layout
+    private List<MetaFieldDefinition> metaFields = new();
+    private Dictionary<string, string> metaValues = new();
+    private Dictionary<string, string> metaFieldErrors = new();
+    private List<FormBlockGroup> ticketBlockGroups = new();
+
+    private bool isPaid => ticket?.Status == TicketStatus.Charged;
+    private bool isCancelled => ticket?.Status == TicketStatus.Cancelled;
+
+    // Refund
+    private bool showRefundForm;
+    private decimal refundAmount;
+    private PaymentMethod refundMethod = PaymentMethod.Cash;
+    private bool? refundSuccess;
+    private decimal totalCharged;
+    private bool isReadOnly => isPaid || isCancelled;
+
+    private Snackbar snackbar = null!;
+
+    // Product selector
+    private bool showProductSelector = false;
+    private string productSearch = "";
+    private List<Product> productResults = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState != null)
+        {
+            var state = await AuthState;
+            Tenant.PopulateFromClaims(state.User);
+        }
+
+        culture = await CultureService.GetCultureAsync();
+        using var context = DbFactory.CreateDbContext();
+        ticket = await context.ServiceTicket
+            .Include(t => t.Component).ThenInclude(c => c!.Customer)
+            .Include(t => t.Mechanic)
+            .Include(t => t.BaseService)
+            .FirstOrDefaultAsync(t => t.Id == Id);
+
+        if (ticket is null)
+        {
+            NavigationManager.NotFound();
+            return;
+        }
+
+        createdByDisplay = await AuditDisplay.ResolveAsync(ticket.CreatedBy);
+        updatedByDisplay = await AuditDisplay.ResolveAsync(ticket.UpdatedBy);
+
+        mechanics = await context.Mechanic.Where(m => m.IsActive).OrderBy(m => m.Name).ToListAsync();
+        ticketProducts = await context.TicketProduct
+            .Include(tp => tp.Product)
+            .Where(tp => tp.ServiceTicketId == Id)
+            .ToListAsync();
+        savedProductIds = ticketProducts.Select(tp => tp.Id).ToHashSet();
+
+        // Load meta fields + values
+        metaFields = await context.MetaFieldDefinition
+            .Where(f => f.IsActive && f.EntityType == "ServiceTicket" && f.CompanyId == Tenant.CompanyId)
+            .OrderBy(f => f.SortOrder).ThenBy(f => f.Label)
+            .ToListAsync();
+
+        var existingMeta = await context.EntityMetaValue
+            .Where(mv => mv.EntityType == "ServiceTicket" && mv.EntityId == Id)
+            .ToListAsync();
+        foreach (var mv in existingMeta)
+            metaValues[mv.MetaFieldDefinitionId] = mv.Value ?? "";
+
+        foreach (var field in metaFields)
+        {
+            if (!string.IsNullOrEmpty(field.DefaultValue) && !metaValues.ContainsKey(field.Id))
+                metaValues[field.Id] = field.DefaultValue;
+        }
+
+        // Load base field layouts and build unified form field list
+        var baseLayouts = await context.BaseFieldLayout
+            .Where(b => b.EntityType == "ServiceTicket" && b.CompanyId == Tenant.CompanyId)
+            .OrderBy(b => b.SortOrder)
+            .ToListAsync();
+        if (!baseLayouts.Any())
+        {
+            var defaults = BaseFieldLayout.GetBaseFields("ServiceTicket");
+            foreach (var d in defaults) d.CompanyId = Tenant.CompanyId;
+            context.BaseFieldLayout.AddRange(defaults);
+            await context.SaveChangesAsync();
+            baseLayouts = defaults;
+        }
+        BuildTicketFormFields(baseLayouts);
+
+        // Snapshot original values for change detection
+        originalStatus = ticket.Status;
+        originalMechanicId = ticket.MechanicId;
+        originalDescription = ticket.Description;
+        originalDiscountPercent = ticket.DiscountPercent;
+        originalMetaValues = new Dictionary<string, string>(metaValues);
+
+        // Load total charged for refund cap
+        totalCharged = await context.Charge
+            .Where(c => c.ServiceTicketId == Id && c.PaymentStatus == PaymentStatus.Completed)
+            .SumAsync(c => c.Amount);
+        // Subtract any existing refunds
+        var refunded = await context.Charge
+            .Where(c => c.ServiceTicketId == Id && c.PaymentStatus == PaymentStatus.Completed && c.Amount < 0)
+            .SumAsync(c => c.Amount);
+        totalCharged += refunded; // refunded is negative, so this subtracts
+
+        // Load timeline
+        await LoadTimeline(context);
+    }
+
+    private async Task LoadTimeline(BikePOS.Data.BikePosContext context)
+    {
+        var events = await context.TicketEvent
+            .Where(e => e.ServiceTicketId == Id)
+            .OrderByDescending(e => e.CreatedAt)
+            .ToListAsync();
+
+        timelineItems = new();
+        foreach (var evt in events)
+        {
+            var actor = await AuditDisplay.ResolveAsync(evt.CreatedBy);
+            var (bg, color) = EventDotColors(evt.EventType);
+            timelineItems.Add(new EntityTimeline.TimelineItem
+            {
+                Icon = EventIcon(evt.EventType),
+                DotBg = bg,
+                DotColor = color,
+                Title = EventTitle(evt.EventType),
+                Description = evt.Description,
+                Actor = actor,
+                Timestamp = evt.CreatedAt,
+            });
+        }
+
+        await BuildStatusSteps(context);
+    }
+
+    private string EventTitle(TicketEventType type) => type switch
+    {
+        TicketEventType.Created => L.Timeline_Created,
+        TicketEventType.StatusChanged => L.Timeline_StatusChanged,
+        TicketEventType.MechanicAssigned => L.Timeline_MechanicAssigned,
+        TicketEventType.NoteUpdated => L.Timeline_NoteUpdated,
+        TicketEventType.ProductAdded => L.Timeline_ProductAdded,
+        TicketEventType.ProductRemoved => L.Timeline_ProductRemoved,
+        TicketEventType.ChargeProcessed => L.Timeline_ChargeProcessed,
+        TicketEventType.Cancelled => L.Timeline_Cancelled,
+        TicketEventType.DiscountChanged => L.Timeline_DiscountChanged,
+        TicketEventType.MetaFieldChanged => L.Timeline_MetaFieldChanged,
+        TicketEventType.Refunded => L.Timeline_Refunded,
+        _ => type.ToString()
+    };
+
+    private static string EventIcon(TicketEventType type) => type switch
+    {
+        TicketEventType.Created => "fa-solid fa-plus",
+        TicketEventType.StatusChanged => "fa-solid fa-arrows-rotate",
+        TicketEventType.MechanicAssigned => "fa-solid fa-user-gear",
+        TicketEventType.NoteUpdated => "fa-solid fa-pen",
+        TicketEventType.ProductAdded => "fa-solid fa-box-open",
+        TicketEventType.ProductRemoved => "fa-solid fa-box-open",
+        TicketEventType.ChargeProcessed => "fa-solid fa-cash-register",
+        TicketEventType.Cancelled => "fa-solid fa-circle-xmark",
+        TicketEventType.DiscountChanged => "fa-solid fa-percent",
+        TicketEventType.MetaFieldChanged => "fa-solid fa-sliders",
+        TicketEventType.Refunded => "fa-solid fa-rotate-left",
+        _ => "fa-solid fa-circle"
+    };
+
+    private static (string bg, string color) EventDotColors(TicketEventType type) => type switch
+    {
+        TicketEventType.Created => ("#dbeafe", "#2563eb"),
+        TicketEventType.StatusChanged => ("#fef3c7", "#d97706"),
+        TicketEventType.MechanicAssigned => ("#f3e8ff", "#9333ea"),
+        TicketEventType.NoteUpdated => ("#f3f4f6", "#4b5563"),
+        TicketEventType.ProductAdded => ("#dcfce7", "#16a34a"),
+        TicketEventType.ProductRemoved => ("#fee2e2", "#dc2626"),
+        TicketEventType.ChargeProcessed => ("#dcfce7", "#15803d"),
+        TicketEventType.Cancelled => ("#fee2e2", "#b91c1c"),
+        TicketEventType.DiscountChanged => ("#ffedd5", "#ea580c"),
+        TicketEventType.MetaFieldChanged => ("#e0e7ff", "#4f46e5"),
+        TicketEventType.Refunded => ("#fef2f2", "#dc2626"),
+        _ => ("#f3f4f6", "#6b7280")
+    };
+
+    // ===== Status Progress Tracker =====
+
+    private List<StatusStep> statusSteps = new();
+
+    private enum StepState { Completed, Current, Upcoming }
+
+    private class StatusStep
+    {
+        public TicketStatus Status { get; set; }
+        public string Label { get; set; } = "";
+        public StepState State { get; set; }
+        public string? Timestamp { get; set; }
+        public string? Actor { get; set; }
+    }
+
+    private async Task BuildStatusSteps(BikePOS.Data.BikePosContext context)
+    {
+        var lifecycle = new[] { TicketStatus.Open, TicketStatus.InProgress, TicketStatus.WaitingForParts, TicketStatus.Completed, TicketStatus.Charged };
+        var currentStatus = ticket!.Status;
+        var currentIndex = Array.IndexOf(lifecycle, currentStatus);
+
+        // Load status-change events to get timestamps per status
+        var statusEvents = await context.TicketEvent
+            .Where(e => e.ServiceTicketId == ticket.Id &&
+                (e.EventType == TicketEventType.StatusChanged || e.EventType == TicketEventType.Created || e.EventType == TicketEventType.Cancelled))
+            .OrderBy(e => e.CreatedAt)
+            .ToListAsync();
+
+        // Map: which statuses have event timestamps
+        var eventByStatus = new Dictionary<TicketStatus, TicketEvent>();
+        var createdEvt = statusEvents.FirstOrDefault(e => e.EventType == TicketEventType.Created);
+        if (createdEvt != null) eventByStatus[TicketStatus.Open] = createdEvt;
+
+        foreach (var evt in statusEvents.Where(e => e.EventType == TicketEventType.StatusChanged))
+        {
+            var parts = evt.Description?.Split(" → ");
+            if (parts?.Length == 2 && Enum.TryParse<TicketStatus>(parts[1].Trim(), out var toStatus))
+                eventByStatus[toStatus] = evt;
+        }
+
+        var cancelledEvt = statusEvents.FirstOrDefault(e => e.EventType == TicketEventType.Cancelled);
+        statusSteps = new();
+
+        if (currentStatus == TicketStatus.Cancelled)
+        {
+            // Show all steps up to where we were before cancel, then the cancel step
+            foreach (var status in lifecycle)
+            {
+                var idx = Array.IndexOf(lifecycle, status);
+                if (eventByStatus.TryGetValue(status, out var evt))
+                {
+                    var actor = await AuditDisplay.ResolveAsync(evt.CreatedBy);
+                    statusSteps.Add(new StatusStep { Status = status, Label = StatusLabel(status), State = StepState.Completed, Timestamp = evt.CreatedAt.ToString("g", culture), Actor = actor });
+                }
+                else if (status == TicketStatus.Open)
+                {
+                    // Open always happened
+                    var actor = await AuditDisplay.ResolveAsync(ticket.CreatedBy);
+                    statusSteps.Add(new StatusStep { Status = status, Label = StatusLabel(status), State = StepState.Completed, Timestamp = ticket.CreatedAt.ToString("g", culture), Actor = actor });
+                }
+                else break;
+            }
+            var cancelActor = cancelledEvt != null ? await AuditDisplay.ResolveAsync(cancelledEvt.CreatedBy) : null;
+            statusSteps.Add(new StatusStep { Status = TicketStatus.Cancelled, Label = StatusLabel(TicketStatus.Cancelled), State = StepState.Current, Timestamp = cancelledEvt?.CreatedAt.ToString("g", culture), Actor = cancelActor });
+        }
+        else
+        {
+            for (int i = 0; i < lifecycle.Length; i++)
+            {
+                var status = lifecycle[i];
+                StepState state;
+                string? timestamp = null;
+                string? actor = null;
+
+                if (i < currentIndex)
+                {
+                    // Past step — completed
+                    state = StepState.Completed;
+                    if (eventByStatus.TryGetValue(status, out var evt))
+                    {
+                        timestamp = evt.CreatedAt.ToString("g", culture);
+                        actor = await AuditDisplay.ResolveAsync(evt.CreatedBy);
+                    }
+                    else if (status == TicketStatus.Open)
+                    {
+                        timestamp = ticket.CreatedAt.ToString("g", culture);
+                        actor = await AuditDisplay.ResolveAsync(ticket.CreatedBy);
+                    }
+                }
+                else if (i == currentIndex)
+                {
+                    // Current step
+                    state = StepState.Current;
+                    if (eventByStatus.TryGetValue(status, out var evt))
+                    {
+                        timestamp = evt.CreatedAt.ToString("g", culture);
+                        actor = await AuditDisplay.ResolveAsync(evt.CreatedBy);
+                    }
+                    else if (status == TicketStatus.Open)
+                    {
+                        timestamp = ticket.CreatedAt.ToString("g", culture);
+                        actor = await AuditDisplay.ResolveAsync(ticket.CreatedBy);
+                    }
+                }
+                else
+                {
+                    state = StepState.Upcoming;
+                }
+
+                statusSteps.Add(new StatusStep { Status = status, Label = StatusLabel(status), State = state, Timestamp = timestamp, Actor = actor });
+            }
+        }
+    }
+
+    private decimal CalculateSubtotal()
+    {
+        var servicePrice = ticket?.BaseService?.DefaultPrice ?? 0;
+        var productsTotal = ticketProducts.Sum(tp => tp.UnitPrice * tp.Quantity);
+        return servicePrice + productsTotal;
+    }
+
+    private decimal CalculateTotal()
+    {
+        var subtotal = CalculateSubtotal();
+        var discount = ticket?.DiscountPercent ?? 0;
+        return subtotal - (subtotal * discount / 100m);
+    }
+
+    private void RemoveProduct(TicketProduct tp)
+    {
+        ticketProducts.Remove(tp);
+        if (savedProductIds.Contains(tp.Id)) removedProducts.Add(tp);
+    }
+
+    private async Task OpenProductSelector()
+    {
+        showProductSelector = true;
+        using var context = DbFactory.CreateDbContext();
+        productResults = await context.Product.Where(p => p.QuantityInStock > 0).OrderBy(p => p.Name).ToListAsync();
+    }
+
+    private void CloseProductSelector() => showProductSelector = false;
+
+    private async Task SaveAndCloseProducts()
+    {
+        await SaveTicket();
+        showProductSelector = false;
+    }
+
+    private async Task SearchProducts()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var query = context.Product.Where(p => p.QuantityInStock > 0);
+        if (!string.IsNullOrWhiteSpace(productSearch))
+        {
+            query = query.Where(p => p.Name.Contains(productSearch) || (p.Sku != null && p.Sku.Contains(productSearch)));
+        }
+        productResults = await query.OrderBy(p => p.Name).ToListAsync();
+    }
+
+    private void AddProduct(Product product)
+    {
+        var existing = ticketProducts.FirstOrDefault(tp => tp.ProductId == product.Id);
+        if (existing is not null)
+        {
+            existing.Quantity++;
+        }
+        else
+        {
+            ticketProducts.Add(new TicketProduct
+            {
+                ServiceTicketId = ticket!.Id,
+                ProductId = product.Id,
+                Product = product,
+                UnitPrice = product.Price,
+                Quantity = 1
+            });
+        }
+    }
+
+    private async Task SaveTicket()
+    {
+        if (ticket is null || isReadOnly) return;
+        if (!ValidateMetaFields()) return;
+
+        using var context = DbFactory.CreateDbContext();
+        ticket.Price = CalculateTotal();
+        ticket.UpdatedAt = DateTime.UtcNow;
+        ticket.UpdatedBy = Tenant.UserIdentifier;
+        context.Attach(ticket).State = EntityState.Modified;
+
+        // Restore inventory for removed products
+        foreach (var removed in removedProducts)
+        {
+            context.TicketProduct.Remove(removed);
+            var product = await context.Product.FindAsync(removed.ProductId);
+            if (product is not null)
+            {
+                product.QuantityInStock += removed.Quantity;
+            }
+        }
+
+        foreach (var tp in ticketProducts)
+        {
+            if (!savedProductIds.Contains(tp.Id))
+            {
+                // Decrement inventory for new products
+                var product = await context.Product.FindAsync(tp.ProductId);
+                if (product is not null)
+                {
+                    product.QuantityInStock -= tp.Quantity;
+                }
+
+                // Detach nav property so EF doesn't try to INSERT the existing Product
+                var navProduct = tp.Product;
+                tp.Product = null!;
+                context.TicketProduct.Add(tp);
+                tp.Product = navProduct;
+            }
+            else
+            {
+                context.Attach(tp).State = EntityState.Modified;
+            }
+        }
+
+        await SaveMetaValues(context);
+        await context.SaveChangesAsync();
+        SyncTrigger.TriggerPush("ServiceTicket", ticket.Id);
+
+        // Record timeline events for changes
+        var user = Tenant.UserIdentifier;
+        var store = Tenant.StoreId;
+        if (ticket.Status != originalStatus)
+        {
+            await TicketEvents.RecordStatusChange(ticket.Id, originalStatus, ticket.Status, user, store);
+            // Auto-notify customer when ticket is completed
+            if (ticket.Status == TicketStatus.Completed)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try { await Notifications.NotifyTicketReadyAsync(ticket.Id); }
+                    catch { /* logged inside service */ }
+                });
+            }
+        }
+        if (ticket.MechanicId != originalMechanicId)
+        {
+            var mechName = mechanics.FirstOrDefault(m => m.Id == ticket.MechanicId)?.Name;
+            await TicketEvents.RecordMechanicAssigned(ticket.Id, mechName, user, store);
+        }
+        if (ticket.Description != originalDescription)
+            await TicketEvents.RecordNoteUpdated(ticket.Id, user, store);
+        if (ticket.DiscountPercent != originalDiscountPercent)
+            await TicketEvents.RecordDiscountChanged(ticket.Id, originalDiscountPercent, ticket.DiscountPercent, user, store);
+        foreach (var removed in removedProducts)
+            await TicketEvents.RecordProductRemoved(ticket.Id, removed.Product?.Name ?? "?", removed.Quantity, user, store);
+        foreach (var tp in ticketProducts.Where(tp => !savedProductIds.Contains(tp.Id)))
+            await TicketEvents.RecordProductAdded(ticket.Id, tp.Product?.Name ?? "?", tp.Quantity, user, store);
+
+        // Check meta field changes
+        foreach (var field in metaFields)
+        {
+            var oldVal = originalMetaValues.GetValueOrDefault(field.Id, "");
+            var newVal = metaValues.GetValueOrDefault(field.Id, "");
+            if (oldVal != newVal)
+                await TicketEvents.RecordMetaFieldChanged(ticket.Id, field.Label, user, store);
+        }
+
+        // Update snapshots
+        originalStatus = ticket.Status;
+        originalMechanicId = ticket.MechanicId;
+        originalDescription = ticket.Description;
+        originalDiscountPercent = ticket.DiscountPercent;
+        originalMetaValues = new Dictionary<string, string>(metaValues);
+        savedProductIds = ticketProducts.Select(tp => tp.Id).ToHashSet();
+
+        removedProducts.Clear();
+
+        // Reload timeline
+        using var ctx2 = DbFactory.CreateDbContext();
+        await LoadTimeline(ctx2);
+
+        await snackbar.Show();
+    }
+
+    private async Task CancelTicket()
+    {
+        if (ticket is null || isReadOnly) return;
+
+        using var context = DbFactory.CreateDbContext();
+
+        // Restore inventory for all products on this ticket
+        var allTicketProducts = await context.TicketProduct
+            .Where(tp => tp.ServiceTicketId == ticket.Id)
+            .ToListAsync();
+
+        foreach (var tp in allTicketProducts)
+        {
+            var product = await context.Product.FindAsync(tp.ProductId);
+            if (product is not null)
+            {
+                product.QuantityInStock += tp.Quantity;
+            }
+        }
+
+        // Set ticket status to Cancelled
+        var dbTicket = await context.ServiceTicket.FindAsync(ticket.Id);
+        if (dbTicket is not null)
+        {
+            dbTicket.Status = TicketStatus.Cancelled;
+            dbTicket.UpdatedAt = DateTime.UtcNow;
+            dbTicket.UpdatedBy = Tenant.UserIdentifier;
+        }
+
+        await context.SaveChangesAsync();
+        SyncTrigger.TriggerPush("ServiceTicket", ticket.Id);
+
+        // Record cancellation event
+        await TicketEvents.RecordCancellation(ticket.Id, Tenant.UserIdentifier, Tenant.StoreId);
+
+        // Update local state
+        ticket.Status = TicketStatus.Cancelled;
+        ticketProducts.Clear();
+        removedProducts.Clear();
+
+        // Reload timeline
+        using var ctx2 = DbFactory.CreateDbContext();
+        await LoadTimeline(ctx2);
+
+        await snackbar.Show();
+    }
+
+    private async Task ProcessRefund()
+    {
+        if (ticket is null || refundAmount <= 0 || refundAmount > totalCharged) return;
+        refundSuccess = null;
+
+        try
+        {
+            using var context = DbFactory.CreateDbContext();
+
+            // Create a negative charge for the refund
+            var charge = new Charge
+            {
+                ServiceTicketId = ticket.Id,
+                Amount = -refundAmount,
+                ChargedAt = DateTime.UtcNow,
+                CashierName = Tenant.UserIdentifier,
+                PaymentMethod = refundMethod,
+                PaymentStatus = PaymentStatus.Completed,
+                CompletedAt = DateTime.UtcNow,
+                Notes = "Refund",
+                StoreId = Tenant.StoreId,
+                CreatedBy = Tenant.UserIdentifier
+            };
+            context.Charge.Add(charge);
+
+            // Reopen ticket
+            var dbTicket = await context.ServiceTicket.FindAsync(ticket.Id);
+            if (dbTicket is not null)
+            {
+                dbTicket.Status = TicketStatus.Completed;
+                dbTicket.UpdatedAt = DateTime.UtcNow;
+                dbTicket.UpdatedBy = Tenant.UserIdentifier;
+            }
+
+            await context.SaveChangesAsync();
+            SyncTrigger.TriggerPush("Charge", charge.Id);
+            SyncTrigger.TriggerPush("ServiceTicket", ticket.Id);
+
+            // Record events
+            await TicketEvents.RecordRefund(ticket.Id, refundAmount, refundMethod.ToString(), Tenant.UserIdentifier, Tenant.StoreId);
+            await TicketEvents.RecordStatusChange(ticket.Id, TicketStatus.Charged, TicketStatus.Completed, Tenant.UserIdentifier, Tenant.StoreId);
+
+            // Update local state
+            ticket.Status = TicketStatus.Completed;
+            totalCharged -= refundAmount;
+            refundSuccess = true;
+            showRefundForm = false;
+            refundAmount = 0;
+
+            // Reload timeline
+            using var ctx2 = DbFactory.CreateDbContext();
+            await LoadTimeline(ctx2);
+        }
+        catch
+        {
+            refundSuccess = false;
+        }
+    }
+
+    private async Task GoToCharge()
+    {
+        if (ticket is null) return;
+        // Save first so the total is up to date
+        await SaveTicket();
+        NavigationManager.NavigateTo($"/?ticketId={ticket.Id}");
+    }
+
+    // ===== Meta Field Helpers =====
+
+    private async Task RunMetaAction(MetaFieldDefinition field, string eventName)
+    {
+        if (string.IsNullOrEmpty(field.ActionEvent) || string.IsNullOrEmpty(field.ActionScript)) return;
+        if (!string.Equals(field.ActionEvent, eventName, StringComparison.OrdinalIgnoreCase)) return;
+        var currentVal = GetMetaValue(field.Id);
+        var result = await JS.InvokeAsync<string>("MetaFieldActions.execute", field.ActionScript, currentVal);
+        if (result != currentVal) { metaValues[field.Id] = result; StateHasChanged(); }
+    }
+
+    private async Task OnMetaInput(MetaFieldDefinition field, ChangeEventArgs e)
+    {
+        var val = e.Value?.ToString() ?? "";
+        if (!string.IsNullOrEmpty(field.FormatMask))
+            val = await JS.InvokeAsync<string>("MetaFieldActions.applyMask", field.FormatMask, val);
+        SetMetaValue(field.Id, val);
+        await RunMetaAction(field, "input");
+    }
+
+    private async Task OnMetaChange(MetaFieldDefinition field, ChangeEventArgs e)
+    {
+        SetMetaValue(field.Id, e.Value?.ToString());
+        await RunMetaAction(field, "change");
+        StateHasChanged();
+    }
+
+    private async Task OnMetaBlur(MetaFieldDefinition field)
+    {
+        await RunMetaAction(field, "blur");
+        ValidateMetaField(field);
+    }
+
+    private void ValidateMetaField(MetaFieldDefinition field)
+    {
+        var val = GetMetaValue(field.Id);
+        metaFieldErrors.Remove(field.Id);
+        if (field.IsRequired && string.IsNullOrWhiteSpace(val))
+        {
+            metaFieldErrors[field.Id] = string.Format(L.Validation_FieldRequired, field.Label);
+            return;
+        }
+        if (!string.IsNullOrWhiteSpace(val) && !string.IsNullOrWhiteSpace(field.RegexPattern))
+        {
+            try
+            {
+                if (!System.Text.RegularExpressions.Regex.IsMatch(val, field.RegexPattern))
+                    metaFieldErrors[field.Id] = field.RegexMessage ?? string.Format(L.Validation_InvalidFormat, field.Label);
+            }
+            catch { }
+        }
+    }
+
+    private string GetMetaValue(string fieldId) =>
+        metaValues.TryGetValue(fieldId, out var val) ? val : "";
+
+    private void SetMetaValue(string fieldId, string? value)
+    {
+        metaValues[fieldId] = value ?? "";
+        metaFieldErrors.Remove(fieldId);
+    }
+
+    private bool IsMetaFieldVisible(MetaFieldDefinition field)
+    {
+        if (string.IsNullOrEmpty(field.ConditionalOnFieldId)) return true;
+        var parentValue = GetMetaValue(field.ConditionalOnFieldId);
+        return string.Equals(parentValue, field.ConditionalOnValue, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool ValidateMetaFields()
+    {
+        metaFieldErrors.Clear();
+        foreach (var field in metaFields.Where(IsMetaFieldVisible))
+        {
+            var val = GetMetaValue(field.Id);
+            if (field.IsRequired && string.IsNullOrWhiteSpace(val))
+            {
+                metaFieldErrors[field.Id] = string.Format(L.Validation_FieldRequired, field.Label);
+                continue;
+            }
+            if (!string.IsNullOrWhiteSpace(val) && !string.IsNullOrWhiteSpace(field.RegexPattern))
+            {
+                try
+                {
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(val, field.RegexPattern))
+                        metaFieldErrors[field.Id] = field.RegexMessage ?? string.Format(L.Validation_InvalidFormat, field.Label);
+                }
+                catch { }
+            }
+        }
+        return !metaFieldErrors.Any();
+    }
+
+    private async Task SaveMetaValues(BikePOS.Data.BikePosContext context)
+    {
+        var existing = await context.EntityMetaValue
+            .Where(mv => mv.EntityType == "ServiceTicket" && mv.EntityId == ticket!.Id)
+            .ToListAsync();
+
+        foreach (var field in metaFields)
+        {
+            var isVisible = IsMetaFieldVisible(field);
+            var val = metaValues.TryGetValue(field.Id, out var v) ? v : null;
+            var record = existing.FirstOrDefault(mv => mv.MetaFieldDefinitionId == field.Id);
+
+            if (!isVisible) { if (record is not null) record.Value = null; continue; }
+
+            if (record is not null)
+                record.Value = val;
+            else if (!string.IsNullOrWhiteSpace(val))
+                context.EntityMetaValue.Add(new EntityMetaValue
+                {
+                    EntityType = "ServiceTicket",
+                    EntityId = ticket!.Id,
+                    MetaFieldDefinitionId = field.Id,
+                    Value = val
+                });
+        }
+    }
+
+    private string StatusLabel(TicketStatus status) => status switch
+    {
+        TicketStatus.Open => L.Status_Open,
+        TicketStatus.InProgress => L.Status_InProgress,
+        TicketStatus.WaitingForParts => L.Status_WaitingForParts,
+        TicketStatus.Completed => L.Status_Completed,
+        TicketStatus.Charged => L.Status_Charged,
+        TicketStatus.Cancelled => L.Status_Cancelled,
+        _ => status.ToString()
+    };
+
+    private static string StatusBadgeClass(TicketStatus status) => status switch
+    {
+        TicketStatus.Open => "bg-blue-100 text-blue-700",
+        TicketStatus.InProgress => "bg-yellow-100 text-yellow-700",
+        TicketStatus.WaitingForParts => "bg-orange-100 text-orange-700",
+        TicketStatus.Completed => "bg-green-100 text-green-700",
+        TicketStatus.Charged => "bg-gray-100 text-gray-600",
+        TicketStatus.Cancelled => "bg-red-100 text-red-700",
+        _ => "bg-gray-100 text-gray-600"
+    };
+
+    // Block-based form field ordering
+    private void BuildTicketFormFields(List<BaseFieldLayout> baseLayouts)
+    {
+        var blocks = FormBlockDefinition.GetBlocks("ServiceTicket");
+        var defaultBlock = FormBlockDefinition.DefaultBlock("ServiceTicket");
+        var editableBaseKeys = new HashSet<string> { "Status", "Mechanic", "Notes", "DiscountPercent" };
+        var allFields = new List<FormField>();
+
+        foreach (var bl in baseLayouts.Where(b => editableBaseKeys.Contains(b.FieldKey)))
+            allFields.Add(new FormField { FieldKey = bl.FieldKey, SortOrder = bl.SortOrder, IsBase = true, Block = bl.Block });
+        foreach (var mf in metaFields)
+            allFields.Add(new FormField { FieldKey = mf.Key, SortOrder = mf.SortOrder, IsBase = false, MetaField = mf, Block = mf.Block ?? defaultBlock });
+
+        ticketBlockGroups = blocks
+            .Where(b => !b.IsFixed) // Skip fixed blocks (header, products, totals) — rendered structurally
+            .OrderBy(b => b.DisplayOrder)
+            .Select(b => new FormBlockGroup
+            {
+                BlockKey = b.Key,
+                Fields = allFields.Where(f => f.Block == b.Key).OrderBy(f => f.SortOrder).ThenBy(f => f.FieldKey).ToList()
+            })
+            .Where(g => g.Fields.Any())
+            .ToList();
+    }
+
+    private class FormField
+    {
+        public string FieldKey { get; set; } = "";
+        public int SortOrder { get; set; }
+        public bool IsBase { get; set; }
+        public string Block { get; set; } = "details";
+        public MetaFieldDefinition? MetaField { get; set; }
+    }
+
+    private class FormBlockGroup
+    {
+        public string BlockKey { get; set; } = "";
+        public List<FormField> Fields { get; set; } = new();
+    }
+
+}

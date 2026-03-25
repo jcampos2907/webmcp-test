@@ -407,17 +407,17 @@ No PCI scope — terminals handle card data on-device. The app only sends the am
 
 ## Phase 7: Enhancements
 
-- [ ] Customer component history (all components + service history per component)
+- [x] Customer component history (all components + service history per component)
 - [x] Ticket timeline/activity log (status changes, notes, who did what)
-- [ ] Mechanic workload view (assigned tickets dashboard)
-- [ ] Inventory alerts (stock below threshold)
-- [ ] Reports: daily sales, revenue by service type, mechanic productivity (Chart.js)
-- [ ] Notification system (WhatsApp/email when service is ready)
-- [ ] Billing/invoicing (electronic invoicing for CR tax compliance)
-- [ ] Print/email receipt after charge
-- [ ] Refund flow (reverse charge, reopen ticket)
-- [ ] CSV export for reports
-- [ ] Zero-flash i18n — eliminate the English flash on page load (see below)
+- [x] Mechanic workload view (assigned tickets dashboard)
+- ~~Inventory alerts~~ — deferred to ERP integration phase
+- [x] Reports: daily sales, revenue by service type, mechanic productivity (Chart.js)
+- [x] Notification system (WhatsApp/email when service is ready)
+- ~~Billing/invoicing~~ — deferred to ERP integration phase
+- [x] Print/email receipt after charge
+- [x] Refund flow (reverse charge, reopen ticket)
+- [x] CSV export for reports
+- [x] Zero-flash i18n — eliminate the English flash on page load (see below)
 
 ### Zero-Flash i18n
 
@@ -456,15 +456,7 @@ No PCI scope — terminals handle card data on-device. The app only sends the am
 
 ## Phase 8: ERP Integration
 
-**Goal**: Bidirectional sync with external ERP systems, configurable through admin UI.
-
-- [ ] Add `ExternalId` and `ExternalSource` fields to all syncable models (Customer, Component, Product, ServiceTicket, Charge)
-- [ ] Create `SyncMapping` model: maps BikePOS fields ↔ ERP fields per entity
-- [ ] Create `SyncLog` model: tracks sync events, errors, conflicts
-- [ ] Webhook/event system: model save hooks trigger outbound sync
-- [ ] Inbound sync endpoint: receives ERP updates
-- [ ] Settings UI: ERP connection config, field mapping editor, sync status dashboard
-- [ ] Support multiple ERPs simultaneously
+**Goal**: Bidirectional sync with external ERP systems, configurable through admin UI. The integration layer is ERP-agnostic — adapters implement a common interface so adding new ERPs doesn't touch core sync logic.
 
 ### Entities to Sync
 - Customers ↔ ERP Contacts/Business Partners
@@ -472,6 +464,108 @@ No PCI scope — terminals handle card data on-device. The app only sends the am
 - Components ↔ ERP Assets
 - ServiceTickets ↔ ERP Orders/Work Orders
 - Charges ↔ ERP Payments/Invoices
+
+### Step 1: Models & Migration — DONE
+- [x] Add `ExternalId` (string?) and `ExternalSource` (string?) fields to: Customer, Component, Product, ServiceTicket, Charge
+- [x] Create `ErpConnection` model — stores per-store ERP config: Name, Provider, BaseUrl, ApiKey, IsActive, entity sync toggles
+- [x] Create `SyncLog` model — tracks each sync attempt: ErpConnectionId, EntityType, EntityId, Direction, Status, RequestPayload, ResponsePayload, ErrorMessage, timestamps
+- [x] Create `SyncFieldMapping` model — per-connection field mapping: ErpConnectionId, EntityType, LocalField, RemoteField, IsRequired, TransformExpression
+- [x] Migration for all new models + fields
+
+### Step 2: Adapter Interface & Base Service — DONE
+- [x] Create `IErpAdapter` interface — PushEntityAsync, PullEntityAsync, TestConnectionAsync, GetRemoteFieldsAsync
+- [x] Create `GenericWebhookAdapter` — implements IErpAdapter via HTTP POST/GET, uses SyncFieldMapping to transform payloads
+- [x] Create `ErpSyncService` (scoped) — orchestrates sync: resolves adapter from ErpConnection.Provider, applies field mappings, logs to SyncLog
+
+### Step 3: Outbound Sync (BikePOS → ERP) — DONE
+- [x] Create `SyncTriggerService` — hooks into entity saves via fire-and-forget pattern
+- [x] Hooked into: CustomerForm, Product Create/Edit, Ticket Create/Edit/Cancel/Refund, Home charge creation
+- [x] Handle ExternalId assignment on first push (create) vs update on subsequent pushes
+
+### Step 4: Inbound Sync (ERP → BikePOS) — DONE
+- [x] Minimal API endpoint: `POST /api/erp/webhook/{connectionId}` — receives entity payloads from ERP, validates API key via Bearer token, maps fields back, upserts in BikePOS
+- [x] Logs all inbound sync attempts to SyncLog
+- [x] Assign/update ExternalId + ExternalSource on inbound creates
+
+### Step 5: Settings UI — DONE
+- [x] New Settings section "ERP" (SuperAdmin/Admin): list/add/edit/delete ErpConnections
+- [x] Connection form: name, provider, base URL, API key, entity toggles, test connection button
+- [x] Sync log viewer: table showing recent sync events, status, direction, errors
+- [x] I18n keys for all ERP UI (en + es)
+
+### Step 6: Inventory & Billing Sync — DONE
+- [x] Product inventory sync: inbound stock updates from ERP adjust QuantityInStock via webhook (QuantityInStock field is mapped through the generic ApplyFields mechanism)
+- [x] Charge → Invoice sync: outbound push of Charge data to ERP via SyncTriggerService on every charge creation (Home.razor, Edit.razor refund)
+- [x] Inventory alerts via ERP: ERP can push low-stock alerts inbound via the webhook endpoint
+
+### Implementation Order
+1. Models + migration (Step 1)
+2. IErpAdapter + GenericWebhookAdapter + ErpSyncService (Step 2)
+3. Outbound sync triggers (Step 3)
+4. Inbound webhook endpoint (Step 4)
+5. Settings UI (Step 5)
+6. Inventory & billing sync (Step 6)
+
+---
+
+## Phase 8b: ERP-Specific Adapters (NetSuite, SAP B1, Odoo, QuickBooks)
+
+**Goal**: Ship adapters for common real-world ERP systems so BikePOS can sync with NetSuite, SAP Business One, Odoo, and QuickBooks Online out of the box. Each adapter implements `IErpAdapter` with its provider's auth mechanism and API style.
+
+### Shared Infrastructure
+- [ ] `ErpAdapterBase.cs` — abstract base class with shared logic: `IHttpClientFactory` + `ILogger` injection, `ParseCredentials<T>()` JSON deserializer, `BuildEntityUrl()` helper, `HandleHttpResponse()` → `ErpSyncResult`
+- [ ] `ErpCredentials.cs` — typed credential DTOs per provider (all serialized to JSON in `ErpConnection.ApiKey`):
+  - `NetSuiteCredentials`: AccountId, ConsumerKey, ConsumerSecret, TokenId, TokenSecret
+  - `SapB1Credentials`: CompanyDb, Username, Password
+  - `OdooCredentials`: Database, Username, Password (or ApiKey)
+  - `QuickBooksCredentials`: ClientId, ClientSecret, RefreshToken, RealmId
+- [ ] Widen `ErpConnection.ApiKey` from `MaxLength(500)` to `MaxLength(2000)` + EF migration `WidenErpApiKey`
+
+### Adapters
+
+**1. QuickBooks Online** (`ProviderName = "quickbooks"`)
+- Auth: OAuth 2.0 with refresh token flow (`oauth.platform.intuit.com`)
+- Base URL: `https://quickbooks.api.intuit.com/v3/company/{realmId}`
+- Entity mapping: Customer → QBO Customer, Product → QBO Item, Charge → QBO Invoice/Payment
+- TestConnection: GET CompanyInfo
+- GetRemoteFields: hard-coded QBO field list per entity type
+
+**2. NetSuite** (`ProviderName = "netsuite"`)
+- Auth: OAuth 1.0 (HMAC-SHA256 signature in Authorization header)
+- Base URL: `https://{accountId}.suitetalk.api.netsuite.com/services/rest/record/v1`
+- Entity mapping: Customer → NS Customer, Product → NS InventoryItem, Charge → NS Invoice
+- TestConnection: GET /metadata-catalog
+- GetRemoteFields: GET /metadata-catalog/{entityType}
+
+**3. Odoo** (`ProviderName = "odoo"`)
+- Auth: JSON-RPC session (`/web/session/authenticate`)
+- Entity mapping: Customer → res.partner, Product → product.product, Charge → account.move
+- All operations via JSON-RPC `execute_kw`
+- GetRemoteFields: `execute_kw("ir.model.fields", "search_read", ...)`
+
+**4. SAP Business One** (`ProviderName = "sap_b1"`)
+- Auth: Session-based (`POST /b1s/v1/Login`, B1SESSION cookie)
+- Entity mapping: Customer → BusinessPartners, Product → Items, Charge → Invoices
+- OData-style REST API via Service Layer
+- GetRemoteFields: GET /$metadata, parse OData entity properties
+
+### Settings UI Updates
+- [ ] Add providers to dropdown: `quickbooks`, `netsuite`, `odoo`, `sap_b1`
+- [ ] Per-provider credential form (show relevant fields when provider changes instead of single ApiKey input)
+- [ ] On save: serialize credential fields to JSON → store in `ApiKey`; on edit: deserialize → populate fields
+- [ ] ~20 new i18n keys for provider names and credential field labels (en + es)
+
+### Registration
+- [ ] Register 4 new adapters as `AddSingleton<IErpAdapter, ...>` in `Program.cs`
+- [ ] `TestConnectionAsync` in Settings UI delegates to the resolved adapter (not generic HTTP)
+
+### Files to Create
+- `Services/ErpAdapterBase.cs`, `Models/ErpCredentials.cs`
+- `Services/QuickBooksAdapter.cs`, `Services/NetSuiteAdapter.cs`, `Services/OdooAdapter.cs`, `Services/SapB1Adapter.cs`
+
+### Files to Modify
+- `Models/ErpConnection.cs`, `Program.cs`, `Components/Pages/SettingsPages/Index.razor`
+- `I18nText/Text.en.json`, `I18nText/Text.es.json`
 
 ---
 
@@ -487,6 +581,172 @@ No PCI scope — terminals handle card data on-device. The app only sends the am
 
 ### New Prompts
 - ticket-summary, daily-report, inventory-status
+
+---
+
+## DDD Migration (Domain-Driven Design)
+
+**Goal**: Use BikePOS as a learning project to incrementally migrate from the current "smart entities + services" architecture to a proper DDD architecture. This is a gradual refactor — the app keeps working at every step.
+
+### Why
+- Learn DDD patterns hands-on with a real, working codebase
+- Improve separation of concerns as the project grows
+- Make the domain logic testable independent of infrastructure
+- Prepare for eventual CQRS/event sourcing if needed
+
+### Current State
+- **Anemic models** in `Models/` — mostly data containers with EF annotations, no behavior
+- **Business logic scattered** across Razor code-behind (`@code` blocks), `Program.cs` (webhook endpoint), and services (`ErpSyncService`, `SyncTriggerService`)
+- **No domain layer** — models, services, and infrastructure all live at the same level
+- **EF Core is the domain** — entities are EF entities, no separation between domain and persistence
+
+### Target Architecture — Multi-Project Solution (DONE)
+```
+BikePOS.sln
+src/
+├── BikePOS.Domain/              # Pure domain — no EF, no Blazor, no HTTP (no deps)
+│   ├── Aggregates/
+│   │   ├── ServiceTicket/       # Aggregate root + value objects + domain events
+│   │   ├── Customer/
+│   │   ├── Inventory/
+│   │   └── Billing/
+│   ├── Common/                  # Entity, AggregateRoot, ValueObject base classes
+│   ├── Events/                  # IDomainEvent marker interface
+│   ├── Models/                  # EF entity models (shared across layers)
+│   └── ValueObjects/            # Money, PhoneNumber, Email, Sku
+├── BikePOS.Interfaces/          # Contracts (refs Domain only)
+│   ├── Events/                  # IDomainEventDispatcher, IDomainEventHandler
+│   ├── Repositories/            # IServiceTicketRepository, ICustomerRepository, etc.
+│   └── Services/                # INotificationService, IErpAdapter, IPaymentTerminalProvider
+├── BikePOS.Application/         # CQRS use cases (refs Domain, Interfaces, Infrastructure)
+│   ├── Commands/                # CreateTicket, ProcessCharge, CancelTicket, ProcessRefund
+│   ├── Queries/                 # GetTicketDetails, DailySalesReport, ReportService
+│   ├── DTOs/                    # TicketDetailsDto
+│   └── EventHandlers/           # TicketCharged, StatusChanged, LowStock, CustomerCreated
+├── BikePOS.Infrastructure/      # Implementations (refs Domain, Interfaces)
+│   ├── Erp/                     # GenericWebhookAdapter, ErpSyncService, ErpEntityTranslator
+│   ├── Notifications/           # NotificationService (SMTP + WhatsApp)
+│   ├── Payments/                # ManualPaymentProvider, PaymentTerminalService
+│   ├── Persistence/             # BikePosContext, repos, SeedData, TenantContext
+│   └── Security/                # SecretProtector
+└── BikePOS.Web/                 # Blazor host — runnable project (refs all)
+    ├── Components/Pages/        # Razor pages (unchanged)
+    ├── Migrations/              # EF Core migrations
+    ├── I18nText/                # i18n JSON files
+    ├── wwwroot/                 # Static assets, WebMCP
+    └── Program.cs               # DI, middleware, endpoints
+```
+
+Layer boundaries are enforced at compile time via separate `.csproj` files. Each project has its own `RootNamespace` matching the folder name.
+
+### Bounded Contexts (initial identification)
+1. **Service Management** — ServiceTicket (aggregate root), ticket lifecycle, mechanic assignment
+2. **Customer Management** — Customer (aggregate root), components, service history
+3. **Inventory** — Product, Component stock tracking, low-stock alerts
+4. **Billing** — Charge, Refund, PaymentSession, terminal integration
+5. **ERP Integration** — Sync orchestration, adapters, field mappings (anti-corruption layer)
+6. **Identity & Tenancy** — Store, Company, AppUser, StoreUser (mostly infrastructure)
+
+### Migration Phases
+
+#### DDD-1: Domain Layer Foundation — DONE
+- [x] Create `Domain/` folder structure (`Domain/Common/`, `Domain/ValueObjects/`, `Domain/Aggregates/`, `Interfaces/`)
+- [x] Base classes: `Entity` (identity + equality), `AggregateRoot` (domain event collection), `ValueObject` (structural equality)
+- [x] Extract value objects: `Money` (amount + currency + arithmetic + discount), `Email` (regex validated), `PhoneNumber` (7–15 digit validation), `Sku` (uppercase alphanumeric)
+- [x] Define repository interfaces: `IServiceTicketRepository`, `ICustomerRepository`, `IProductRepository`, `IComponentRepository`, `IChargeRepository`, `IMechanicRepository`
+- [x] Define service interfaces: `INotificationService`, `IDomainEvent`, `IDomainEventDispatcher`
+- [x] Domain enums: `TicketStatus` + `TicketStatusTransitions` (allowed transition map)
+
+#### DDD-2: Rich Domain Models (ServiceTicket first) — DONE
+- [x] Create rich `ServiceTicketAggregate` with behavior methods:
+  - `Create()` factory method, `Reconstitute()` for loading from persistence
+  - `ChangeStatus(newStatus)` with guard clauses via `TicketStatusTransitions`
+  - `AssignMechanic()`, `UpdateDescription()`, `ApplyDiscount()`
+  - `AddProduct()` (merge if existing), `RemoveProduct()`, `CalculateInventoryDelta()`
+  - `ProcessCharge()` (validates, caps at remaining, auto-transitions to Charged when fully paid)
+  - `ProcessRefund()` (validates amount, creates negative charge, reopens ticket)
+  - `Cancel()` (returns inventory to restore list)
+  - Computed: `Subtotal`, `Total`, `TotalCharged`, `RemainingBalance`, `IsFullyPaid`, `IsReadOnly`
+- [x] Child entities: `LineItem` (product on ticket), `ChargeRecord` (payment/refund)
+- [x] Domain events: `TicketCreatedEvent`, `TicketStatusChangedEvent`, `TicketChargedEvent`, `ChargeRefundedEvent`
+- [x] EF persistence models in `Models/` remain unchanged — aggregate is a parallel domain model
+
+#### DDD-3: Application Layer (Commands & Queries) — DONE
+- [x] Command handlers:
+  - `CreateTicketCommandHandler` — creates aggregate, maps to persistence, decrements inventory, records timeline, triggers ERP sync
+  - `ProcessChargeCommandHandler` — reconstitutes aggregate, processes charge via domain, persists charge + status update
+  - `CancelTicketCommandHandler` — reconstitutes aggregate, cancels via domain, restores inventory
+  - `ProcessRefundCommandHandler` — reconstitutes aggregate, processes refund, updates ticket status
+- [x] Query handlers:
+  - `GetTicketDetailsQueryHandler` — returns `TicketDetailsDto` with full ticket state (products, charges, events, balances)
+  - `DailySalesQueryHandler` — aggregates daily revenue by payment method
+- [x] DTOs: `TicketDetailsDto`, `TicketProductDto`, `ChargeDto`, `TicketEventDto`
+- [x] Event handlers:
+  - `TicketChargedEventHandler` → logs + triggers ERP sync
+  - `TicketStatusChangedEventHandler` → sends notification when ticket completed
+  - `LowStockEventHandler` → logs warning + triggers ERP sync
+  - `CustomerCreatedEventHandler` → triggers ERP sync
+- [x] All handlers registered as scoped services in `Program.cs`
+- [ ] Blazor pages gradually migrate to call command/query handlers instead of DbContext directly (incremental — pages still work via existing code)
+
+#### DDD-4: Infrastructure Separation — DONE
+- [x] `Infrastructure/Persistence/` — 6 repository implementations:
+  - `ServiceTicketRepository`, `CustomerRepository`, `ProductRepository`, `ComponentRepository`, `ChargeRepository`, `MechanicRepository`
+  - All wrap `BikePosContext`, respect tenant query filters
+- [x] `Infrastructure/DomainEventDispatcher` — resolves `IDomainEventHandler<T>` via DI, dispatches after persistence, swallows handler failures (log + continue)
+- [x] `Infrastructure/Erp/` — anti-corruption layer (see DDD-6)
+- [x] Repository interfaces registered in `Program.cs` (`IFooRepository → FooRepository`)
+- [x] All services migrated out of `Services/` and `Data/` — folders deleted:
+  - `NotificationService` → `Infrastructure/Notifications/`
+  - `GenericWebhookAdapter`, `ErpSyncService`, `SyncTriggerService` → `Infrastructure/Erp/`
+  - `ManualPaymentProvider`, `PaymentTerminalService` → `Infrastructure/Payments/`
+  - `SecretProtector` → `Infrastructure/Security/`
+  - `BikePosContext`, `SeedData`, `TenantDbContextFactory`, `TenantContext`, `AuditDisplayService`, `ShopCultureService`, `TicketEventService` → `Infrastructure/Persistence/` (namespace kept as `BikePOS.Services` / `BikePOS.Data` for Razor compat — update incrementally)
+  - `ReportService` → `Application/Queries/` (namespace kept)
+  - `IErpAdapter` → `Interfaces/Services/`, `IPaymentTerminalProvider` → `Interfaces/Services/`
+
+#### DDD-5: Remaining Aggregates — DONE
+- [x] `CustomerAggregate` — Create/Reconstitute factory methods, `UpdateContactInfo()` with Email/PhoneNumber validation, `UpdateAddress()`, `AddComponent()`/`RemoveComponent()`, domain events (`CustomerCreatedEvent`, `ComponentAddedToCustomerEvent`)
+- [x] `ProductAggregate` — Create/Reconstitute factory methods, `DecrementStock()` with insufficient stock guard, `RestoreStock()`, `SetStock()`, `UpdateInfo()` with SKU validation, `LowStockEvent` at threshold, `IsLowStock`/`IsOutOfStock` properties
+- [x] Charge/Billing logic lives inside `ServiceTicketAggregate` as `ChargeRecord` child entity (refund, partial payment, mark completed/failed/cancelled)
+
+#### DDD-6: Anti-Corruption Layer for ERP — DONE
+- [x] `ErpEntityTranslator` — explicit, type-safe translation methods for Customer, Product, Component, ServiceTicket, Charge (replaces pure-reflection approach, falls back to SyncFieldMapping when configured)
+- [x] `ErpSyncDomainEventHandler` — `ErpTicketCreatedHandler`, `ErpTicketStatusChangedHandler`, `ErpCustomerCreatedHandler` — domain events drive ERP sync instead of manual `SyncTriggerService` calls
+- [x] All ERP event handlers registered in `Program.cs`
+
+#### DDD-7: Multi-Project Solution Split — DONE
+- [x] Created `BikePOS.sln` with 5 projects under `src/`:
+  - `BikePOS.Domain` — pure domain, no dependencies
+  - `BikePOS.Interfaces` — contracts, refs Domain only
+  - `BikePOS.Application` — CQRS handlers, refs Domain + Interfaces + Infrastructure
+  - `BikePOS.Infrastructure` — EF Core, services, refs Domain + Interfaces
+  - `BikePOS.Web` — Blazor host, refs all projects
+- [x] Moved `IDomainEvent` from Interfaces → Domain (avoids circular dependency)
+- [x] Moved `Models/` from root → `BikePOS.Domain/Models/` (shared entities belong in domain)
+- [x] Added `GlobalUsings.cs` to Infrastructure for `ILogger`/`IServiceScopeFactory`
+- [x] Configured `MigrationsAssembly("BikePOS.Web")` for EF Core (DbContext in Infrastructure, migrations in Web)
+- [x] Generated `AddMultiTenancy` migration for missing tables
+- [x] Removed old root-level `BikePOS.csproj` and all orphaned source folders
+- [x] Layer boundaries enforced at compile time — no circular dependencies possible
+- [x] `dotnet build BikePOS.sln` succeeds, `dotnet watch` runs correctly
+
+### Principles for the Migration
+- **One aggregate at a time** — don't try to refactor everything at once
+- **Keep the app working** — every commit should build and run
+- **Tests follow the domain** — add unit tests for domain logic as it's extracted (this is the first real use for a test project)
+- **UI changes are minimal** — Blazor pages just swap from `DbContext.Foo.Find()` to `IFooRepository.GetById()`
+- **No premature CQRS** — start with simple application services, introduce command/query separation only if complexity warrants it
+- **Value objects earn their place** — only create them when they carry validation or behavior, not just for wrapping a string
+
+### Learning Resources & Patterns to Explore
+- Aggregates and aggregate roots (consistency boundaries)
+- Value objects vs entities
+- Domain events and event-driven architecture
+- Repository pattern (domain-oriented, not generic `IRepository<T>`)
+- Specification pattern (for complex queries)
+- Anti-corruption layer (ERP integration boundary)
+- Eventually: CQRS and event sourcing if the project grows
 
 ---
 
@@ -521,15 +781,18 @@ Critical Bugs (immediate) ✅
   → Phase 1 (Bike→Component rename) ✅
     → Phase 2 (Ticket hardening) ✅
       → Phase 3 (i18n / Translation) ✅
-        → Phase 4 (Auth)
-          → Phase 5 (Payment terminal)
-            → Phase 6 (Parametrizable expansion)
-            → Phase 7 (Enhancements) ← was Phase 8, moved up
-            → Phase 8 (ERP integration) ← was Phase 7, moved down
+        → Phase 4 (Auth) ✅
+          → Phase 5 (Payment terminal) ✅
+            → Phase 6 (Parametrizable expansion) ✅
+            → Phase 7 (Enhancements) ✅
+            → Phase 8 (ERP integration) ✅
+              → Phase 8b (ERP-specific adapters)
             → Phase 9 (WebMCP expansion)
+            → DDD Migration (DDD-1 through DDD-7) ✅
 ```
 
 Phases 6-9 can run in parallel once Auth and Payment are done.
+DDD migration is orthogonal — it can start at any point and runs incrementally alongside feature work.
 
 ---
 

@@ -1,0 +1,34 @@
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace BikePOS.Models;
+
+public class Product
+{
+    [MaxLength(36)]
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+
+    [Required]
+    public string Name { get; set; } = null!;
+
+    [RegularExpression(@"^[A-Z0-9]+$", ErrorMessage = "SKU must be alphanumeric and uppercase.")]
+    public string? Sku { get; set; }
+
+    [DataType(DataType.Currency)]
+    [Column(TypeName = "decimal(18, 2)")]
+    public decimal Price { get; set; }
+
+    public int QuantityInStock { get; set; }
+
+    public string? Category { get; set; }
+
+    [MaxLength(36)]
+    public string? StoreId { get; set; }
+    public Store? Store { get; set; }
+
+    // ERP sync
+    [MaxLength(200)]
+    public string? ExternalId { get; set; }
+    [MaxLength(100)]
+    public string? ExternalSource { get; set; }
+}

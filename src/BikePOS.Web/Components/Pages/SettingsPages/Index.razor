@@ -1,0 +1,1748 @@
+@page "/settings"
+@page "/settings/{Section}"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin,Developer")]
+@using Microsoft.EntityFrameworkCore
+@using BikePOS.Models
+@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject I18nText I18nText
+@inject ShopCultureService CultureService
+@inject TenantContext Tenant
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<PageTitle>@L.Settings_Title</PageTitle>
+
+<div class="flex h-full">
+    @* Vertical nav *@
+    <nav class="w-56 bg-white border-r border-gray-200 p-4 flex-shrink-0">
+        <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">@L.Settings_Title</h2>
+        <ul class="space-y-1">
+            <li>
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("profile")"
+                        @onclick='() => NavigateToSection("profile")'>
+                    <i class="fa-solid fa-user w-5 text-center mr-2"></i>@L.Settings_Profile
+                </button>
+            </li>
+            <li>
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("components")"
+                        @onclick='() => NavigateToSection("components")'>
+                    <i class="fa-solid fa-cubes w-5 text-center mr-2"></i>@L.Settings_ComponentTypes
+                </button>
+            </li>
+            <li>
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("meta")"
+                        @onclick='() => NavigateToSection("meta")'>
+                    <i class="fa-solid fa-table-columns w-5 text-center mr-2"></i>@L.Settings_FormEditor
+                </button>
+            </li>
+            <li>
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("shop")"
+                        @onclick='() => NavigateToSection("shop")'>
+                    <i class="fa-solid fa-store w-5 text-center mr-2"></i>@L.Settings_ShopInfo
+                </button>
+            </li>
+            <li>
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("billing")"
+                        @onclick='() => NavigateToSection("billing")'>
+                    <i class="fa-solid fa-file-invoice w-5 text-center mr-2"></i>@L.Settings_Billing
+                </button>
+            </li>
+            <li>
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("notifications")"
+                        @onclick='() => NavigateToSection("notifications")'>
+                    <i class="fa-solid fa-bell w-5 text-center mr-2"></i>@L.Settings_Notifications
+                </button>
+            </li>
+
+            <li>
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("erp")"
+                        @onclick='() => NavigateToSection("erp")'>
+                    <i class="fa-solid fa-arrows-rotate w-5 text-center mr-2"></i>@L.Settings_Erp
+                </button>
+            </li>
+
+            @* Store management section *@
+            <li class="mt-4 pt-3 border-t border-gray-200">
+                <span class="text-[10px] text-gray-400 uppercase tracking-wider px-3">@L.Settings_Terminals</span>
+            </li>
+            <li>
+                <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("terminals")"
+                        @onclick='() => NavigateToSection("terminals")'>
+                    <i class="fa-solid fa-credit-card w-5 text-center mr-2"></i>@L.Settings_Terminals
+                </button>
+            </li>
+
+            @if (Tenant.Role == StoreRole.SuperAdmin)
+            {
+                @* Admin section divider *@
+                <li class="mt-4 pt-3 border-t border-gray-200">
+                    <span class="text-[10px] text-gray-400 uppercase tracking-wider px-3">@L.Settings_AdminSection</span>
+                </li>
+                <li>
+                    <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("organization")"
+                            @onclick='() => NavigateToSection("organization")'>
+                        <i class="fa-solid fa-sitemap w-5 text-center mr-2"></i>@L.Settings_Organization
+                    </button>
+                </li>
+                <li>
+                    <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("users")"
+                            @onclick='() => NavigateToSection("users")'>
+                        <i class="fa-solid fa-user-gear w-5 text-center mr-2"></i>@L.Settings_Users
+                    </button>
+                </li>
+            }
+            @if (Tenant.Role == StoreRole.SuperAdmin || Tenant.Role == StoreRole.Developer)
+            {
+                <li>
+                    <button class="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors @NavClass("oauth")"
+                            @onclick='() => NavigateToSection("oauth")'>
+                        <i class="fa-solid fa-key w-5 text-center mr-2"></i>@L.Settings_OAuth
+                    </button>
+                </li>
+            }
+        </ul>
+    </nav>
+
+    @* Content *@
+    <div class="flex-1 p-6 overflow-y-auto">
+        <div class="max-w-3xl">
+
+            @* ==================== Profile ==================== *@
+            @if (activeSection == "profile")
+            {
+                <h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_Profile</h1>
+                <p class="text-sm text-gray-500 mb-6">@L.Settings_ProfileSubtitle</p>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center">
+                            <i class="fa-solid fa-user text-indigo-400 text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-gray-800 font-semibold">@(string.IsNullOrEmpty(Tenant.DisplayName) ? L.Settings_NoName : Tenant.DisplayName)</p>
+                            <p class="text-sm text-gray-500">@(string.IsNullOrEmpty(Tenant.Email) ? L.Settings_NoEmail : Tenant.Email)</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">@L.Settings_FullName</label>
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500"
+                                   value="@Tenant.DisplayName" disabled />
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">@L.Common_Email</label>
+                            <input type="email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500"
+                                   value="@Tenant.Email" disabled />
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">@L.Common_Phone</label>
+                            <input type="tel" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                   @bind="profilePhone" placeholder="@L.Settings_PhonePlaceholder" />
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">@L.Settings_Role</label>
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500" value="@Tenant.Role" disabled />
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">@L.Settings_Language</label>
+                            <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                    @bind="selectedLanguage">
+                                <option value="es">Espanol</option>
+                                <option value="en">English</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(profileSaveMessage))
+                    {
+                        <div class="text-sm text-green-600 bg-green-50 rounded-lg px-3 py-2 mt-4">@profileSaveMessage</div>
+                    }
+
+                    <div class="mt-4">
+                        <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
+                                @onclick="SaveProfile">@L.Common_Save</button>
+                    </div>
+                </div>
+            }
+
+            @* ==================== Component Types ==================== *@
+            @if (activeSection == "components")
+            {
+                <h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_ComponentTypes</h1>
+                <p class="text-sm text-gray-500 mb-6">@L.Settings_ComponentTypesSubtitle</p>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    @if (componentTypes.Any())
+                    {
+                        <div class="space-y-2 mb-4">
+                            @foreach (var ct in componentTypes)
+                            {
+                                <div class="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2">
+                                    <span class="text-sm text-gray-800">@ct</span>
+                                    <button class="text-red-400 hover:text-red-600 text-xs" @onclick="() => RemoveComponentType(ct)">@L.Common_Remove</button>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-sm text-gray-400 mb-4">@L.Settings_NoTypes</p>
+                    }
+
+                    <div class="flex items-center gap-2">
+                        <input type="text" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                               placeholder="@L.Settings_NewTypePlaceholder" @bind="newComponentType" @bind:event="oninput"
+                               @onkeydown="HandleComponentTypeKeyDown" />
+                        <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                                @onclick="AddComponentType" disabled="@string.IsNullOrWhiteSpace(newComponentType)">
+                            @L.Common_Add
+                        </button>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(componentTypeError))
+                    {
+                        <div class="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mt-3">@componentTypeError</div>
+                    }
+                    @if (!string.IsNullOrEmpty(componentTypeSaveMessage))
+                    {
+                        <div class="text-sm text-green-600 bg-green-50 rounded-lg px-3 py-2 mt-3">@componentTypeSaveMessage</div>
+                    }
+                </div>
+            }
+
+            @* ==================== Form Editor ==================== *@
+            @if (activeSection == "meta")
+            {
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_FormEditor</h1>
+                        <p class="text-sm text-gray-500">@L.Settings_FormEditorSubtitle</p>
+                    </div>
+                    <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex-shrink-0"
+                            @onclick="ShowAddField">
+                        @L.Settings_AddField
+                    </button>
+                </div>
+
+                @* Entity type tabs *@
+                <div class="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1">
+                    @foreach (var et in EntityTypes)
+                    {
+                        <button class="flex-1 text-sm px-3 py-2 rounded-md transition-colors @(selectedEntityType == et.Key ? "bg-white text-indigo-700 font-semibold shadow-sm" : "text-gray-600 hover:text-gray-800")"
+                                @onclick="() => SwitchEntityType(et.Key)">
+                            @et.Value
+                        </button>
+                    }
+                </div>
+
+                @if (showFieldForm)
+                {
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
+                        <h4 class="text-sm font-semibold text-gray-800 mb-4">@(!string.IsNullOrEmpty(editingFieldId) ? L.Settings_EditField : L.Settings_NewField)</h4>
+
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_Label <span class="text-red-500">*</span></label>
+                                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                       placeholder="@L.Settings_LabelPlaceholder" @bind="fieldLabel" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_Key <span class="text-red-500">*</span></label>
+                                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                       placeholder="@L.Settings_KeyPlaceholder" @bind="fieldKey" />
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_FieldType</label>
+                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" @bind="fieldType">
+                                    <option value="text">@L.Settings_FieldText</option>
+                                    <option value="number">@L.Settings_FieldNumber</option>
+                                    <option value="email">@L.Settings_FieldEmail</option>
+                                    <option value="tel">@L.Settings_FieldPhone</option>
+                                    <option value="date">@L.Settings_FieldDate</option>
+                                    <option value="url">@L.Settings_FieldUrl</option>
+                                    <option value="select">@L.Settings_FieldSelect</option>
+                                </select>
+                            </div>
+                            @if (fieldType == "select")
+                            {
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">@L.Settings_OptionsComma</label>
+                                    <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                           placeholder="@L.Settings_OptionsPlaceholder" @bind="fieldOptions" />
+                                </div>
+                            }
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_FieldBlock</label>
+                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" @bind="fieldBlock">
+                                    @foreach (var b in FormBlockDefinition.GetBlocks(selectedEntityType).Where(b => !b.IsFixed))
+                                    {
+                                        <option value="@b.Key">@ResolveBlockLabel(b.LabelKey)</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+
+                        <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">@L.Settings_Validation</p>
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_RegexValidation</label>
+                                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                       placeholder="@L.Settings_RegexPlaceholder" @bind="fieldRegex" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_RegexErrorMessage</label>
+                                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                       placeholder="@L.Settings_RegexErrorPlaceholder" @bind="fieldRegexMessage" />
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_FormatMask</label>
+                                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                       placeholder="@L.Settings_FormatMaskPlaceholder" @bind="fieldFormatMask" />
+                                <p class="text-xs text-gray-400 mt-1">9 = digit, A = letter, X = any</p>
+                            </div>
+                            <div class="flex items-end pb-1">
+                                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                    <input type="checkbox" class="rounded border-gray-300" @bind="fieldIsRequired" />
+                                    @L.Settings_RequiredField
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-xs text-gray-500 mb-1">@L.Settings_DefaultValue</label>
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                   placeholder="@L.Settings_DefaultValuePlaceholder" @bind="fieldDefaultValue" />
+                        </div>
+
+                        <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">Action</p>
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_ActionEvent</label>
+                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                        @bind="fieldActionEvent">
+                                    <option value="">@L.Settings_ActionNone</option>
+                                    <option value="blur">@L.Settings_ActionOnBlur</option>
+                                    <option value="input">@L.Settings_ActionOnInput</option>
+                                    <option value="change">@L.Settings_ActionOnChange</option>
+                                </select>
+                            </div>
+                            @if (!string.IsNullOrEmpty(fieldActionEvent))
+                            {
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">@L.Settings_ActionScript</label>
+                                    <textarea class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                              rows="3" placeholder="@L.Settings_ActionScriptPlaceholder"
+                                              @bind="fieldActionScript"></textarea>
+                                    <p class="text-xs text-gray-400 mt-1">@L.Settings_ActionScriptHint</p>
+                                </div>
+                            }
+                        </div>
+
+                        <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">@L.Settings_ConditionalVisibility</p>
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">@L.Settings_ShowWhenField</label>
+                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                        @bind="fieldConditionalOnId">
+                                    <option value="">@L.Settings_AlwaysVisible</option>
+                                    @foreach (var f in metaFields.Where(f => f.Id != editingFieldId && f.FieldType == "select"))
+                                    {
+                                        <option value="@f.Id">@f.Label</option>
+                                    }
+                                </select>
+                            </div>
+                            @if (!string.IsNullOrEmpty(fieldConditionalOnId))
+                            {
+                                var parentField = metaFields.FirstOrDefault(f => f.Id.ToString() == fieldConditionalOnId);
+                                @if (parentField is not null && !string.IsNullOrEmpty(parentField.Options))
+                                {
+                                    <div>
+                                        <label class="block text-xs text-gray-500 mb-1">@L.Settings_HasValue</label>
+                                        <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                                @bind="fieldConditionalOnValue">
+                                            <option value="">@L.Common_Select</option>
+                                            @foreach (var opt in parentField.Options.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                                            {
+                                                <option value="@opt">@opt</option>
+                                            }
+                                        </select>
+                                    </div>
+                                }
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(fieldError))
+                        {
+                            <div class="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">@fieldError</div>
+                        }
+
+                        <div class="flex gap-2">
+                            <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg" @onclick="SaveField">@L.Settings_SaveField</button>
+                            <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm px-4 py-2 rounded-lg" @onclick="CancelFieldForm">@L.Common_Cancel</button>
+                        </div>
+                    </div>
+                }
+
+                @* Block-based field list *@
+                @if (editorBlockGroups.Any(g => g.Fields.Any()))
+                {
+                    @if (!string.IsNullOrEmpty(editorSaveMessage))
+                    {
+                        <div class="text-sm text-green-600 bg-green-50 rounded-lg px-3 py-2 mb-3">@editorSaveMessage</div>
+                    }
+
+                    <div class="space-y-4">
+                        @foreach (var block in editorBlockGroups.OrderBy(b => b.DisplayOrder))
+                        {
+                            @if (!block.Fields.Any()) continue;
+
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                                @* Block header *@
+                                <div class="flex items-center gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+                                    @if (block.IsFixed)
+                                    {
+                                        <i class="fa-solid fa-lock text-gray-400 text-[10px]"></i>
+                                    }
+                                    else
+                                    {
+                                        <i class="fa-solid fa-grip-lines text-gray-400 text-xs"></i>
+                                    }
+                                    <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">@block.BlockLabel</span>
+                                    @if (block.IsFixed)
+                                    {
+                                        <span class="text-[10px] text-gray-400 ml-1">@L.Settings_FixedBlock</span>
+                                    }
+                                </div>
+
+                                @* Fields container — DnD enabled per non-fixed block *@
+                                <div class="form-editor-block space-y-1 p-2 min-h-[2.5rem]"
+                                     data-block="@block.BlockKey" data-fixed="@(block.IsFixed ? "true" : "false")">
+                                    @foreach (var ef in block.Fields)
+                                    {
+                                        <div data-field-id="@ef.UniqueId" draggable="@(!block.IsFixed)"
+                                             class="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 hover:shadow-sm transition-shadow @(!block.IsFixed ? "cursor-grab active:cursor-grabbing" : "bg-gray-50")">
+                                            @if (!block.IsFixed)
+                                            {
+                                                <i class="fa-solid fa-grip-vertical text-gray-300 flex-shrink-0"></i>
+                                            }
+
+                                            <span class="text-xs text-gray-400 w-6 text-center flex-shrink-0">@ef.SortOrder</span>
+
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-sm font-medium text-gray-800 truncate">@ef.Label</span>
+                                                    <span class="text-xs font-mono text-gray-400">@ef.FieldKey</span>
+                                                    @if (ef.IsRequired)
+                                                    {
+                                                        <span class="text-red-500 text-xs">*</span>
+                                                    }
+                                                </div>
+                                            </div>
+
+                                            <span class="text-xs px-2 py-0.5 rounded-full flex-shrink-0 @(ef.IsBase ? "bg-gray-100 text-gray-500" : "bg-indigo-50 text-indigo-600")">
+                                                @ef.FieldType
+                                            </span>
+
+                                            @if (ef.IsBase)
+                                            {
+                                                <span class="flex items-center gap-1 text-xs text-gray-400 flex-shrink-0">
+                                                    <i class="fa-solid fa-lock text-[10px]"></i> @L.Settings_BaseField
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-xs text-indigo-500 flex-shrink-0">@L.Settings_CustomField</span>
+                                            }
+
+                                            @if (!ef.IsBase)
+                                            {
+                                                @if (ef.MetaField!.IsActive)
+                                                {
+                                                    <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex-shrink-0">@L.Common_Active</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full flex-shrink-0">@L.Common_Inactive</span>
+                                                }
+
+                                                <div class="flex items-center gap-1 flex-shrink-0">
+                                                    <button class="text-indigo-600 hover:text-indigo-800 text-xs px-1" @onclick="() => EditField(ef.MetaField!)">@L.Common_Edit</button>
+                                                    <button class="text-gray-400 hover:text-gray-600 text-xs px-1" @onclick="() => ToggleFieldActive(ef.MetaField!)">
+                                                        @(ef.MetaField!.IsActive ? L.Settings_Deactivate : L.Settings_Activate)
+                                                    </button>
+                                                    <button class="text-red-400 hover:text-red-600 text-xs px-1" @onclick="() => DeleteField(ef.MetaField!)">@L.Common_Delete</button>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else if (!showFieldForm)
+                {
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+                        <i class="fa-solid fa-table-columns text-gray-300 text-3xl mb-3"></i>
+                        <p class="text-sm text-gray-400">@L.Settings_FormEditorNoFields</p>
+                    </div>
+                }
+            }
+
+            @* ==================== Shop Info ==================== *@
+            @if (activeSection == "shop")
+            {
+                <h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_ShopInfo</h1>
+                <p class="text-sm text-gray-500 mb-6">@L.Settings_ShopInfoSubtitle</p>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="col-span-2">
+                            <label class="block text-sm text-gray-600 mb-1">@L.Settings_ShopName</label>
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                   @bind="shopName" placeholder="@L.Settings_ShopNamePlaceholder" />
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">@L.Settings_TaxId</label>
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                   @bind="shopTaxId" placeholder="@L.Settings_TaxIdPlaceholder" />
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">@L.Settings_BusinessType</label>
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                   @bind="shopBusinessType" placeholder="@L.Settings_BusinessTypePlaceholder" />
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">@L.Common_Phone</label>
+                            <input type="tel" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                   @bind="shopPhone" placeholder="@L.Settings_ShopPhone" />
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">@L.Common_Email</label>
+                            <input type="email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                   @bind="shopEmail" placeholder="@L.Settings_ShopEmail" />
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-sm text-gray-600 mb-1">@L.Common_Address</label>
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                   @bind="shopAddress" placeholder="@L.Settings_ShopAddress" />
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-sm text-gray-600 mb-1">@L.Settings_Locale</label>
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500"
+                                   value="@(Tenant.CompanyName ?? "—")" disabled />
+                            <p class="text-xs text-gray-400 mt-1">@L.Settings_LocaleManagedByCompany</p>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(shopSaveMessage))
+                    {
+                        <div class="text-sm text-green-600 bg-green-50 rounded-lg px-3 py-2 mt-4">@shopSaveMessage</div>
+                    }
+
+                    <div class="mt-4">
+                        <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
+                                @onclick="SaveShopSettings">@L.Common_Save</button>
+                    </div>
+                </div>
+            }
+
+            @* ==================== Placeholder sections ==================== *@
+            @if (activeSection == "billing")
+            {
+                <h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_Billing</h1>
+                <p class="text-sm text-gray-500 mb-6">@L.Settings_BillingSubtitle</p>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+                    <i class="fa-solid fa-file-invoice text-gray-300 text-3xl mb-3"></i>
+                    <p class="text-sm text-gray-400">@L.Settings_BillingComingSoon</p>
+                </div>
+            }
+
+            @if (activeSection == "notifications")
+            {
+                <h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_Notifications</h1>
+                <p class="text-sm text-gray-500 mb-6">@L.Settings_NotificationsSubtitle</p>
+
+                @* Message Template *@
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-3">@L.Notify_MessageTemplate</h3>
+                    <textarea class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                              rows="3"
+                              @bind="notifyMessageTemplate"></textarea>
+                    <p class="text-xs text-gray-400 mt-1">@L.Notify_TemplatePlaceholders</p>
+                </div>
+
+                @* Email (SMTP) *@
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                            <i class="fa-solid fa-envelope text-gray-400"></i> @L.Notify_Email
+                        </h3>
+                        <label class="flex items-center gap-2 text-sm cursor-pointer">
+                            <input type="checkbox" class="rounded border-gray-300" @bind="notifyEmailEnabled" />
+                            @L.Notify_Enabled
+                        </label>
+                    </div>
+                    @if (notifyEmailEnabled)
+                    {
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">@L.Notify_SmtpHost</label>
+                                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="smtp.gmail.com" @bind="notifySmtpHost" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">@L.Notify_SmtpPort</label>
+                                <input type="number" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="587" @bind="notifySmtpPort" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">@L.Notify_SmtpUser</label>
+                                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" @bind="notifySmtpUser" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">@L.Notify_SmtpPassword</label>
+                                <input type="password" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" @bind="notifySmtpPassword" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">@L.Notify_FromEmail</label>
+                                <input type="email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" @bind="notifySmtpFrom" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">@L.Notify_EmailSubject</label>
+                                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" @bind="notifyEmailSubject" />
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                @* WhatsApp *@
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                            <i class="fa-brands fa-whatsapp text-green-500"></i> WhatsApp
+                        </h3>
+                        <label class="flex items-center gap-2 text-sm cursor-pointer">
+                            <input type="checkbox" class="rounded border-gray-300" @bind="notifyWhatsappEnabled" />
+                            @L.Notify_Enabled
+                        </label>
+                    </div>
+                    @if (notifyWhatsappEnabled)
+                    {
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">@L.Notify_WebhookUrl</label>
+                                <input type="url" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="https://..." @bind="notifyWhatsappWebhookUrl" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">@L.Notify_ApiToken</label>
+                                <input type="password" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" @bind="notifyWhatsappApiToken" />
+                            </div>
+                            <p class="text-xs text-gray-400">@L.Notify_WebhookHint</p>
+                        </div>
+                    }
+                </div>
+
+                <button class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors"
+                        @onclick="SaveNotificationSettings">
+                    @L.Common_Save
+                </button>
+                @if (notifySaveMessage is not null)
+                {
+                    <span class="ml-3 text-sm text-green-600">@notifySaveMessage</span>
+                }
+            }
+
+            @* ==================== Role-gated sections ==================== *@
+            @* ==================== ERP Integration ==================== *@
+            @if (activeSection == "erp" && IsAdminOrAbove)
+            {
+                <h1 class="text-xl font-bold text-gray-800 mb-1">@L.Settings_Erp</h1>
+                <p class="text-sm text-gray-500 mb-6">@L.Erp_Subtitle</p>
+
+                @if (!showErpForm)
+                {
+                    <div class="mb-4">
+                        <button class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700"
+                                @onclick="AddNewConnection">
+                            <i class="fa-solid fa-plus mr-1"></i> @L.Erp_AddConnection
+                        </button>
+                        <button class="px-4 py-2 ml-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
+                                @onclick="ToggleSyncLogs">
+                            <i class="fa-solid fa-list mr-1"></i> @L.Erp_SyncLogs
+                        </button>
+                    </div>
+
+                    @if (erpConnections.Count == 0)
+                    {
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center text-gray-400">
+                            <i class="fa-solid fa-arrows-rotate text-3xl mb-2"></i>
+                            <p>@L.Erp_NoConnections</p>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var conn in erpConnections)
+                        {
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-3">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <span class="w-2 h-2 rounded-full @(conn.IsActive ? "bg-green-400" : "bg-gray-300")"></span>
+                                        <div>
+                                            <p class="font-semibold text-gray-800">@conn.Name</p>
+                                            <p class="text-xs text-gray-500">@conn.Provider — @conn.BaseUrl</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <button class="px-3 py-1 text-xs bg-gray-100 rounded hover:bg-gray-200" @onclick="() => EditConnection(conn)">
+                                            <i class="fa-solid fa-pen"></i>
+                                        </button>
+                                        <button class="px-3 py-1 text-xs bg-red-50 text-red-600 rounded hover:bg-red-100" @onclick="() => DeleteConnection(conn.Id)">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="mt-2 flex gap-2 text-xs">
+                                    @if (conn.SyncCustomers) { <span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded">@L.Erp_Customers</span> }
+                                    @if (conn.SyncProducts) { <span class="px-2 py-0.5 bg-green-50 text-green-600 rounded">@L.Erp_Products</span> }
+                                    @if (conn.SyncComponents) { <span class="px-2 py-0.5 bg-yellow-50 text-yellow-600 rounded">@L.Erp_Components</span> }
+                                    @if (conn.SyncTickets) { <span class="px-2 py-0.5 bg-purple-50 text-purple-600 rounded">@L.Erp_Tickets</span> }
+                                    @if (conn.SyncCharges) { <span class="px-2 py-0.5 bg-orange-50 text-orange-600 rounded">@L.Erp_Charges</span> }
+                                </div>
+                            </div>
+                        }
+                    }
+
+                    @if (showSyncLogs)
+                    {
+                        <h2 class="text-lg font-semibold text-gray-800 mt-6 mb-3">@L.Erp_SyncLogs</h2>
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="text-left px-3 py-2 text-gray-500 font-medium">@L.Erp_LogTime</th>
+                                        <th class="text-left px-3 py-2 text-gray-500 font-medium">@L.Erp_LogDirection</th>
+                                        <th class="text-left px-3 py-2 text-gray-500 font-medium">@L.Erp_LogEntity</th>
+                                        <th class="text-left px-3 py-2 text-gray-500 font-medium">@L.Erp_LogStatus</th>
+                                        <th class="text-left px-3 py-2 text-gray-500 font-medium">@L.Erp_LogError</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var log in recentSyncLogs)
+                                    {
+                                        <tr class="border-t border-gray-100">
+                                            <td class="px-3 py-2 text-gray-600">@log.CreatedAt.ToString("g")</td>
+                                            <td class="px-3 py-2">
+                                                <span class="px-2 py-0.5 rounded text-xs @(log.Direction == SyncDirection.Outbound ? "bg-blue-50 text-blue-600" : "bg-green-50 text-green-600")">
+                                                    @log.Direction
+                                                </span>
+                                            </td>
+                                            <td class="px-3 py-2 text-gray-700">@log.EntityType</td>
+                                            <td class="px-3 py-2">
+                                                <span class="px-2 py-0.5 rounded text-xs @SyncStatusClass(log.Status)">@log.Status</span>
+                                            </td>
+                                            <td class="px-3 py-2 text-red-500 text-xs truncate max-w-[200px]">@log.ErrorMessage</td>
+                                        </tr>
+                                    }
+                                    @if (recentSyncLogs.Count == 0)
+                                    {
+                                        <tr><td colspan="5" class="px-3 py-4 text-center text-gray-400">@L.Erp_NoLogs</td></tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                }
+                else
+                {
+                    @* ERP Connection Form *@
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h2 class="text-lg font-semibold text-gray-800 mb-4">
+                            @(editingConnection?.Id != null ? L.Erp_EditConnection : L.Erp_AddConnection)
+                        </h2>
+
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">@L.Erp_ConnName</label>
+                                <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                       @bind="editingConnection!.Name" />
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">@L.Erp_Provider</label>
+                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                                        @bind="editingConnection!.Provider">
+                                    <option value="generic_webhook">Generic Webhook</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">@L.Erp_BaseUrl</label>
+                                <input type="url" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                       @bind="editingConnection!.BaseUrl" placeholder="https://erp.example.com/api" />
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">@L.Erp_ApiKey</label>
+                                <input type="password" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                       @bind="editingConnection!.ApiKey" />
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="flex items-center gap-2 text-sm text-gray-700">
+                                <input type="checkbox" @bind="editingConnection!.IsActive" class="rounded" />
+                                @L.Erp_Active
+                            </label>
+                        </div>
+
+                        <h3 class="text-sm font-semibold text-gray-700 mb-2">@L.Erp_SyncEntities</h3>
+                        <div class="flex flex-wrap gap-4 mb-6">
+                            <label class="flex items-center gap-2 text-sm">
+                                <input type="checkbox" @bind="editingConnection!.SyncCustomers" class="rounded" /> @L.Erp_Customers
+                            </label>
+                            <label class="flex items-center gap-2 text-sm">
+                                <input type="checkbox" @bind="editingConnection!.SyncProducts" class="rounded" /> @L.Erp_Products
+                            </label>
+                            <label class="flex items-center gap-2 text-sm">
+                                <input type="checkbox" @bind="editingConnection!.SyncComponents" class="rounded" /> @L.Erp_Components
+                            </label>
+                            <label class="flex items-center gap-2 text-sm">
+                                <input type="checkbox" @bind="editingConnection!.SyncTickets" class="rounded" /> @L.Erp_Tickets
+                            </label>
+                            <label class="flex items-center gap-2 text-sm">
+                                <input type="checkbox" @bind="editingConnection!.SyncCharges" class="rounded" /> @L.Erp_Charges
+                            </label>
+                        </div>
+
+                        @if (erpTestMessage != null)
+                        {
+                            <p class="text-sm mb-3 @(erpTestMessage.Contains("✓") ? "text-green-600" : "text-red-500")">@erpTestMessage</p>
+                        }
+                        @if (erpSaveMessage != null)
+                        {
+                            <p class="text-sm mb-3 text-green-600">@erpSaveMessage</p>
+                        }
+
+                        <div class="flex gap-2">
+                            <button class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700"
+                                    @onclick="SaveErpConnection">
+                                @L.Common_Save
+                            </button>
+                            <button class="px-4 py-2 bg-yellow-50 text-yellow-700 rounded-lg text-sm hover:bg-yellow-100"
+                                    @onclick="TestErpConnection">
+                                <i class="fa-solid fa-plug mr-1"></i> @L.Erp_TestConnection
+                            </button>
+                            <button class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
+                                    @onclick="CancelErpForm">
+                                @L.Common_Cancel
+                            </button>
+                        </div>
+                    </div>
+                }
+            }
+
+            @if (activeSection == "organization" && IsSuperAdmin)
+            {
+                <OrganizationSection />
+            }
+
+            @if (activeSection == "users" && IsSuperAdmin)
+            {
+                <UsersSection />
+            }
+
+            @if (activeSection == "terminals" && IsAdminOrAbove)
+            {
+                <TerminalsSection />
+            }
+
+            @if (activeSection == "oauth" && IsSuperAdminOrDev)
+            {
+                <OAuthSection />
+            }
+
+        </div>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] public Text L { get; set; } = default!;
+    private string activeSection = "profile";
+
+    [Parameter]
+    public string? Section { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private static readonly HashSet<string> ValidSections = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "profile", "components", "meta", "shop", "billing", "notifications", "erp", "organization", "users", "terminals", "oauth"
+    };
+
+    // --- Notifications ---
+    private bool notifyEmailEnabled;
+    private string notifySmtpHost = "";
+    private string notifySmtpPort = "587";
+    private string notifySmtpUser = "";
+    private string notifySmtpPassword = "";
+    private string notifySmtpFrom = "";
+    private string notifyEmailSubject = "";
+    private bool notifyWhatsappEnabled;
+    private string notifyWhatsappWebhookUrl = "";
+    private string notifyWhatsappApiToken = "";
+    private string notifyMessageTemplate = "";
+    private string? notifySaveMessage;
+
+    // --- ERP ---
+    private List<ErpConnection> erpConnections = new();
+    private ErpConnection? editingConnection;
+    private bool showErpForm;
+    private string? erpSaveMessage;
+    private string? erpTestMessage;
+    private List<SyncLog> recentSyncLogs = new();
+    private bool showSyncLogs;
+
+    // --- Profile ---
+    private string profilePhone = "";
+    private string? profileSaveMessage;
+
+    // --- Component Types ---
+    private List<string> componentTypes = new();
+    private string newComponentType = "";
+    private string? componentTypeError;
+    private string? componentTypeSaveMessage;
+
+    private static readonly string[] DefaultComponentTypes = ["Bicicleta", "Aro", "Pedal", "Marco", "Rueda", "Otro"];
+
+    // --- Form Editor ---
+    private string selectedEntityType = "Customer";
+    private List<MetaFieldDefinition> metaFields = new();
+    private List<BaseFieldLayout> baseFields = new();
+    private List<EditorBlockGroup> editorBlockGroups = new();
+    private string? editorSaveMessage;
+    private DotNetObjectReference<Index>? _dotNetRef;
+    private bool _dndInitialized;
+    private bool showFieldForm = false;
+    private string? editingFieldId;
+    private string fieldLabel = "";
+    private string fieldKey = "";
+    private string fieldType = "text";
+    private bool fieldIsRequired = false;
+    private int fieldSortOrder = 0;
+    private string fieldRegex = "";
+    private string fieldRegexMessage = "";
+    private string fieldFormatMask = "";
+    private string fieldDefaultValue = "";
+    private string fieldOptions = "";
+    private string fieldConditionalOnId = "";
+    private string fieldConditionalOnValue = "";
+    private string fieldActionEvent = "";
+    private string fieldActionScript = "";
+    private string fieldBlock = "";
+    private string? fieldError;
+
+    // --- Shop Settings ---
+    private string shopName = "";
+    private string shopTaxId = "";
+    private string shopBusinessType = "";
+    private string shopPhone = "";
+    private string shopEmail = "";
+    private string shopAddress = "";
+    private string? shopSaveMessage;
+
+    // --- Language ---
+    private string selectedLanguage = "es";
+
+    private string NavClass(string section) =>
+        activeSection == section ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-gray-600 hover:bg-gray-50";
+
+    private bool IsSuperAdmin => Tenant.Role == StoreRole.SuperAdmin;
+    private bool IsSuperAdminOrDev => Tenant.Role == StoreRole.SuperAdmin || Tenant.Role == StoreRole.Developer;
+    private bool IsAdminOrAbove => Tenant.Role == StoreRole.SuperAdmin || Tenant.Role == StoreRole.Admin;
+
+    // Sections that require specific roles — anything not listed is available to all Settings users
+    private static readonly Dictionary<string, Func<StoreRole, bool>> SectionRoleGuards = new()
+    {
+        ["organization"] = role => role == StoreRole.SuperAdmin,
+        ["users"] = role => role == StoreRole.SuperAdmin,
+        ["terminals"] = role => role is StoreRole.SuperAdmin or StoreRole.Admin,
+        ["oauth"] = role => role is StoreRole.SuperAdmin or StoreRole.Developer,
+        ["meta"] = role => role == StoreRole.SuperAdmin,
+        ["erp"] = role => role is StoreRole.SuperAdmin or StoreRole.Admin,
+    };
+
+    private bool CanAccessSection(string section) =>
+        Tenant.Role.HasValue && (!SectionRoleGuards.TryGetValue(section, out var guard) || guard(Tenant.Role.Value));
+
+    protected override void OnParametersSet()
+    {
+        var requested = ValidSections.Contains(Section ?? "")
+            ? Section!.ToLowerInvariant()
+            : "profile";
+
+        // Enforce role — fall back to profile if unauthorized
+        activeSection = CanAccessSection(requested) ? requested : "profile";
+    }
+
+    private void NavigateToSection(string section)
+    {
+        Navigation.NavigateTo($"/settings/{section}");
+    }
+
+    private Dictionary<string, string> EntityTypes => new()
+    {
+        ["Customer"] = L.Settings_EntityCustomer,
+        ["Component"] = L.Settings_EntityComponent,
+        ["ServiceTicket"] = L.Settings_EntityServiceTicket,
+        ["Company"] = L.Settings_EntityCompany,
+        ["Conglomerate"] = L.Settings_EntityConglomerate,
+        ["Store"] = L.Settings_EntityStore
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState != null)
+        {
+            var state = await AuthState;
+            Tenant.PopulateFromClaims(state.User);
+        }
+
+        await LoadComponentTypes();
+        await LoadMetaFields();
+        await LoadShopSettings();
+        await LoadProfile();
+        await LoadLanguage();
+        await LoadNotificationSettings();
+        await LoadErpConnections();
+        await I18nText.SetCurrentLanguageAsync(selectedLanguage);
+    }
+
+    // ===== Profile =====
+
+    private async Task LoadProfile()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var settings = await context.ShopSetting.ToListAsync();
+        profilePhone = settings.FirstOrDefault(s => s.Key == "user_phone")?.Value ?? "";
+    }
+
+    private async Task SaveProfile()
+    {
+        profileSaveMessage = null;
+        using var context = DbFactory.CreateDbContext();
+        var settings = await context.ShopSetting.ToListAsync();
+        UpsertSetting(context, settings, "user_phone", profilePhone);
+        UpsertSetting(context, settings, "user_language", selectedLanguage);
+        await context.SaveChangesAsync();
+
+        // Write lang cookie so middleware picks it up on next request (365 days)
+        await JS.InvokeVoidAsync("eval", $"document.cookie='lang={selectedLanguage};path=/;max-age=31536000;SameSite=Lax'");
+
+        await I18nText.SetCurrentLanguageAsync(selectedLanguage);
+        L = await I18nText.GetTextTableAsync<Text>(this);
+        profileSaveMessage = L.Settings_ProfileSaved;
+    }
+
+    // ===== Component Types =====
+
+    private async Task LoadComponentTypes()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var setting = await context.ShopSetting.FirstOrDefaultAsync(s => s.Key == "component_types");
+        if (setting is not null && !string.IsNullOrWhiteSpace(setting.Value))
+        {
+            componentTypes = setting.Value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
+        }
+        else
+        {
+            componentTypes = DefaultComponentTypes.ToList();
+            await SaveComponentTypes();
+        }
+    }
+
+    private async Task SaveComponentTypes()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var settings = await context.ShopSetting.ToListAsync();
+        UpsertSetting(context, settings, "component_types", string.Join(", ", componentTypes));
+        await context.SaveChangesAsync();
+    }
+
+    private async Task AddComponentType()
+    {
+        componentTypeError = null;
+        componentTypeSaveMessage = null;
+
+        var trimmed = newComponentType?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(trimmed)) return;
+
+        if (componentTypes.Any(ct => ct.Equals(trimmed, StringComparison.OrdinalIgnoreCase)))
+        {
+            componentTypeError = string.Format(L.Settings_TypeAlreadyExists, trimmed);
+            return;
+        }
+
+        componentTypes.Add(trimmed);
+        newComponentType = "";
+        await SaveComponentTypes();
+        componentTypeSaveMessage = string.Format(L.Settings_TypeAdded, trimmed);
+    }
+
+    private async Task RemoveComponentType(string type)
+    {
+        componentTypeError = null;
+        componentTypeSaveMessage = null;
+
+        if (componentTypes.Count <= 1)
+        {
+            componentTypeError = L.Settings_MinOneType;
+            return;
+        }
+
+        componentTypes.Remove(type);
+        await SaveComponentTypes();
+        componentTypeSaveMessage = string.Format(L.Settings_TypeRemoved, type);
+    }
+
+    private async Task HandleComponentTypeKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await AddComponentType();
+    }
+
+    // ===== Meta Fields =====
+
+    private static readonly HashSet<string> OrgEntityTypes = new() { "Company", "Conglomerate", "Store" };
+
+    private async Task LoadMetaFields()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var isOrgType = OrgEntityTypes.Contains(selectedEntityType);
+
+        var query = context.MetaFieldDefinition
+            .Where(f => f.EntityType == selectedEntityType);
+        if (!isOrgType)
+            query = query.Where(f => f.CompanyId == Tenant.CompanyId);
+
+        metaFields = await query
+            .OrderBy(f => f.SortOrder).ThenBy(f => f.Label)
+            .ToListAsync();
+
+        // Auto-apply country presets for company-scoped entity types
+        if (!isOrgType)
+            await AutoApplyPresets(context);
+
+        // Load base field layouts
+        await LoadBaseFields(context);
+
+        // Build merged editor field list
+        BuildEditorFields();
+    }
+
+    private async Task LoadBaseFields(BikePOS.Data.BikePosContext context)
+    {
+        var isOrgType = OrgEntityTypes.Contains(selectedEntityType);
+        var companyId = isOrgType ? null : Tenant.CompanyId;
+
+        baseFields = await context.BaseFieldLayout
+            .Where(b => b.EntityType == selectedEntityType && b.CompanyId == companyId)
+            .OrderBy(b => b.SortOrder)
+            .ToListAsync();
+
+        // Auto-seed if no base fields exist for this entity type
+        if (!baseFields.Any())
+        {
+            var defaults = BaseFieldLayout.GetBaseFields(selectedEntityType);
+            foreach (var d in defaults)
+                d.CompanyId = companyId;
+            context.BaseFieldLayout.AddRange(defaults);
+            await context.SaveChangesAsync();
+            baseFields = defaults;
+        }
+    }
+
+    private void BuildEditorFields()
+    {
+        var blocks = FormBlockDefinition.GetBlocks(selectedEntityType);
+        var defaultBlock = FormBlockDefinition.DefaultBlock(selectedEntityType);
+        var allFields = new List<EditorField>();
+
+        foreach (var bf in baseFields)
+        {
+            allFields.Add(new EditorField
+            {
+                UniqueId = "base_" + bf.Id,
+                BaseFieldId = bf.Id,
+                FieldKey = bf.FieldKey,
+                Label = bf.Label,
+                FieldType = "base",
+                SortOrder = bf.SortOrder,
+                IsBase = true,
+                IsRequired = false,
+                Block = bf.Block,
+            });
+        }
+
+        foreach (var mf in metaFields)
+        {
+            allFields.Add(new EditorField
+            {
+                UniqueId = "meta_" + mf.Id,
+                MetaFieldId = mf.Id,
+                FieldKey = mf.Key,
+                Label = mf.Label,
+                FieldType = mf.FieldType,
+                SortOrder = mf.SortOrder,
+                IsBase = false,
+                IsRequired = mf.IsRequired,
+                MetaField = mf,
+                Block = mf.Block ?? defaultBlock,
+            });
+        }
+
+        editorBlockGroups = blocks.Select(b => new EditorBlockGroup
+        {
+            BlockKey = b.Key,
+            BlockLabel = ResolveBlockLabel(b.LabelKey),
+            IsFixed = b.IsFixed,
+            DisplayOrder = b.DisplayOrder,
+            Fields = allFields
+                .Where(f => f.Block == b.Key)
+                .OrderBy(f => f.SortOrder).ThenBy(f => f.Label)
+                .ToList()
+        }).ToList();
+    }
+
+    private string ResolveBlockLabel(string labelKey)
+    {
+        // Use reflection-like lookup on i18n Text object
+        var prop = typeof(Text).GetProperty(labelKey);
+        if (prop != null) return prop.GetValue(L)?.ToString() ?? labelKey;
+        return labelKey;
+    }
+
+    private async Task AutoApplyPresets(BikePOS.Data.BikePosContext context)
+    {
+        var company = await context.Company.FindAsync(Tenant.CompanyId);
+        if (company is null || string.IsNullOrEmpty(company.CountryCode)) return;
+
+        var presets = MetaFieldDefinition.GetPresetsForCountry(company.CountryCode, selectedEntityType);
+        if (!presets.Any()) return;
+
+        var existing = await context.MetaFieldDefinition
+            .Where(f => f.EntityType == selectedEntityType && f.CompanyId == Tenant.CompanyId)
+            .ToListAsync();
+        var existingByKey = existing.ToDictionary(f => f.Key, StringComparer.OrdinalIgnoreCase);
+        var presetKeyToDbId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var changed = false;
+
+        foreach (var preset in presets)
+        {
+            if (existingByKey.TryGetValue(preset.Key, out var dbField))
+            {
+                presetKeyToDbId[preset.Key] = dbField.Id;
+            }
+            else
+            {
+                preset.CompanyId = Tenant.CompanyId;
+                context.MetaFieldDefinition.Add(preset);
+                presetKeyToDbId[preset.Key] = preset.Id;
+                changed = true;
+            }
+        }
+
+        // Patch conditional links on existing fields
+        foreach (var preset in presets)
+        {
+            if (preset.ConditionalOnFieldId == null) continue;
+            if (!existingByKey.TryGetValue(preset.Key, out var dbField)) continue;
+            var parentPreset = presets.FirstOrDefault(p => p.Id == preset.ConditionalOnFieldId);
+            if (parentPreset == null) continue;
+            var parentDbId = presetKeyToDbId.GetValueOrDefault(parentPreset.Key);
+            if (parentDbId != null && (dbField.ConditionalOnFieldId != parentDbId || dbField.ConditionalOnValue != preset.ConditionalOnValue))
+            {
+                dbField.ConditionalOnFieldId = parentDbId;
+                dbField.ConditionalOnValue = preset.ConditionalOnValue;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync();
+            metaFields = await context.MetaFieldDefinition
+                .Where(f => f.EntityType == selectedEntityType && f.CompanyId == Tenant.CompanyId)
+                .OrderBy(f => f.SortOrder).ThenBy(f => f.Label)
+                .ToListAsync();
+        }
+    }
+
+    private async Task SwitchEntityType(string entityType)
+    {
+        selectedEntityType = entityType;
+        showFieldForm = false;
+        _dndInitialized = false;
+        await LoadMetaFields();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (activeSection == "meta" && editorBlockGroups.Any(g => g.Fields.Any()) && !_dndInitialized)
+        {
+            _dndInitialized = true;
+            _dotNetRef ??= DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("FormEditorDnD.init", ".form-editor-block", _dotNetRef);
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnFieldReordered(string blockKey, string[] orderedIds)
+    {
+        using var context = DbFactory.CreateDbContext();
+        var isOrgType = OrgEntityTypes.Contains(selectedEntityType);
+        var companyId = isOrgType ? null : Tenant.CompanyId;
+
+        for (int i = 0; i < orderedIds.Length; i++)
+        {
+            var uid = orderedIds[i];
+            if (uid.StartsWith("base_"))
+            {
+                var id = uid["base_".Length..];
+                var bf = await context.BaseFieldLayout.FindAsync(id);
+                if (bf != null) { bf.SortOrder = i; bf.Block = blockKey; }
+            }
+            else if (uid.StartsWith("meta_"))
+            {
+                var id = uid["meta_".Length..];
+                var mf = await context.MetaFieldDefinition.FindAsync(id);
+                if (mf != null) { mf.SortOrder = i; mf.Block = blockKey; }
+            }
+        }
+
+        await context.SaveChangesAsync();
+
+        // Reload to reflect new order
+        var metaQuery = context.MetaFieldDefinition
+            .Where(f => f.EntityType == selectedEntityType);
+        if (!isOrgType)
+            metaQuery = metaQuery.Where(f => f.CompanyId == companyId);
+        metaFields = await metaQuery.OrderBy(f => f.SortOrder).ThenBy(f => f.Label).ToListAsync();
+
+        baseFields = await context.BaseFieldLayout
+            .Where(b => b.EntityType == selectedEntityType && b.CompanyId == companyId)
+            .OrderBy(b => b.SortOrder)
+            .ToListAsync();
+
+        BuildEditorFields();
+        editorSaveMessage = L.Settings_FormEditorSaved;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ShowAddField()
+    {
+        editingFieldId = null;
+        fieldLabel = ""; fieldKey = ""; fieldType = "text"; fieldIsRequired = false;
+        fieldBlock = FormBlockDefinition.DefaultBlock(selectedEntityType);
+        var blockFields = editorBlockGroups.SelectMany(g => g.Fields);
+        fieldSortOrder = blockFields.Any() ? blockFields.Max(f => f.SortOrder) + 1 : 0;
+        fieldRegex = ""; fieldRegexMessage = ""; fieldFormatMask = ""; fieldDefaultValue = ""; fieldOptions = "";
+        fieldConditionalOnId = ""; fieldConditionalOnValue = "";
+        fieldActionEvent = ""; fieldActionScript = ""; fieldError = null;
+        showFieldForm = true;
+    }
+
+    private void EditField(MetaFieldDefinition field)
+    {
+        editingFieldId = field.Id;
+        fieldLabel = field.Label; fieldKey = field.Key; fieldType = field.FieldType;
+        fieldIsRequired = field.IsRequired; fieldSortOrder = field.SortOrder;
+        fieldRegex = field.RegexPattern ?? ""; fieldRegexMessage = field.RegexMessage ?? "";
+        fieldFormatMask = field.FormatMask ?? ""; fieldDefaultValue = field.DefaultValue ?? ""; fieldOptions = field.Options ?? "";
+        fieldConditionalOnId = field.ConditionalOnFieldId ?? "";
+        fieldConditionalOnValue = field.ConditionalOnValue ?? "";
+        fieldActionEvent = field.ActionEvent ?? ""; fieldActionScript = field.ActionScript ?? "";
+        fieldBlock = field.Block ?? FormBlockDefinition.DefaultBlock(selectedEntityType);
+        fieldError = null; showFieldForm = true;
+    }
+
+    private void CancelFieldForm() { showFieldForm = false; fieldError = null; }
+
+    private async Task SaveField()
+    {
+        fieldError = null;
+
+        if (string.IsNullOrWhiteSpace(fieldLabel) || string.IsNullOrWhiteSpace(fieldKey))
+        { fieldError = L.Validation_LabelKeyRequired; return; }
+
+        if (fieldType == "select" && string.IsNullOrWhiteSpace(fieldOptions))
+        { fieldError = L.Validation_SelectOptionsRequired; return; }
+
+        if (!string.IsNullOrWhiteSpace(fieldRegex))
+        {
+            try { System.Text.RegularExpressions.Regex.Match("", fieldRegex); }
+            catch { fieldError = L.Validation_InvalidRegex; return; }
+        }
+
+        // Validate action script — block dangerous patterns server-side
+        if (!string.IsNullOrWhiteSpace(fieldActionScript))
+        {
+            var blocked = new[] { "fetch", "XMLHttpRequest", "import", "require", "eval", "Function",
+                "setTimeout", "setInterval", "document.", "window.", "globalThis",
+                "localStorage", "sessionStorage", "cookie", "indexedDB", "WebSocket",
+                "Worker", "ServiceWorker", "navigator.", "location.", "history." };
+            var scriptLower = fieldActionScript;
+            if (blocked.Any(b => scriptLower.Contains(b)))
+            { fieldError = L.Validation_ActionScriptBlocked; return; }
+        }
+
+        using var context = DbFactory.CreateDbContext();
+
+        var isOrgType = OrgEntityTypes.Contains(selectedEntityType);
+        var dupQuery = context.MetaFieldDefinition
+            .Where(f => f.Key == fieldKey.Trim() && f.EntityType == selectedEntityType && f.Id != (editingFieldId ?? ""));
+        if (!isOrgType)
+            dupQuery = dupQuery.Where(f => f.CompanyId == Tenant.CompanyId);
+        var duplicate = await dupQuery.AnyAsync();
+        if (duplicate) { fieldError = string.Format(L.Validation_DuplicateKey, fieldKey.Trim()); return; }
+
+        string? conditionalId = string.IsNullOrWhiteSpace(fieldConditionalOnId) ? null : fieldConditionalOnId;
+
+        if (!string.IsNullOrEmpty(editingFieldId))
+        {
+            var field = await context.MetaFieldDefinition.FindAsync(editingFieldId);
+            if (field is not null)
+            {
+                field.Label = fieldLabel.Trim(); field.Key = fieldKey.Trim(); field.FieldType = fieldType;
+                field.IsRequired = fieldIsRequired; field.SortOrder = fieldSortOrder;
+                field.RegexPattern = NullIfEmpty(fieldRegex); field.RegexMessage = NullIfEmpty(fieldRegexMessage);
+                field.FormatMask = NullIfEmpty(fieldFormatMask); field.DefaultValue = NullIfEmpty(fieldDefaultValue);
+                field.Options = NullIfEmpty(fieldOptions);
+                field.ConditionalOnFieldId = conditionalId; field.ConditionalOnValue = NullIfEmpty(fieldConditionalOnValue);
+                field.ActionEvent = NullIfEmpty(fieldActionEvent); field.ActionScript = NullIfEmpty(fieldActionScript);
+                field.Block = NullIfEmpty(fieldBlock);
+            }
+        }
+        else
+        {
+            context.MetaFieldDefinition.Add(new MetaFieldDefinition
+            {
+                EntityType = selectedEntityType,
+                CompanyId = isOrgType ? null : Tenant.CompanyId,
+                Label = fieldLabel.Trim(), Key = fieldKey.Trim(), FieldType = fieldType,
+                IsRequired = fieldIsRequired, SortOrder = fieldSortOrder, IsActive = true,
+                RegexPattern = NullIfEmpty(fieldRegex), RegexMessage = NullIfEmpty(fieldRegexMessage),
+                FormatMask = NullIfEmpty(fieldFormatMask), DefaultValue = NullIfEmpty(fieldDefaultValue),
+                Options = NullIfEmpty(fieldOptions),
+                ConditionalOnFieldId = conditionalId, ConditionalOnValue = NullIfEmpty(fieldConditionalOnValue),
+                ActionEvent = NullIfEmpty(fieldActionEvent), ActionScript = NullIfEmpty(fieldActionScript),
+                Block = NullIfEmpty(fieldBlock),
+            });
+        }
+
+        await context.SaveChangesAsync();
+        showFieldForm = false;
+        _dndInitialized = false;
+        await LoadMetaFields();
+    }
+
+    private async Task ToggleFieldActive(MetaFieldDefinition field)
+    {
+        using var context = DbFactory.CreateDbContext();
+        var entity = await context.MetaFieldDefinition.FindAsync(field.Id);
+        if (entity is not null)
+        {
+            entity.IsActive = !entity.IsActive;
+            await context.SaveChangesAsync();
+            _dndInitialized = false;
+            await LoadMetaFields();
+        }
+    }
+
+    private async Task DeleteField(MetaFieldDefinition field)
+    {
+        using var context = DbFactory.CreateDbContext();
+        var entity = await context.MetaFieldDefinition.FindAsync(field.Id);
+        if (entity is null) return;
+
+        // Remove any meta values referencing this field
+        var relatedValues = await context.EntityMetaValue
+            .Where(v => v.MetaFieldDefinitionId == field.Id)
+            .ToListAsync();
+        context.EntityMetaValue.RemoveRange(relatedValues);
+
+        var relatedCustomerValues = await context.CustomerMetaValue
+            .Where(v => v.MetaFieldDefinitionId == field.Id)
+            .ToListAsync();
+        context.CustomerMetaValue.RemoveRange(relatedCustomerValues);
+
+        context.MetaFieldDefinition.Remove(entity);
+        await context.SaveChangesAsync();
+        _dndInitialized = false;
+        await LoadMetaFields();
+    }
+
+    // ===== Shop Settings =====
+
+    private async Task LoadShopSettings()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var settings = await context.ShopSetting.ToListAsync();
+        shopName = settings.FirstOrDefault(s => s.Key == "shop_name")?.Value ?? "";
+        shopTaxId = settings.FirstOrDefault(s => s.Key == "shop_tax_id")?.Value ?? "";
+        shopBusinessType = settings.FirstOrDefault(s => s.Key == "shop_business_type")?.Value ?? "";
+        shopPhone = settings.FirstOrDefault(s => s.Key == "shop_phone")?.Value ?? "";
+        shopEmail = settings.FirstOrDefault(s => s.Key == "shop_email")?.Value ?? "";
+        shopAddress = settings.FirstOrDefault(s => s.Key == "shop_address")?.Value ?? "";
+    }
+
+    private async Task SaveShopSettings()
+    {
+        shopSaveMessage = null;
+        using var context = DbFactory.CreateDbContext();
+        var settings = await context.ShopSetting.ToListAsync();
+        UpsertSetting(context, settings, "shop_name", shopName);
+        UpsertSetting(context, settings, "shop_tax_id", shopTaxId);
+        UpsertSetting(context, settings, "shop_business_type", shopBusinessType);
+        UpsertSetting(context, settings, "shop_phone", shopPhone);
+        UpsertSetting(context, settings, "shop_email", shopEmail);
+        UpsertSetting(context, settings, "shop_address", shopAddress);
+        await context.SaveChangesAsync();
+        CultureService.Invalidate();
+        shopSaveMessage = L.Settings_ConfigSaved;
+    }
+
+    // ===== Language =====
+
+    private async Task LoadLanguage()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var setting = await context.ShopSetting.FirstOrDefaultAsync(s => s.Key == "user_language");
+        selectedLanguage = setting?.Value ?? "es";
+    }
+
+    // ===== Helpers =====
+
+    // ===== Notifications =====
+
+    private async Task LoadNotificationSettings()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var settings = await context.ShopSetting.ToListAsync();
+        notifyEmailEnabled = settings.FirstOrDefault(s => s.Key == "notify_email_enabled")?.Value == "true";
+        notifySmtpHost = settings.FirstOrDefault(s => s.Key == "notify_smtp_host")?.Value ?? "";
+        notifySmtpPort = settings.FirstOrDefault(s => s.Key == "notify_smtp_port")?.Value ?? "587";
+        notifySmtpUser = settings.FirstOrDefault(s => s.Key == "notify_smtp_user")?.Value ?? "";
+        notifySmtpPassword = settings.FirstOrDefault(s => s.Key == "notify_smtp_password")?.Value ?? "";
+        notifySmtpFrom = settings.FirstOrDefault(s => s.Key == "notify_smtp_from")?.Value ?? "";
+        notifyEmailSubject = settings.FirstOrDefault(s => s.Key == "notify_email_subject")?.Value ?? "";
+        notifyWhatsappEnabled = settings.FirstOrDefault(s => s.Key == "notify_whatsapp_enabled")?.Value == "true";
+        notifyWhatsappWebhookUrl = settings.FirstOrDefault(s => s.Key == "notify_whatsapp_webhook_url")?.Value ?? "";
+        notifyWhatsappApiToken = settings.FirstOrDefault(s => s.Key == "notify_whatsapp_api_token")?.Value ?? "";
+        notifyMessageTemplate = settings.FirstOrDefault(s => s.Key == "notify_message_template")?.Value ?? "";
+    }
+
+    private async Task SaveNotificationSettings()
+    {
+        notifySaveMessage = null;
+        using var context = DbFactory.CreateDbContext();
+        var settings = await context.ShopSetting.ToListAsync();
+        UpsertSetting(context, settings, "notify_email_enabled", notifyEmailEnabled ? "true" : "false");
+        UpsertSetting(context, settings, "notify_smtp_host", notifySmtpHost);
+        UpsertSetting(context, settings, "notify_smtp_port", notifySmtpPort);
+        UpsertSetting(context, settings, "notify_smtp_user", notifySmtpUser);
+        UpsertSetting(context, settings, "notify_smtp_password", notifySmtpPassword);
+        UpsertSetting(context, settings, "notify_smtp_from", notifySmtpFrom);
+        UpsertSetting(context, settings, "notify_email_subject", notifyEmailSubject);
+        UpsertSetting(context, settings, "notify_whatsapp_enabled", notifyWhatsappEnabled ? "true" : "false");
+        UpsertSetting(context, settings, "notify_whatsapp_webhook_url", notifyWhatsappWebhookUrl);
+        UpsertSetting(context, settings, "notify_whatsapp_api_token", notifyWhatsappApiToken);
+        UpsertSetting(context, settings, "notify_message_template", notifyMessageTemplate);
+        await context.SaveChangesAsync();
+        notifySaveMessage = L.Settings_ConfigSaved;
+    }
+
+    // ===== ERP Integration =====
+
+    private async Task LoadErpConnections()
+    {
+        using var context = DbFactory.CreateDbContext();
+        erpConnections = await context.ErpConnection.OrderBy(c => c.Name).ToListAsync();
+    }
+
+    private void AddNewConnection()
+    {
+        editingConnection = new ErpConnection { StoreId = Tenant.StoreId };
+        showErpForm = true;
+        erpSaveMessage = null;
+        erpTestMessage = null;
+    }
+
+    private void EditConnection(ErpConnection conn)
+    {
+        editingConnection = conn;
+        showErpForm = true;
+        erpSaveMessage = null;
+        erpTestMessage = null;
+    }
+
+    private void CancelErpForm()
+    {
+        showErpForm = false;
+        editingConnection = null;
+        erpSaveMessage = null;
+        erpTestMessage = null;
+    }
+
+    private async Task SaveErpConnection()
+    {
+        if (editingConnection == null) return;
+        erpSaveMessage = null;
+
+        using var context = DbFactory.CreateDbContext();
+        editingConnection.UpdatedAt = DateTime.UtcNow;
+
+        var existing = await context.ErpConnection.FindAsync(editingConnection.Id);
+        if (existing != null)
+        {
+            existing.Name = editingConnection.Name;
+            existing.Provider = editingConnection.Provider;
+            existing.BaseUrl = editingConnection.BaseUrl;
+            existing.ApiKey = editingConnection.ApiKey;
+            existing.IsActive = editingConnection.IsActive;
+            existing.SyncCustomers = editingConnection.SyncCustomers;
+            existing.SyncProducts = editingConnection.SyncProducts;
+            existing.SyncComponents = editingConnection.SyncComponents;
+            existing.SyncTickets = editingConnection.SyncTickets;
+            existing.SyncCharges = editingConnection.SyncCharges;
+            existing.UpdatedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            editingConnection.StoreId = Tenant.StoreId;
+            context.ErpConnection.Add(editingConnection);
+        }
+
+        await context.SaveChangesAsync();
+        await LoadErpConnections();
+        showErpForm = false;
+        editingConnection = null;
+        erpSaveMessage = L.Settings_ConfigSaved;
+    }
+
+    private async Task DeleteConnection(string id)
+    {
+        using var context = DbFactory.CreateDbContext();
+        var conn = await context.ErpConnection.FindAsync(id);
+        if (conn != null)
+        {
+            context.ErpConnection.Remove(conn);
+            await context.SaveChangesAsync();
+        }
+        await LoadErpConnections();
+    }
+
+    private async Task TestErpConnection()
+    {
+        if (editingConnection == null) return;
+        erpTestMessage = null;
+
+        // Save first so the service can find it
+        await SaveErpConnection();
+
+        // We need to re-show the form since SaveErpConnection closes it
+        var conn = erpConnections.FirstOrDefault(c => c.Name == editingConnection?.Name);
+        if (conn == null) { erpTestMessage = "Connection not found"; return; }
+
+        // Simple HTTP test
+        try
+        {
+            using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            if (!string.IsNullOrEmpty(conn.ApiKey))
+                httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", conn.ApiKey);
+            var response = await httpClient.GetAsync($"{conn.BaseUrl?.TrimEnd('/')}/health");
+            erpTestMessage = response.IsSuccessStatusCode
+                ? $"✓ {L.Erp_ConnectionOk}"
+                : $"✗ HTTP {(int)response.StatusCode}";
+        }
+        catch (Exception ex)
+        {
+            erpTestMessage = $"✗ {ex.Message}";
+        }
+
+        EditConnection(conn);
+    }
+
+    private async Task ToggleSyncLogs()
+    {
+        showSyncLogs = !showSyncLogs;
+        if (showSyncLogs)
+        {
+            using var context = DbFactory.CreateDbContext();
+            recentSyncLogs = await context.SyncLog
+                .Include(s => s.ErpConnection)
+                .OrderByDescending(s => s.CreatedAt)
+                .Take(50)
+                .ToListAsync();
+        }
+    }
+
+    private static string SyncStatusClass(SyncStatus status) => status switch
+    {
+        SyncStatus.Success => "bg-green-50 text-green-600",
+        SyncStatus.Failed => "bg-red-50 text-red-600",
+        SyncStatus.Skipped => "bg-yellow-50 text-yellow-600",
+        _ => "bg-gray-50 text-gray-600"
+    };
+
+    private void UpsertSetting(BikePOS.Data.BikePosContext context, List<ShopSetting> settings, string key, string value)
+    {
+        var existing = settings.FirstOrDefault(s => s.Key == key);
+        if (existing is not null)
+            existing.Value = value?.Trim() ?? "";
+        else
+            context.ShopSetting.Add(new ShopSetting { Key = key, Value = value?.Trim() ?? "" });
+    }
+
+    private static string? NullIfEmpty(string? s) =>
+        string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    // ===== Form Editor types =====
+
+    private class EditorField
+    {
+        public string UniqueId { get; set; } = "";
+        public string? BaseFieldId { get; set; }
+        public string? MetaFieldId { get; set; }
+        public string FieldKey { get; set; } = "";
+        public string Label { get; set; } = "";
+        public string FieldType { get; set; } = "";
+        public int SortOrder { get; set; }
+        public bool IsBase { get; set; }
+        public bool IsRequired { get; set; }
+        public string Block { get; set; } = "details";
+        public MetaFieldDefinition? MetaField { get; set; }
+    }
+
+    private class EditorBlockGroup
+    {
+        public string BlockKey { get; set; } = "";
+        public string BlockLabel { get; set; } = "";
+        public bool IsFixed { get; set; }
+        public int DisplayOrder { get; set; }
+        public List<EditorField> Fields { get; set; } = new();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("FormEditorDnD.dispose"); } catch { }
+        _dotNetRef?.Dispose();
+    }
+}
