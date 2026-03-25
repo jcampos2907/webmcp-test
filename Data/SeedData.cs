@@ -71,14 +71,92 @@ public class SeedData
             context.SaveChanges();
         }
 
-        // Seed test tickets for POS testing (independent guard)
+        // Seed tickets + charges for POS testing and reports
         if (!context.ServiceTicket.Any() && context.Component.Any() && context.Mechanic.Any())
         {
             var mechanics = context.Mechanic.ToList();
             var services = context.Service.ToList();
             var components = context.Component.Include(c => c.Customer).ToList();
+            var products = context.Product.ToList();
+            var rng = new Random(42);
+            var now = DateTime.UtcNow;
+            int ticketNum = 0;
 
-            // Ticket 1: Completed, ready to charge (full amount)
+            // Generate ~30 historical tickets across the last 30 days with charges
+            var paymentMethods = new[] { PaymentMethod.Cash, PaymentMethod.Card, PaymentMethod.Transfer };
+
+            for (int daysAgo = 30; daysAgo >= 0; daysAgo--)
+            {
+                var ticketsToday = rng.Next(0, 4); // 0-3 tickets per day
+                for (int t = 0; t < ticketsToday; t++)
+                {
+                    ticketNum++;
+                    var comp = components[rng.Next(components.Count)];
+                    var mech = mechanics[rng.Next(mechanics.Count)];
+                    var svc = services[rng.Next(services.Count)];
+                    var createdAt = now.AddDays(-daysAgo).AddHours(rng.Next(8, 17)).AddMinutes(rng.Next(0, 60));
+                    var isCharged = daysAgo > 1 || (daysAgo == 1 && rng.Next(2) == 0);
+                    var isInProgress = !isCharged && rng.Next(2) == 0;
+
+                    var ticket = new ServiceTicket
+                    {
+                        ComponentId = comp.Id,
+                        CustomerId = comp.CustomerId,
+                        MechanicId = mech.Id,
+                        BaseServiceId = svc.Id,
+                        Price = svc.DefaultPrice + rng.Next(0, 50),
+                        DiscountPercent = rng.Next(4) == 0 ? rng.Next(5, 15) : 0,
+                        Status = isCharged ? TicketStatus.Charged : isInProgress ? TicketStatus.InProgress : TicketStatus.Completed,
+                        Description = $"Service on {comp.Name}",
+                        StoreId = storeId,
+                        TicketNumber = ticketNum,
+                        CreatedAt = createdAt,
+                        UpdatedAt = createdAt.AddHours(rng.Next(1, 4)),
+                        CreatedBy = "seed"
+                    };
+                    context.ServiceTicket.Add(ticket);
+                    context.SaveChanges();
+
+                    // Add 0-2 products to the ticket
+                    var numProducts = rng.Next(0, 3);
+                    for (int p = 0; p < numProducts && p < products.Count; p++)
+                    {
+                        var prod = products[rng.Next(products.Count)];
+                        context.TicketProduct.Add(new TicketProduct
+                        {
+                            ServiceTicketId = ticket.Id,
+                            ProductId = prod.Id,
+                            Quantity = rng.Next(1, 3),
+                            UnitPrice = prod.Price
+                        });
+                    }
+                    context.SaveChanges();
+
+                    // Create charge if ticket is charged
+                    if (isCharged)
+                    {
+                        var chargedAt = ticket.UpdatedAt.AddMinutes(rng.Next(5, 60));
+                        var method = paymentMethods[rng.Next(paymentMethods.Length)];
+                        context.Charge.Add(new Charge
+                        {
+                            ServiceTicketId = ticket.Id,
+                            Amount = ticket.Price * (1 - ticket.DiscountPercent / 100m),
+                            ChargedAt = chargedAt,
+                            CashierName = "seed",
+                            PaymentMethod = method,
+                            PaymentStatus = PaymentStatus.Completed,
+                            CompletedAt = chargedAt,
+                            StoreId = storeId,
+                            CreatedBy = "seed"
+                        });
+                        context.SaveChanges();
+                    }
+                }
+            }
+
+            // Add a few active tickets for POS testing
+            // Ticket: Completed, ready to charge (full amount)
+            ticketNum++;
             var ticket1 = new ServiceTicket
             {
                 ComponentId = components[0].Id,
@@ -89,11 +167,11 @@ public class SeedData
                 Status = TicketStatus.Completed,
                 Description = "Full tune-up on Tarmac SL7",
                 StoreId = storeId,
-                TicketNumber = 1,
+                TicketNumber = ticketNum,
                 CreatedBy = "seed"
             };
 
-            // Ticket 2: Completed, will have a partial payment already
+            ticketNum++;
             var ticket2 = new ServiceTicket
             {
                 ComponentId = components[1].Id,
@@ -104,11 +182,11 @@ public class SeedData
                 Status = TicketStatus.Completed,
                 Description = "Full overhaul on The Road Warrior",
                 StoreId = storeId,
-                TicketNumber = 2,
+                TicketNumber = ticketNum,
                 CreatedBy = "seed"
             };
 
-            // Ticket 3: In progress
+            ticketNum++;
             var ticket3 = new ServiceTicket
             {
                 ComponentId = components[2].Id,
@@ -119,23 +197,23 @@ public class SeedData
                 Status = TicketStatus.InProgress,
                 Description = "Flat repair on Allez Sprint",
                 StoreId = storeId,
-                TicketNumber = 3,
+                TicketNumber = ticketNum,
                 CreatedBy = "seed"
             };
 
             context.ServiceTicket.AddRange(ticket1, ticket2, ticket3);
             context.SaveChanges();
 
-            // Add a partial payment on ticket 2 ($100 deposit on $250 overhaul)
+            // Partial payment on ticket 2
             context.Charge.Add(new Charge
             {
                 ServiceTicketId = ticket2.Id,
                 Amount = 100m,
-                ChargedAt = DateTime.UtcNow.AddHours(-2),
+                ChargedAt = now.AddHours(-2),
                 CashierName = "seed",
                 PaymentMethod = PaymentMethod.Cash,
                 PaymentStatus = PaymentStatus.Completed,
-                CompletedAt = DateTime.UtcNow.AddHours(-2),
+                CompletedAt = now.AddHours(-2),
                 StoreId = storeId,
                 CreatedBy = "seed"
             });

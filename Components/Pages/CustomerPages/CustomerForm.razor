@@ -5,6 +5,7 @@
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject TenantContext Tenant
 @inject IJSRuntime JS
+@inject SyncTriggerService SyncTrigger
 
 <div class="space-y-4">
     <h3 class="text-lg font-semibold text-gray-800">@(IsEditMode ? L.Customers_Edit : L.Customers_New)</h3>
@@ -467,6 +468,7 @@
         }
 
         await context.SaveChangesAsync();
+        SyncTrigger.TriggerPush("Customer", customer.Id);
         await OnSaved.InvokeAsync(customer);
     }
 

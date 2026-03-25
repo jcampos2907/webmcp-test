@@ -34,6 +34,9 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
     public DbSet<BaseFieldLayout> BaseFieldLayout { get; set; } = default!;
     public DbSet<TicketEvent> TicketEvent { get; set; } = default!;
     public DbSet<NotificationLog> NotificationLog { get; set; } = default!;
+    public DbSet<ErpConnection> ErpConnection { get; set; } = default!;
+    public DbSet<SyncLog> SyncLog { get; set; } = default!;
+    public DbSet<SyncFieldMapping> SyncFieldMapping { get; set; } = default!;
 
     public override int SaveChanges()
     {
@@ -200,6 +203,26 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
             entity.HasOne(n => n.Customer).WithMany().HasForeignKey(n => n.CustomerId).OnDelete(DeleteBehavior.SetNull);
             entity.HasOne(n => n.Store).WithMany().HasForeignKey(n => n.StoreId).OnDelete(DeleteBehavior.SetNull);
             entity.HasIndex(n => new { n.StoreId, n.CreatedAt });
+        });
+
+        modelBuilder.Entity<ErpConnection>(entity =>
+        {
+            entity.HasOne(e => e.Store).WithMany().HasForeignKey(e => e.StoreId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => new { e.StoreId, e.IsActive });
+        });
+
+        modelBuilder.Entity<SyncLog>(entity =>
+        {
+            entity.HasOne(s => s.ErpConnection).WithMany().HasForeignKey(s => s.ErpConnectionId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(s => s.Store).WithMany().HasForeignKey(s => s.StoreId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasIndex(s => new { s.StoreId, s.CreatedAt });
+            entity.HasIndex(s => new { s.EntityType, s.EntityId });
+        });
+
+        modelBuilder.Entity<SyncFieldMapping>(entity =>
+        {
+            entity.HasOne(m => m.ErpConnection).WithMany(c => c.FieldMappings).HasForeignKey(m => m.ErpConnectionId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(m => new { m.ErpConnectionId, m.EntityType, m.SortOrder });
         });
 
         // Tenant hierarchy

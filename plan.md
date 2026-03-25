@@ -456,15 +456,7 @@ No PCI scope — terminals handle card data on-device. The app only sends the am
 
 ## Phase 8: ERP Integration
 
-**Goal**: Bidirectional sync with external ERP systems, configurable through admin UI.
-
-- [ ] Add `ExternalId` and `ExternalSource` fields to all syncable models (Customer, Component, Product, ServiceTicket, Charge)
-- [ ] Create `SyncMapping` model: maps BikePOS fields ↔ ERP fields per entity
-- [ ] Create `SyncLog` model: tracks sync events, errors, conflicts
-- [ ] Webhook/event system: model save hooks trigger outbound sync
-- [ ] Inbound sync endpoint: receives ERP updates
-- [ ] Settings UI: ERP connection config, field mapping editor, sync status dashboard
-- [ ] Support multiple ERPs simultaneously
+**Goal**: Bidirectional sync with external ERP systems, configurable through admin UI. The integration layer is ERP-agnostic — adapters implement a common interface so adding new ERPs doesn't touch core sync logic.
 
 ### Entities to Sync
 - Customers ↔ ERP Contacts/Business Partners
@@ -472,6 +464,47 @@ No PCI scope — terminals handle card data on-device. The app only sends the am
 - Components ↔ ERP Assets
 - ServiceTickets ↔ ERP Orders/Work Orders
 - Charges ↔ ERP Payments/Invoices
+
+### Step 1: Models & Migration — DONE
+- [x] Add `ExternalId` (string?) and `ExternalSource` (string?) fields to: Customer, Component, Product, ServiceTicket, Charge
+- [x] Create `ErpConnection` model — stores per-store ERP config: Name, Provider, BaseUrl, ApiKey, IsActive, entity sync toggles
+- [x] Create `SyncLog` model — tracks each sync attempt: ErpConnectionId, EntityType, EntityId, Direction, Status, RequestPayload, ResponsePayload, ErrorMessage, timestamps
+- [x] Create `SyncFieldMapping` model — per-connection field mapping: ErpConnectionId, EntityType, LocalField, RemoteField, IsRequired, TransformExpression
+- [x] Migration for all new models + fields
+
+### Step 2: Adapter Interface & Base Service — DONE
+- [x] Create `IErpAdapter` interface — PushEntityAsync, PullEntityAsync, TestConnectionAsync, GetRemoteFieldsAsync
+- [x] Create `GenericWebhookAdapter` — implements IErpAdapter via HTTP POST/GET, uses SyncFieldMapping to transform payloads
+- [x] Create `ErpSyncService` (scoped) — orchestrates sync: resolves adapter from ErpConnection.Provider, applies field mappings, logs to SyncLog
+
+### Step 3: Outbound Sync (BikePOS → ERP) — DONE
+- [x] Create `SyncTriggerService` — hooks into entity saves via fire-and-forget pattern
+- [x] Hooked into: CustomerForm, Product Create/Edit, Ticket Create/Edit/Cancel/Refund, Home charge creation
+- [x] Handle ExternalId assignment on first push (create) vs update on subsequent pushes
+
+### Step 4: Inbound Sync (ERP → BikePOS) — DONE
+- [x] Minimal API endpoint: `POST /api/erp/webhook/{connectionId}` — receives entity payloads from ERP, validates API key via Bearer token, maps fields back, upserts in BikePOS
+- [x] Logs all inbound sync attempts to SyncLog
+- [x] Assign/update ExternalId + ExternalSource on inbound creates
+
+### Step 5: Settings UI — DONE
+- [x] New Settings section "ERP" (SuperAdmin/Admin): list/add/edit/delete ErpConnections
+- [x] Connection form: name, provider, base URL, API key, entity toggles, test connection button
+- [x] Sync log viewer: table showing recent sync events, status, direction, errors
+- [x] I18n keys for all ERP UI (en + es)
+
+### Step 6: Inventory & Billing Sync — DONE
+- [x] Product inventory sync: inbound stock updates from ERP adjust QuantityInStock via webhook (QuantityInStock field is mapped through the generic ApplyFields mechanism)
+- [x] Charge → Invoice sync: outbound push of Charge data to ERP via SyncTriggerService on every charge creation (Home.razor, Edit.razor refund)
+- [x] Inventory alerts via ERP: ERP can push low-stock alerts inbound via the webhook endpoint
+
+### Implementation Order
+1. Models + migration (Step 1)
+2. IErpAdapter + GenericWebhookAdapter + ErpSyncService (Step 2)
+3. Outbound sync triggers (Step 3)
+4. Inbound webhook endpoint (Step 4)
+5. Settings UI (Step 5)
+6. Inventory & billing sync (Step 6)
 
 ---
 

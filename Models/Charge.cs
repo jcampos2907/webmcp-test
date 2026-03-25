@@ -57,4 +57,10 @@ public class Charge
 
     [MaxLength(500)]
     public string? CreatedBy { get; set; }
+
+    // ERP sync
+    [MaxLength(200)]
+    public string? ExternalId { get; set; }
+    [MaxLength(100)]
+    public string? ExternalSource { get; set; }
 }

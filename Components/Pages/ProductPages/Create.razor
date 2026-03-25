@@ -6,6 +6,7 @@
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
 @inject TenantContext Tenant
+@inject SyncTriggerService SyncTrigger
 
 <PageTitle>Create</PageTitle>
 
@@ -66,6 +67,7 @@
         Product.StoreId = Tenant.StoreId;
         context.Product.Add(Product);
         await context.SaveChangesAsync();
+        SyncTrigger.TriggerPush("Product", Product.Id);
         NavigationManager.NavigateTo("/products");
     }
 }

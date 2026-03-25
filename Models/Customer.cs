@@ -42,6 +42,12 @@ public class Customer
     [NotMapped]
     public string FullName => $"{FirstName} {LastName}";
 
+    // ERP sync
+    [MaxLength(200)]
+    public string? ExternalId { get; set; }
+    [MaxLength(100)]
+    public string? ExternalSource { get; set; }
+
     public ICollection<Component> Components { get; set; } = new List<Component>();
     public ICollection<CustomerMetaValue> MetaValues { get; set; } = new List<CustomerMetaValue>();
 }

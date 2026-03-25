@@ -10,6 +10,7 @@
 @inject TenantContext Tenant
 @inject IJSRuntime JS
 @inject TicketEventService TicketEvents
+@inject SyncTriggerService SyncTrigger
 @using BikePOS.Components.Pages.CustomerPages
 
 <PageTitle>@L.Tickets_Create_Title</PageTitle>
@@ -975,6 +976,7 @@
             await TicketEvents.RecordMechanicAssigned(ticket.Id, mechName, Tenant.UserIdentifier, Tenant.StoreId);
         }
 
+        SyncTrigger.TriggerPush("ServiceTicket", ticket.Id);
         NavigationManager.NavigateTo(navigateToCharge ? "/" : $"/tickets/details?id={ticket.Id}");
     }
 

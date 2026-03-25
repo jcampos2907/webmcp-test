@@ -13,6 +13,7 @@
 @inject PaymentTerminalService TerminalService
 @inject TicketEventService TicketEvents
 @inject ReportService ReportSvc
+@inject SyncTriggerService SyncTrigger
 
 <PageTitle>@L.Pos_Title</PageTitle>
 
@@ -679,6 +680,10 @@
                 ticket.UpdatedBy = Tenant.UserIdentifier;
                 await context.SaveChangesAsync();
             }
+
+            SyncTrigger.TriggerPush("Charge", charge.Id);
+            if (ticket?.Status == TicketStatus.Charged)
+                SyncTrigger.TriggerPush("ServiceTicket", selectedTicket!.Id);
 
             // Record timeline events
             await TicketEvents.RecordCharge(selectedTicket!.Id, amount, selectedPaymentMethod.ToString(), Tenant.UserIdentifier, Tenant.StoreId);

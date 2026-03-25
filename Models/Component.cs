@@ -32,4 +32,10 @@ public class Component
     [MaxLength(36)]
     public string? StoreId { get; set; }
     public Store? Store { get; set; }
+
+    // ERP sync
+    [MaxLength(200)]
+    public string? ExternalId { get; set; }
+    [MaxLength(100)]
+    public string? ExternalSource { get; set; }
 }

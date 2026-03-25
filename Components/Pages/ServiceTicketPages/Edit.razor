@@ -12,6 +12,7 @@
 @inject AuditDisplayService AuditDisplay
 @inject TicketEventService TicketEvents
 @inject NotificationService Notifications
+@inject SyncTriggerService SyncTrigger
 @inject IJSRuntime JS
 @using BikePOS.Components.Shared
 
@@ -847,6 +848,7 @@
 
         await SaveMetaValues(context);
         await context.SaveChangesAsync();
+        SyncTrigger.TriggerPush("ServiceTicket", ticket.Id);
 
         // Record timeline events for changes
         var user = Tenant.UserIdentifier;
@@ -934,6 +936,7 @@
         }
 
         await context.SaveChangesAsync();
+        SyncTrigger.TriggerPush("ServiceTicket", ticket.Id);
 
         // Record cancellation event
         await TicketEvents.RecordCancellation(ticket.Id, Tenant.UserIdentifier, Tenant.StoreId);
@@ -985,6 +988,8 @@
             }
 
             await context.SaveChangesAsync();
+            SyncTrigger.TriggerPush("Charge", charge.Id);
+            SyncTrigger.TriggerPush("ServiceTicket", ticket.Id);
 
             // Record events
             await TicketEvents.RecordRefund(ticket.Id, refundAmount, refundMethod.ToString(), Tenant.UserIdentifier, Tenant.StoreId);

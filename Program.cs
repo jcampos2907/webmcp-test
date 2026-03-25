@@ -70,6 +70,10 @@ builder.Services.AddScoped<AuditDisplayService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<TicketEventService>();
+builder.Services.AddHttpClient("ErpWebhook");
+builder.Services.AddSingleton<IErpAdapter, GenericWebhookAdapter>();
+builder.Services.AddScoped<ErpSyncService>();
+builder.Services.AddSingleton<SyncTriggerService>();
 builder.Services.AddSingleton<SecretProtector>();
 builder.Services.AddSingleton<IPaymentTerminalProvider, ManualPaymentProvider>();
 builder.Services.AddSingleton<PaymentTerminalService>();
@@ -390,5 +394,178 @@ productApi.MapGet("/search", async (string? query, IDbContextFactory<BikePosCont
 });
 
 app.MapChargeEndpoints();
+
+// ERP inbound webhook endpoint
+app.MapPost("/api/erp/webhook/{connectionId}", async (
+    string connectionId,
+    HttpRequest request,
+    IDbContextFactory<BikePOS.Data.BikePosContext> dbFactory) =>
+{
+    using var db = dbFactory.CreateDbContext();
+    var conn = await db.ErpConnection
+        .Include(c => c.FieldMappings)
+        .FirstOrDefaultAsync(c => c.Id == connectionId && c.IsActive);
+
+    if (conn == null) return Results.NotFound("Connection not found or inactive");
+
+    // Validate API key from Authorization header
+    var authHeader = request.Headers.Authorization.ToString();
+    if (!string.IsNullOrEmpty(conn.ApiKey))
+    {
+        var token = authHeader.Replace("Bearer ", "", StringComparison.OrdinalIgnoreCase).Trim();
+        if (token != conn.ApiKey) return Results.Unauthorized();
+    }
+
+    // Parse body
+    using var reader = new StreamReader(request.Body);
+    var body = await reader.ReadToEndAsync();
+    System.Text.Json.JsonElement payload;
+    try { payload = System.Text.Json.JsonDocument.Parse(body).RootElement; }
+    catch { return Results.BadRequest("Invalid JSON"); }
+
+    if (!payload.TryGetProperty("entity_type", out var entityTypeProp))
+        return Results.BadRequest("Missing entity_type");
+    var entityType = entityTypeProp.GetString()!;
+    var externalId = payload.TryGetProperty("external_id", out var extIdProp) ? extIdProp.GetString() : null;
+
+    if (string.IsNullOrEmpty(externalId))
+        return Results.BadRequest("Missing external_id");
+
+    // Check entity sync is enabled
+    var enabled = entityType switch
+    {
+        "Customer" => conn.SyncCustomers,
+        "Component" => conn.SyncComponents,
+        "Product" => conn.SyncProducts,
+        "ServiceTicket" => conn.SyncTickets,
+        "Charge" => conn.SyncCharges,
+        _ => false
+    };
+    if (!enabled) return Results.BadRequest($"Sync not enabled for {entityType}");
+
+    var log = new BikePOS.Models.SyncLog
+    {
+        ErpConnectionId = conn.Id,
+        Direction = BikePOS.Models.SyncDirection.Inbound,
+        EntityType = entityType,
+        StoreId = conn.StoreId,
+        RequestPayload = body
+    };
+    db.SyncLog.Add(log);
+
+    try
+    {
+        var fields = payload.TryGetProperty("fields", out var fieldsProp) ? fieldsProp : payload;
+        var mappings = conn.FieldMappings.Where(m => m.EntityType == entityType).ToList();
+
+        // Resolve mapped field values
+        var mapped = new Dictionary<string, string?>();
+        if (mappings.Count > 0)
+        {
+            foreach (var m in mappings)
+            {
+                if (fields.TryGetProperty(m.RemoteField, out var val))
+                    mapped[m.LocalField] = val.ValueKind == System.Text.Json.JsonValueKind.Null ? null : val.ToString();
+            }
+        }
+        else
+        {
+            // No mappings — use field names directly
+            foreach (var prop in fields.EnumerateObject())
+            {
+                if (prop.Name is "entity_type" or "external_id" or "action") continue;
+                mapped[prop.Name] = prop.Value.ValueKind == System.Text.Json.JsonValueKind.Null ? null : prop.Value.ToString();
+            }
+        }
+
+        // Find or create entity
+        switch (entityType)
+        {
+            case "Customer":
+                var customer = await db.Customer.FirstOrDefaultAsync(c => c.ExternalId == externalId && c.ExternalSource == conn.Provider);
+                if (customer == null)
+                {
+                    customer = new BikePOS.Models.Customer { StoreId = conn.StoreId, ExternalId = externalId, ExternalSource = conn.Provider };
+                    db.Customer.Add(customer);
+                }
+                ApplyFields(customer, mapped);
+                log.EntityId = customer.Id;
+                break;
+
+            case "Product":
+                var product = await db.Product.FirstOrDefaultAsync(p => p.ExternalId == externalId && p.ExternalSource == conn.Provider);
+                if (product == null)
+                {
+                    product = new BikePOS.Models.Product { StoreId = conn.StoreId, ExternalId = externalId, ExternalSource = conn.Provider, Name = "Imported" };
+                    db.Product.Add(product);
+                }
+                ApplyFields(product, mapped);
+                log.EntityId = product.Id;
+                break;
+
+            case "Component":
+                var component = await db.Component.FirstOrDefaultAsync(c => c.ExternalId == externalId && c.ExternalSource == conn.Provider);
+                if (component == null)
+                {
+                    component = new BikePOS.Models.Component { StoreId = conn.StoreId, ExternalId = externalId, ExternalSource = conn.Provider, Sku = "IMPORTED", Color = "", Brand = "" };
+                    db.Component.Add(component);
+                }
+                ApplyFields(component, mapped);
+                log.EntityId = component.Id;
+                break;
+
+            default:
+                log.Status = BikePOS.Models.SyncStatus.Skipped;
+                log.ErrorMessage = $"Inbound sync not supported for {entityType}";
+                await db.SaveChangesAsync();
+                return Results.Ok(new { status = "skipped", reason = log.ErrorMessage });
+        }
+
+        await db.SaveChangesAsync();
+        log.Status = BikePOS.Models.SyncStatus.Success;
+        log.CompletedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new { status = "ok", entity_id = log.EntityId });
+    }
+    catch (Exception ex)
+    {
+        log.Status = BikePOS.Models.SyncStatus.Failed;
+        log.ErrorMessage = ex.Message;
+        log.CompletedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        return Results.StatusCode(500);
+    }
+}).AllowAnonymous();
+
+// Helper to apply mapped fields to an entity via reflection
+static void ApplyFields(object entity, Dictionary<string, string?> fields)
+{
+    var props = entity.GetType().GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+    foreach (var (key, value) in fields)
+    {
+        var prop = props.FirstOrDefault(p => string.Equals(p.Name, key, StringComparison.OrdinalIgnoreCase));
+        if (prop == null || !prop.CanWrite) continue;
+        if (prop.Name is "Id" or "StoreId" or "ExternalId" or "ExternalSource") continue; // protect key fields
+
+        try
+        {
+            var targetType = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
+            if (value == null)
+                prop.SetValue(entity, null);
+            else if (targetType == typeof(decimal))
+                prop.SetValue(entity, decimal.Parse(value));
+            else if (targetType == typeof(int))
+                prop.SetValue(entity, int.Parse(value));
+            else if (targetType == typeof(bool))
+                prop.SetValue(entity, bool.Parse(value));
+            else if (targetType == typeof(DateTime))
+                prop.SetValue(entity, DateTime.Parse(value));
+            else
+                prop.SetValue(entity, value);
+        }
+        catch { /* skip fields that can't be converted */ }
+    }
+}
 
 app.Run();
