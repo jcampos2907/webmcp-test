@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>BikePOS.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BikePOS.Domain\BikePOS.Domain.csproj" />
+    <ProjectReference Include="..\BikePOS.Interfaces\BikePOS.Interfaces.csproj" />
+    <ProjectReference Include="..\BikePOS.Infrastructure\BikePOS.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>
