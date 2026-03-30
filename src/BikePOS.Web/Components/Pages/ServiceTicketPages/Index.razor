@@ -3,11 +3,9 @@
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "SuperAdmin,Admin,Mechanic")]
 @using Microsoft.AspNetCore.Components.QuickGrid
-@using Microsoft.EntityFrameworkCore
 @using BikePOS.Models
-@using BikePOS.Data
-@implements IAsyncDisposable
-@inject IDbContextFactory<BikePosContext> DbFactory
+@using BikePOS.Application.Queries
+@inject ListTicketsQueryHandler ListTickets
 
 <PageTitle>@L.Tickets_Title</PageTitle>
 
@@ -53,35 +51,25 @@
 @code {
     [CascadingParameter] public Text L { get; set; } = default!;
 
-    protected override async Task OnInitializedAsync()
-    {
-    }
     private PaginationState pagination = new PaginationState { ItemsPerPage = 10 };
     private string StatusFilter = string.Empty;
-    private BikePosContext context = default!;
+    private List<ServiceTicket> allTickets = new();
 
     private IQueryable<ServiceTicket> FilteredTickets
     {
         get
         {
-            var query = context.ServiceTicket
-                .Include(t => t.Component)
-                .Include(t => t.Mechanic)
-                .AsQueryable();
-
+            var query = allTickets.AsQueryable();
             if (Enum.TryParse<TicketStatus>(StatusFilter, out var status))
             {
                 query = query.Where(t => t.Status == status);
             }
-
             return query.OrderByDescending(t => t.CreatedAt);
         }
     }
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        context = DbFactory.CreateDbContext();
+        allTickets = await ListTickets.HandleAsync();
     }
-
-    public async ValueTask DisposeAsync() => await context.DisposeAsync();
 }

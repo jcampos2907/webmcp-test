@@ -4,8 +4,15 @@
 @attribute [Authorize(Roles = "SuperAdmin,Admin")]
 @using Microsoft.EntityFrameworkCore
 @using BikePOS.Models
+@using BikePOS.Application.Queries
+@using BikePOS.Application.Commands
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject NavigationManager NavigationManager
+@inject ListCustomersQueryHandler ListCustomersHandler
+@inject ListServicesQueryHandler ListServicesHandler
+@inject ListMechanicsQueryHandler ListMechanicsHandler
+@inject ListProductsQueryHandler ListProductsHandler
+@inject CreateTicketCommandHandler CreateTicketHandler
 @inject ShopCultureService CultureService
 @inject TenantContext Tenant
 @inject IJSRuntime JS
@@ -551,26 +558,13 @@
     // --- Customer ---
     private async Task LoadCustomers()
     {
-        using var context = DbFactory.CreateDbContext();
-        customerResults = await context.Customer.OrderBy(c => c.LastName).ThenBy(c => c.FirstName).ToListAsync();
+        customerResults = await ListCustomersHandler.HandleAsync();
     }
 
     private async Task SearchCustomers()
     {
-        using var context = DbFactory.CreateDbContext();
-        if (string.IsNullOrWhiteSpace(customerSearch))
-        {
-            customerResults = await context.Customer.OrderBy(c => c.LastName).ThenBy(c => c.FirstName).ToListAsync();
-        }
-        else
-        {
-            customerResults = await context.Customer
-                .Where(c => c.FirstName.Contains(customerSearch) || c.LastName.Contains(customerSearch) ||
-                       (c.Phone != null && c.Phone.Contains(customerSearch)) ||
-                       (c.Email != null && c.Email.Contains(customerSearch)))
-                .OrderBy(c => c.LastName).ThenBy(c => c.FirstName)
-                .ToListAsync();
-        }
+        customerResults = await ListCustomersHandler.HandleAsync(
+            string.IsNullOrWhiteSpace(customerSearch) ? null : customerSearch);
     }
 
     private void HandleNewCustomerSaved(Customer customer)
@@ -653,16 +647,15 @@
     // --- Service ---
     private async Task LoadServices()
     {
-        using var context = DbFactory.CreateDbContext();
-        availableServices = await context.Service.OrderBy(s => s.Name).ToListAsync();
+        availableServices = await ListServicesHandler.HandleAsync();
     }
 
     private async Task SelectService(Service service)
     {
         selectedService = service;
         step = 4;
+        availableMechanics = await ListMechanicsHandler.HandleAsync();
         using var context = DbFactory.CreateDbContext();
-        availableMechanics = await context.Mechanic.Where(m => m.IsActive).OrderBy(m => m.Name).ToListAsync();
         metaFields = await context.MetaFieldDefinition
             .Where(f => f.IsActive && f.EntityType == "ServiceTicket" && f.CompanyId == Tenant.CompanyId)
             .OrderBy(f => f.SortOrder).ThenBy(f => f.Label)
@@ -693,21 +686,17 @@
     private async Task OpenProductSelector()
     {
         showProductSelector = true;
-        using var context = DbFactory.CreateDbContext();
-        productResults = await context.Product.Where(p => p.QuantityInStock > 0).OrderBy(p => p.Name).ToListAsync();
+        var all = await ListProductsHandler.HandleAsync();
+        productResults = all.Where(p => p.QuantityInStock > 0).ToList();
     }
 
     private void CloseProductSelector() => showProductSelector = false;
 
     private async Task SearchProducts()
     {
-        using var context = DbFactory.CreateDbContext();
-        var query = context.Product.Where(p => p.QuantityInStock > 0);
-        if (!string.IsNullOrWhiteSpace(productSearch))
-        {
-            query = query.Where(p => p.Name.Contains(productSearch) || (p.Sku != null && p.Sku.Contains(productSearch)));
-        }
-        productResults = await query.OrderBy(p => p.Name).ToListAsync();
+        var all = await ListProductsHandler.HandleAsync(
+            string.IsNullOrWhiteSpace(productSearch) ? null : productSearch);
+        productResults = all.Where(p => p.QuantityInStock > 0).ToList();
     }
 
     private void AddProduct(Product product)
@@ -905,79 +894,40 @@
     {
         if (!ValidateMetaFields()) return;
 
-        using var context = DbFactory.CreateDbContext();
+        var result = await CreateTicketHandler.HandleAsync(new CreateTicketRequest(
+            selectedComponent!.Id,
+            selectedCustomer!.Id,
+            selectedMechanicId,
+            selectedService!.Id,
+            selectedService.DefaultPrice,
+            ticketNotes,
+            discountPercent,
+            Tenant.StoreId,
+            Tenant.UserIdentifier,
+            ticketProducts.Select(tp => new ProductLineRequest(
+                tp.Product.Id, tp.Product.Name, tp.UnitPrice, tp.Quantity)).ToList()));
 
-        // Assign store-scoped sequential TicketNumber
-        var maxTicketNum = await context.ServiceTicket
-            .Where(t => t.StoreId == Tenant.StoreId)
-            .MaxAsync(t => (int?)t.TicketNumber) ?? 0;
-
-        var ticket = new ServiceTicket
+        // Save meta field values (not handled by CreateTicketCommandHandler)
+        var visibleMeta = metaFields
+            .Where(f => IsMetaFieldVisible(f) && !string.IsNullOrWhiteSpace(metaValues.GetValueOrDefault(f.Id)))
+            .ToList();
+        if (visibleMeta.Any())
         {
-            ComponentId = selectedComponent!.Id,
-            CustomerId = selectedCustomer!.Id,
-            MechanicId = selectedMechanicId,
-            BaseServiceId = selectedService!.Id,
-            Description = ticketNotes,
-            Price = CalculateTotal(),
-            DiscountPercent = discountPercent,
-            Status = TicketStatus.Open,
-            TicketNumber = maxTicketNum + 1,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
-            CreatedBy = Tenant.UserIdentifier,
-            StoreId = Tenant.StoreId,
-        };
-        context.ServiceTicket.Add(ticket);
-        await context.SaveChangesAsync();
-
-        // Save meta field values
-        foreach (var field in metaFields)
-        {
-            var val = metaValues.TryGetValue(field.Id, out var v) ? v : null;
-            if (!string.IsNullOrWhiteSpace(val) && IsMetaFieldVisible(field))
+            using var context = DbFactory.CreateDbContext();
+            foreach (var field in visibleMeta)
             {
                 context.EntityMetaValue.Add(new EntityMetaValue
                 {
                     EntityType = "ServiceTicket",
-                    EntityId = ticket.Id,
+                    EntityId = result.TicketId,
                     MetaFieldDefinitionId = field.Id,
-                    Value = val
+                    Value = metaValues[field.Id]
                 });
             }
+            await context.SaveChangesAsync();
         }
 
-        foreach (var tp in ticketProducts)
-        {
-            context.TicketProduct.Add(new TicketProduct
-            {
-                ServiceTicketId = ticket.Id,
-                ProductId = tp.Product.Id,
-                Quantity = tp.Quantity,
-                UnitPrice = tp.UnitPrice
-            });
-
-            // Decrement inventory
-            var product = await context.Product.FindAsync(tp.Product.Id);
-            if (product is not null)
-            {
-                product.QuantityInStock -= tp.Quantity;
-            }
-        }
-        await context.SaveChangesAsync();
-
-        // Record timeline events
-        await TicketEvents.RecordCreated(ticket.Id, ticket.TicketDisplay, Tenant.UserIdentifier, Tenant.StoreId);
-        foreach (var tp in ticketProducts)
-            await TicketEvents.RecordProductAdded(ticket.Id, tp.Product.Name, tp.Quantity, Tenant.UserIdentifier, Tenant.StoreId);
-        if (!string.IsNullOrEmpty(selectedMechanicId))
-        {
-            var mechName = availableMechanics.FirstOrDefault(m => m.Id == selectedMechanicId)?.Name;
-            await TicketEvents.RecordMechanicAssigned(ticket.Id, mechName, Tenant.UserIdentifier, Tenant.StoreId);
-        }
-
-        SyncTrigger.TriggerPush("ServiceTicket", ticket.Id);
-        NavigationManager.NavigateTo(navigateToCharge ? "/" : $"/tickets/details?id={ticket.Id}");
+        NavigationManager.NavigateTo(navigateToCharge ? $"/?ticketId={result.TicketId}" : $"/tickets/details?id={result.TicketId}");
     }
 
     private Task SaveTicket() => SaveTicketInternal(navigateToCharge: false);

@@ -107,10 +107,34 @@ builder.Services.AddScoped<CreateTicketCommandHandler>();
 builder.Services.AddScoped<ProcessChargeCommandHandler>();
 builder.Services.AddScoped<CancelTicketCommandHandler>();
 builder.Services.AddScoped<ProcessRefundCommandHandler>();
+builder.Services.AddScoped<CreateServiceCommandHandler>();
+builder.Services.AddScoped<UpdateServiceCommandHandler>();
+builder.Services.AddScoped<DeleteServiceCommandHandler>();
+builder.Services.AddScoped<CreateMechanicCommandHandler>();
+builder.Services.AddScoped<UpdateMechanicCommandHandler>();
+builder.Services.AddScoped<DeleteMechanicCommandHandler>();
+builder.Services.AddScoped<CreateProductCommandHandler>();
+builder.Services.AddScoped<UpdateProductCommandHandler>();
+builder.Services.AddScoped<DeleteProductCommandHandler>();
+builder.Services.AddScoped<CreateCustomerCommandHandler>();
+builder.Services.AddScoped<UpdateCustomerCommandHandler>();
+builder.Services.AddScoped<DeleteCustomerCommandHandler>();
 
 // DDD: Application Query Handlers
 builder.Services.AddScoped<GetTicketDetailsQueryHandler>();
 builder.Services.AddScoped<DailySalesQueryHandler>();
+builder.Services.AddScoped<ListServicesQueryHandler>();
+builder.Services.AddScoped<GetServiceByIdQueryHandler>();
+builder.Services.AddScoped<ListMechanicsQueryHandler>();
+builder.Services.AddScoped<GetMechanicByIdQueryHandler>();
+builder.Services.AddScoped<GetMechanicWorkloadQueryHandler>();
+builder.Services.AddScoped<ListProductsQueryHandler>();
+builder.Services.AddScoped<GetProductByIdQueryHandler>();
+builder.Services.AddScoped<ListCustomersQueryHandler>();
+builder.Services.AddScoped<GetCustomerByIdQueryHandler>();
+builder.Services.AddScoped<ListTicketsQueryHandler>();
+builder.Services.AddScoped<GetTicketByIdQueryHandler>();
+builder.Services.AddScoped<SearchTicketsQueryHandler>();
 
 // DDD: Domain Event Handlers
 builder.Services.AddScoped<IDomainEventHandler<TicketChargedEvent>, TicketChargedEventHandler>();

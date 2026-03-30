@@ -2,9 +2,9 @@
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "SuperAdmin,Admin")]
-@using Microsoft.EntityFrameworkCore
 @using BikePOS.Models
-@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@using BikePOS.Application.Queries
+@inject GetMechanicWorkloadQueryHandler GetWorkload
 @inject NavigationManager NavigationManager
 @inject ShopCultureService CultureService
 @inject TenantContext Tenant
@@ -19,7 +19,7 @@
         </a>
     </div>
 
-    @if (!mechanics.Any())
+    @if (!workload.Mechanics.Any())
     {
         <div class="text-center py-12 text-gray-400">
             <i class="fa-solid fa-wrench text-4xl mb-3"></i>
@@ -31,28 +31,28 @@
         @* Summary cards *@
         <div class="grid grid-cols-4 gap-4 mb-6">
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
-                <p class="text-3xl font-bold text-indigo-600">@totalOpen</p>
+                <p class="text-3xl font-bold text-indigo-600">@workload.TotalOpen</p>
                 <p class="text-sm text-gray-500">@L.Workload_OpenTickets</p>
             </div>
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
-                <p class="text-3xl font-bold text-blue-600">@totalInProgress</p>
+                <p class="text-3xl font-bold text-blue-600">@workload.TotalInProgress</p>
                 <p class="text-sm text-gray-500">@L.Workload_InProgress</p>
             </div>
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
-                <p class="text-3xl font-bold text-orange-500">@totalWaiting</p>
+                <p class="text-3xl font-bold text-orange-500">@workload.TotalWaiting</p>
                 <p class="text-sm text-gray-500">@L.Workload_WaitingParts</p>
             </div>
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
-                <p class="text-3xl font-bold text-gray-500">@unassigned</p>
+                <p class="text-3xl font-bold text-gray-500">@workload.Unassigned</p>
                 <p class="text-sm text-gray-500">@L.Workload_Unassigned</p>
             </div>
         </div>
 
         @* Mechanic cards *@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            @foreach (var mech in mechanics)
+            @foreach (var mech in workload.Mechanics)
             {
-                var tickets = ticketsByMechanic.GetValueOrDefault(mech.Id) ?? new();
+                var tickets = workload.TicketsByMechanic.GetValueOrDefault(mech.Id) ?? new();
                 var open = tickets.Count(t => t.Status == TicketStatus.Open);
                 var inProgress = tickets.Count(t => t.Status == TicketStatus.InProgress);
                 var waiting = tickets.Count(t => t.Status == TicketStatus.WaitingForParts);
@@ -104,7 +104,7 @@
                                      @onclick="() => GoToTicket(ticket.Id)">
                                     <div class="flex items-center gap-3">
                                         <span class="text-sm font-medium text-gray-800">@ticket.TicketDisplay</span>
-                                        <span class="text-sm text-gray-500">@ticket.Component?.Name</span>
+                                        <span class="text-sm text-gray-500">@ticket.ComponentName</span>
                                     </div>
                                     <div class="flex items-center gap-3">
                                         <span class="text-xs text-gray-400">@ticket.CreatedAt.ToLocalTime().ToString("d", culture)</span>
@@ -130,9 +130,7 @@
     [CascadingParameter] public Text L { get; set; } = default!;
     CultureInfo culture = CultureInfo.CurrentCulture;
 
-    private List<Mechanic> mechanics = new();
-    private Dictionary<string, List<ServiceTicket>> ticketsByMechanic = new();
-    private int totalOpen, totalInProgress, totalWaiting, unassigned;
+    private MechanicWorkloadDto workload = new(new(), new(), 0, 0, 0, 0);
 
     [CascadingParameter]
     private Task<AuthenticationState>? AuthState { get; set; }
@@ -147,35 +145,7 @@
             Tenant.PopulateFromClaims(state.User);
         }
 
-        await LoadData();
-    }
-
-    private async Task LoadData()
-    {
-        using var db = DbFactory.CreateDbContext();
-
-        mechanics = await db.Mechanic
-            .Where(m => m.IsActive)
-            .OrderBy(m => m.Name)
-            .ToListAsync();
-
-        var activeStatuses = new[] { TicketStatus.Open, TicketStatus.InProgress, TicketStatus.WaitingForParts, TicketStatus.Completed };
-
-        var activeTickets = await db.ServiceTicket
-            .Include(t => t.Component)
-            .Where(t => activeStatuses.Contains(t.Status))
-            .OrderByDescending(t => t.CreatedAt)
-            .ToListAsync();
-
-        ticketsByMechanic = activeTickets
-            .Where(t => t.MechanicId != null)
-            .GroupBy(t => t.MechanicId!)
-            .ToDictionary(g => g.Key, g => g.ToList());
-
-        totalOpen = activeTickets.Count(t => t.Status == TicketStatus.Open && t.MechanicId != null);
-        totalInProgress = activeTickets.Count(t => t.Status == TicketStatus.InProgress);
-        totalWaiting = activeTickets.Count(t => t.Status == TicketStatus.WaitingForParts);
-        unassigned = activeTickets.Count(t => t.MechanicId == null);
+        workload = await GetWorkload.HandleAsync();
     }
 
     private static string GetStatusBadgeClass(TicketStatus status) => status switch

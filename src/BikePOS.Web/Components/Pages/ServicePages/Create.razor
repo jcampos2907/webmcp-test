@@ -1,9 +1,9 @@
 @page "/services/create"
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "SuperAdmin,Admin")]
-@using Microsoft.EntityFrameworkCore
 @using BikePOS.Models
-@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@using BikePOS.Application.Commands
+@inject CreateServiceCommandHandler CreateHandler
 @inject NavigationManager NavigationManager
 @inject TenantContext Tenant
 
@@ -21,24 +21,24 @@
             <div class="mb-3">
                 <span class="text-danger">*</span>
                 <label for="name" class="form-label">@L.Common_Name:</label>
-                <InputText id="name" @bind-Value="Service.Name" class="form-control" aria-required="true"/> 
-                <ValidationMessage For="() => Service.Name" class="text-danger" /> 
-            </div>        
+                <InputText id="name" @bind-Value="Service.Name" class="form-control" aria-required="true"/>
+                <ValidationMessage For="() => Service.Name" class="text-danger" />
+            </div>
             <div class="mb-3">
                 <label for="description" class="form-label">@L.Common_Description:</label>
-                <InputText id="description" @bind-Value="Service.Description" class="form-control" /> 
-                <ValidationMessage For="() => Service.Description" class="text-danger" /> 
-            </div>        
+                <InputText id="description" @bind-Value="Service.Description" class="form-control" />
+                <ValidationMessage For="() => Service.Description" class="text-danger" />
+            </div>
             <div class="mb-3">
                 <label for="defaultprice" class="form-label">@L.Common_DefaultPrice:</label>
-                <InputNumber id="defaultprice" @bind-Value="Service.DefaultPrice" class="form-control" /> 
-                <ValidationMessage For="() => Service.DefaultPrice" class="text-danger" /> 
-            </div>        
+                <InputNumber id="defaultprice" @bind-Value="Service.DefaultPrice" class="form-control" />
+                <ValidationMessage For="() => Service.DefaultPrice" class="text-danger" />
+            </div>
             <div class="mb-3">
                 <label for="estimatedminutes" class="form-label">@L.Common_EstimatedMinutes:</label>
-                <InputNumber id="estimatedminutes" @bind-Value="Service.EstimatedMinutes" class="form-control" /> 
-                <ValidationMessage For="() => Service.EstimatedMinutes" class="text-danger" /> 
-            </div>        
+                <InputNumber id="estimatedminutes" @bind-Value="Service.EstimatedMinutes" class="form-control" />
+                <ValidationMessage For="() => Service.EstimatedMinutes" class="text-danger" />
+            </div>
             <button type="submit" class="btn btn-primary">@L.Common_Create</button>
         </EditForm>
     </div>
@@ -51,21 +51,16 @@
 @code {
     [CascadingParameter] public Text L { get; set; } = default!;
 
-    protected override async Task OnInitializedAsync()
-    {
-    }
     [SupplyParameterFromForm]
     private Service Service { get; set; } = default!;
 
     protected override void OnInitialized() => Service ??= new();
 
-    // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
     private async Task AddService()
     {
-        using var context = DbFactory.CreateDbContext();
-        Service.StoreId = Tenant.StoreId;
-        context.Service.Add(Service);
-        await context.SaveChangesAsync();
+        await CreateHandler.HandleAsync(new CreateServiceRequest(
+            Service.Name, Service.Description, Service.DefaultPrice,
+            Service.EstimatedMinutes, Tenant.StoreId));
         NavigationManager.NavigateTo("/services");
     }
 }

@@ -1,9 +1,9 @@
 @page "/products/create"
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "SuperAdmin,Admin")]
-@using Microsoft.EntityFrameworkCore
 @using BikePOS.Models
-@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@using BikePOS.Application.Commands
+@inject CreateProductCommandHandler CreateHandler
 @inject NavigationManager NavigationManager
 @inject TenantContext Tenant
 @inject SyncTriggerService SyncTrigger
@@ -21,30 +21,30 @@
             <ValidationSummary class="text-danger" role="alert"/>
             <div class="mb-3">
                 <span class="text-danger">*</span>
-                <label for="name" class="form-label">Name:</label> 
-                <InputText id="name" @bind-Value="Product.Name" class="form-control" aria-required="true"/> 
-                <ValidationMessage For="() => Product.Name" class="text-danger" /> 
-            </div>        
+                <label for="name" class="form-label">Name:</label>
+                <InputText id="name" @bind-Value="Product.Name" class="form-control" aria-required="true"/>
+                <ValidationMessage For="() => Product.Name" class="text-danger" />
+            </div>
             <div class="mb-3">
-                <label for="sku" class="form-label">Sku:</label> 
-                <InputText id="sku" @bind-Value="Product.Sku" class="form-control" /> 
-                <ValidationMessage For="() => Product.Sku" class="text-danger" /> 
-            </div>        
+                <label for="sku" class="form-label">Sku:</label>
+                <InputText id="sku" @bind-Value="Product.Sku" class="form-control" />
+                <ValidationMessage For="() => Product.Sku" class="text-danger" />
+            </div>
             <div class="mb-3">
-                <label for="price" class="form-label">Price:</label> 
-                <InputNumber id="price" @bind-Value="Product.Price" class="form-control" /> 
-                <ValidationMessage For="() => Product.Price" class="text-danger" /> 
-            </div>        
+                <label for="price" class="form-label">Price:</label>
+                <InputNumber id="price" @bind-Value="Product.Price" class="form-control" />
+                <ValidationMessage For="() => Product.Price" class="text-danger" />
+            </div>
             <div class="mb-3">
-                <label for="quantityinstock" class="form-label">QuantityInStock:</label> 
-                <InputNumber id="quantityinstock" @bind-Value="Product.QuantityInStock" class="form-control" /> 
-                <ValidationMessage For="() => Product.QuantityInStock" class="text-danger" /> 
-            </div>        
+                <label for="quantityinstock" class="form-label">QuantityInStock:</label>
+                <InputNumber id="quantityinstock" @bind-Value="Product.QuantityInStock" class="form-control" />
+                <ValidationMessage For="() => Product.QuantityInStock" class="text-danger" />
+            </div>
             <div class="mb-3">
-                <label for="category" class="form-label">Category:</label> 
-                <InputText id="category" @bind-Value="Product.Category" class="form-control" /> 
-                <ValidationMessage For="() => Product.Category" class="text-danger" /> 
-            </div>        
+                <label for="category" class="form-label">Category:</label>
+                <InputText id="category" @bind-Value="Product.Category" class="form-control" />
+                <ValidationMessage For="() => Product.Category" class="text-danger" />
+            </div>
             <button type="submit" class="btn btn-primary">Create</button>
         </EditForm>
     </div>
@@ -60,14 +60,12 @@
 
     protected override void OnInitialized() => Product ??= new();
 
-    // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
     private async Task AddProduct()
     {
-        using var context = DbFactory.CreateDbContext();
-        Product.StoreId = Tenant.StoreId;
-        context.Product.Add(Product);
-        await context.SaveChangesAsync();
-        SyncTrigger.TriggerPush("Product", Product.Id);
+        var result = await CreateHandler.HandleAsync(new CreateProductRequest(
+            Product.Name, Product.Sku, Product.Price,
+            Product.QuantityInStock, Product.Category, Tenant.StoreId));
+        SyncTrigger.TriggerPush("Product", result.Id);
         NavigationManager.NavigateTo("/products");
     }
 }

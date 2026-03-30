@@ -5,8 +5,14 @@
 @implements IAsyncDisposable
 @using Microsoft.EntityFrameworkCore
 @using BikePOS.Models
+@using BikePOS.Application.Queries
+@using BikePOS.Application.Commands
 @inject IJSRuntime JS
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject SearchTicketsQueryHandler SearchTicketsHandler
+@inject ListCustomersQueryHandler ListCustomersHandler
+@inject GetTicketByIdQueryHandler GetTicketHandler
+@inject ProcessChargeCommandHandler ChargeHandler
 @inject NavigationManager NavigationManager
 @inject ShopCultureService CultureService
 @inject TenantContext Tenant
@@ -405,11 +411,7 @@
             // Auto-select ticket if ticketId query param is provided
             if (!string.IsNullOrEmpty(ticketId))
             {
-                using var context = DbFactory.CreateDbContext();
-                var t = await context.ServiceTicket
-                    .Include(t => t.Component)
-                    .Include(t => t.Mechanic)
-                    .FirstOrDefaultAsync(t => t.Id == ticketId);
+                var t = await GetTicketHandler.HandleAsync(ticketId);
                 if (t is not null)
                 {
                     await SelectTicket(t);
@@ -440,22 +442,7 @@
             return;
         }
 
-        using var context = DbFactory.CreateDbContext();
-        var query = context.ServiceTicket
-            .Include(t => t.Component)
-            .Include(t => t.Mechanic)
-            .Where(t => t.Status != TicketStatus.Cancelled && t.Status != TicketStatus.Charged);
-
-        if (int.TryParse(ticketSearch, out var searchNum))
-        {
-            query = query.Where(t => t.TicketNumber == searchNum);
-        }
-        else
-        {
-            query = query.Where(t => t.Component.Name!.Contains(ticketSearch));
-        }
-
-        searchResults = await query.OrderByDescending(t => t.CreatedAt).Take(10).ToListAsync();
+        searchResults = await SearchTicketsHandler.HandleAsync(ticketSearch);
     }
 
     private async Task SearchCustomers()
@@ -466,13 +453,7 @@
             return;
         }
 
-        using var context = DbFactory.CreateDbContext();
-        customerResults = await context.Customer
-            .Where(c => c.FirstName.Contains(customerSearch) || c.LastName.Contains(customerSearch) ||
-                   (c.Phone != null && c.Phone.Contains(customerSearch)) ||
-                   (c.Email != null && c.Email.Contains(customerSearch)))
-            .Take(10)
-            .ToListAsync();
+        customerResults = await ListCustomersHandler.HandleAsync(customerSearch);
     }
 
     private async Task SelectTicket(ServiceTicket ticket)

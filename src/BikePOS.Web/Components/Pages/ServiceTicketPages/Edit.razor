@@ -5,7 +5,13 @@
 @attribute [Authorize(Roles = "SuperAdmin,Admin,Mechanic")]
 @using Microsoft.EntityFrameworkCore
 @using BikePOS.Models
+@using BikePOS.Application.Commands
+@using BikePOS.Application.Queries
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@inject ListMechanicsQueryHandler ListMechanicsHandler
+@inject ListProductsQueryHandler ListProductsHandler
+@inject CancelTicketCommandHandler CancelTicketHandler
+@inject ProcessRefundCommandHandler RefundHandler
 @inject NavigationManager NavigationManager
 @inject ShopCultureService CultureService
 @inject TenantContext Tenant
@@ -485,7 +491,7 @@
         createdByDisplay = await AuditDisplay.ResolveAsync(ticket.CreatedBy);
         updatedByDisplay = await AuditDisplay.ResolveAsync(ticket.UpdatedBy);
 
-        mechanics = await context.Mechanic.Where(m => m.IsActive).OrderBy(m => m.Name).ToListAsync();
+        mechanics = await ListMechanicsHandler.HandleAsync();
         ticketProducts = await context.TicketProduct
             .Include(tp => tp.Product)
             .Where(tp => tp.ServiceTicketId == Id)
@@ -758,8 +764,8 @@
     private async Task OpenProductSelector()
     {
         showProductSelector = true;
-        using var context = DbFactory.CreateDbContext();
-        productResults = await context.Product.Where(p => p.QuantityInStock > 0).OrderBy(p => p.Name).ToListAsync();
+        var all = await ListProductsHandler.HandleAsync();
+        productResults = all.Where(p => p.QuantityInStock > 0).ToList();
     }
 
     private void CloseProductSelector() => showProductSelector = false;
@@ -772,13 +778,9 @@
 
     private async Task SearchProducts()
     {
-        using var context = DbFactory.CreateDbContext();
-        var query = context.Product.Where(p => p.QuantityInStock > 0);
-        if (!string.IsNullOrWhiteSpace(productSearch))
-        {
-            query = query.Where(p => p.Name.Contains(productSearch) || (p.Sku != null && p.Sku.Contains(productSearch)));
-        }
-        productResults = await query.OrderBy(p => p.Name).ToListAsync();
+        var all = await ListProductsHandler.HandleAsync(
+            string.IsNullOrWhiteSpace(productSearch) ? null : productSearch);
+        productResults = all.Where(p => p.QuantityInStock > 0).ToList();
     }
 
     private void AddProduct(Product product)
@@ -910,36 +912,10 @@
     {
         if (ticket is null || isReadOnly) return;
 
-        using var context = DbFactory.CreateDbContext();
+        var success = await CancelTicketHandler.HandleAsync(new CancelTicketRequest(
+            ticket.Id, Tenant.UserIdentifier, Tenant.StoreId));
 
-        // Restore inventory for all products on this ticket
-        var allTicketProducts = await context.TicketProduct
-            .Where(tp => tp.ServiceTicketId == ticket.Id)
-            .ToListAsync();
-
-        foreach (var tp in allTicketProducts)
-        {
-            var product = await context.Product.FindAsync(tp.ProductId);
-            if (product is not null)
-            {
-                product.QuantityInStock += tp.Quantity;
-            }
-        }
-
-        // Set ticket status to Cancelled
-        var dbTicket = await context.ServiceTicket.FindAsync(ticket.Id);
-        if (dbTicket is not null)
-        {
-            dbTicket.Status = TicketStatus.Cancelled;
-            dbTicket.UpdatedAt = DateTime.UtcNow;
-            dbTicket.UpdatedBy = Tenant.UserIdentifier;
-        }
-
-        await context.SaveChangesAsync();
-        SyncTrigger.TriggerPush("ServiceTicket", ticket.Id);
-
-        // Record cancellation event
-        await TicketEvents.RecordCancellation(ticket.Id, Tenant.UserIdentifier, Tenant.StoreId);
+        if (!success) return;
 
         // Update local state
         ticket.Status = TicketStatus.Cancelled;
@@ -960,44 +936,20 @@
 
         try
         {
-            using var context = DbFactory.CreateDbContext();
+            var domainMethod = (BikePOS.Domain.Aggregates.ServiceTicket.PaymentMethod)(int)refundMethod;
+            var result = await RefundHandler.HandleAsync(new ProcessRefundRequest(
+                ticket.Id, refundAmount, domainMethod,
+                Tenant.UserIdentifier, Tenant.StoreId));
 
-            // Create a negative charge for the refund
-            var charge = new Charge
+            if (result.ErrorMessage is not null)
             {
-                ServiceTicketId = ticket.Id,
-                Amount = -refundAmount,
-                ChargedAt = DateTime.UtcNow,
-                CashierName = Tenant.UserIdentifier,
-                PaymentMethod = refundMethod,
-                PaymentStatus = PaymentStatus.Completed,
-                CompletedAt = DateTime.UtcNow,
-                Notes = "Refund",
-                StoreId = Tenant.StoreId,
-                CreatedBy = Tenant.UserIdentifier
-            };
-            context.Charge.Add(charge);
-
-            // Reopen ticket
-            var dbTicket = await context.ServiceTicket.FindAsync(ticket.Id);
-            if (dbTicket is not null)
-            {
-                dbTicket.Status = TicketStatus.Completed;
-                dbTicket.UpdatedAt = DateTime.UtcNow;
-                dbTicket.UpdatedBy = Tenant.UserIdentifier;
+                refundSuccess = false;
+                return;
             }
-
-            await context.SaveChangesAsync();
-            SyncTrigger.TriggerPush("Charge", charge.Id);
-            SyncTrigger.TriggerPush("ServiceTicket", ticket.Id);
-
-            // Record events
-            await TicketEvents.RecordRefund(ticket.Id, refundAmount, refundMethod.ToString(), Tenant.UserIdentifier, Tenant.StoreId);
-            await TicketEvents.RecordStatusChange(ticket.Id, TicketStatus.Charged, TicketStatus.Completed, Tenant.UserIdentifier, Tenant.StoreId);
 
             // Update local state
             ticket.Status = TicketStatus.Completed;
-            totalCharged -= refundAmount;
+            totalCharged -= result.RefundedAmount;
             refundSuccess = true;
             showRefundForm = false;
             refundAmount = 0;

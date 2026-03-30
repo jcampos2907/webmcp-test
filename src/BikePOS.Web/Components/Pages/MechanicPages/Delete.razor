@@ -1,9 +1,11 @@
 @page "/mechanics/delete"
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "SuperAdmin,Admin")]
-@using Microsoft.EntityFrameworkCore
 @using BikePOS.Models
-@inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
+@using BikePOS.Application.Commands
+@using BikePOS.Application.Queries
+@inject GetMechanicByIdQueryHandler GetMechanic
+@inject DeleteMechanicCommandHandler DeleteHandler
 @inject NavigationManager NavigationManager
 
 <PageTitle>@L.Mechanics_Delete</PageTitle>
@@ -51,20 +53,13 @@
 
     protected override async Task OnInitializedAsync()
     {
-        using var context = DbFactory.CreateDbContext();
-        mechanic = await context.Mechanic.FirstOrDefaultAsync(m => m.Id == Id);
-
-        if (mechanic is null)
-        {
-            NavigationManager.NotFound();
-        }
+        mechanic = await GetMechanic.HandleAsync(Id);
+        if (mechanic is null) NavigationManager.NotFound();
     }
 
     private async Task DeleteMechanic()
     {
-        using var context = DbFactory.CreateDbContext();
-        context.Mechanic.Remove(mechanic!);
-        await context.SaveChangesAsync();
+        await DeleteHandler.HandleAsync(new DeleteMechanicRequest(mechanic!.Id));
         NavigationManager.NavigateTo("/mechanics");
     }
 }
