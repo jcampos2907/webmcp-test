@@ -2,10 +2,17 @@
 @using Microsoft.EntityFrameworkCore
 @using BikePOS.Models
 @using System.Text.RegularExpressions
+@using BikePOS.Application.Queries
+@using BikePOS.Application.Commands
 @inject IDbContextFactory<BikePOS.Data.BikePosContext> DbFactory
 @inject TenantContext Tenant
 @inject IJSRuntime JS
 @inject SyncTriggerService SyncTrigger
+@inject ApplyCountryPresetsCommandHandler ApplyPresetsHandler
+@inject ListMetaFieldsQueryHandler ListMetaFieldsHandler
+@inject LoadBaseFieldLayoutsQueryHandler LoadBaseFieldsHandler
+@inject LoadCustomerMetaValuesQueryHandler LoadCustomerMetaHandler
+@inject SaveCustomerMetaValuesCommandHandler SaveCustomerMetaHandler
 
 <div class="space-y-4">
     <h3 class="text-lg font-semibold text-gray-800">@(IsEditMode ? L.Customers_Edit : L.Customers_New)</h3>
@@ -180,77 +187,12 @@
             Tenant.PopulateFromClaims(authState.User);
         }
 
-        using var context = DbFactory.CreateDbContext();
-
         // Auto-apply country presets if needed
         if (!string.IsNullOrEmpty(Tenant.CompanyId))
-        {
-            var company = await context.Company.FindAsync(Tenant.CompanyId);
-            if (company is not null && !string.IsNullOrEmpty(company.CountryCode))
-            {
-                var presets = MetaFieldDefinition.GetPresetsForCountry(company.CountryCode, "Customer");
-                if (presets.Any())
-                {
-                    var existing = await context.MetaFieldDefinition
-                        .Where(f => f.EntityType == "Customer" && f.CompanyId == Tenant.CompanyId)
-                        .ToListAsync();
-                    var existingByKey = existing.ToDictionary(f => f.Key, StringComparer.OrdinalIgnoreCase);
-                    var presetKeyToDbId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                    var changed = false;
+            await ApplyPresetsHandler.HandleAsync(Tenant.CompanyId, "Customer");
 
-                    foreach (var preset in presets)
-                    {
-                        if (existingByKey.TryGetValue(preset.Key, out var dbField))
-                            presetKeyToDbId[preset.Key] = dbField.Id;
-                        else
-                        {
-                            preset.CompanyId = Tenant.CompanyId;
-                            context.MetaFieldDefinition.Add(preset);
-                            presetKeyToDbId[preset.Key] = preset.Id;
-                            changed = true;
-                        }
-                    }
-
-                    foreach (var preset in presets)
-                    {
-                        if (preset.ConditionalOnFieldId == null) continue;
-                        if (!existingByKey.TryGetValue(preset.Key, out var dbField)) continue;
-                        var parentPreset = presets.FirstOrDefault(p => p.Id == preset.ConditionalOnFieldId);
-                        if (parentPreset == null) continue;
-                        var parentDbId = presetKeyToDbId.GetValueOrDefault(parentPreset.Key);
-                        if (parentDbId != null && (dbField.ConditionalOnFieldId != parentDbId || dbField.ConditionalOnValue != preset.ConditionalOnValue))
-                        {
-                            dbField.ConditionalOnFieldId = parentDbId;
-                            dbField.ConditionalOnValue = preset.ConditionalOnValue;
-                            changed = true;
-                        }
-                    }
-
-                    if (changed) await context.SaveChangesAsync();
-                }
-            }
-        }
-
-        metaFields = await context.MetaFieldDefinition
-            .Where(f => f.IsActive && f.EntityType == "Customer" && f.CompanyId == Tenant.CompanyId)
-            .OrderBy(f => f.SortOrder)
-            .ToListAsync();
-
-        // Load base field layouts
-        baseFields = await context.BaseFieldLayout
-            .Where(b => b.EntityType == "Customer" && b.CompanyId == Tenant.CompanyId)
-            .OrderBy(b => b.SortOrder)
-            .ToListAsync();
-
-        // Auto-seed base fields if none exist
-        if (!baseFields.Any())
-        {
-            var defaults = BaseFieldLayout.GetBaseFields("Customer");
-            foreach (var d in defaults) d.CompanyId = Tenant.CompanyId;
-            context.BaseFieldLayout.AddRange(defaults);
-            await context.SaveChangesAsync();
-            baseFields = defaults;
-        }
+        metaFields = await ListMetaFieldsHandler.HandleAsync("Customer", Tenant.CompanyId);
+        baseFields = await LoadBaseFieldsHandler.HandleAsync("Customer", Tenant.CompanyId);
 
         // Build unified sorted field list
         BuildFormFields();
@@ -267,13 +209,7 @@
             zipCode = ExistingCustomer.ZipCode ?? "";
             country = ExistingCustomer.Country ?? "";
 
-            var existingMeta = await context.CustomerMetaValue
-                .Where(mv => mv.CustomerId == ExistingCustomer.Id)
-                .ToListAsync();
-            foreach (var mv in existingMeta)
-            {
-                metaValues[mv.MetaFieldDefinitionId] = mv.Value ?? "";
-            }
+            metaValues = await LoadCustomerMetaHandler.HandleAsync(ExistingCustomer.Id);
         }
 
         // Apply default values for fields that have no value yet
@@ -438,36 +374,8 @@
 
         await context.SaveChangesAsync();
 
-        var existingMeta = await context.CustomerMetaValue
-            .Where(mv => mv.CustomerId == customer.Id)
-            .ToListAsync();
-
-        foreach (var field in metaFields)
-        {
-            var isVisible = IsFieldVisible(field);
-            var val = metaValues.TryGetValue(field.Id, out var v) ? v : null;
-            var existing = existingMeta.FirstOrDefault(mv => mv.MetaFieldDefinitionId == field.Id);
-
-            if (!isVisible)
-            {
-                if (existing is not null) existing.Value = null;
-                continue;
-            }
-
-            if (existing is not null)
-                existing.Value = val;
-            else if (!string.IsNullOrWhiteSpace(val))
-            {
-                context.CustomerMetaValue.Add(new CustomerMetaValue
-                {
-                    CustomerId = customer.Id,
-                    MetaFieldDefinitionId = field.Id,
-                    Value = val
-                });
-            }
-        }
-
-        await context.SaveChangesAsync();
+        await SaveCustomerMetaHandler.HandleAsync(new SaveCustomerMetaValuesRequest(
+            customer.Id, metaFields, metaValues, IsFieldVisible));
         SyncTrigger.TriggerPush("Customer", customer.Id);
         await OnSaved.InvokeAsync(customer);
     }

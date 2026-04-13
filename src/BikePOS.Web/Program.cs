@@ -89,7 +89,34 @@ builder.Services.AddScoped<BikePOS.Infrastructure.Erp.ErpSyncService>();
 builder.Services.AddSingleton<BikePOS.Infrastructure.Erp.SyncTriggerService>();
 builder.Services.AddSingleton<SecretProtector>();
 builder.Services.AddSingleton<BikePOS.Interfaces.Services.IPaymentTerminalProvider, BikePOS.Infrastructure.Payments.ManualPaymentProvider>();
+var simulateTerminals = builder.Configuration.GetValue<bool>("SimulateTerminals");
+if (simulateTerminals)
+{
+    builder.Services.AddSingleton<BikePOS.Interfaces.Services.IPaymentTerminalProvider>(
+        new BikePOS.Infrastructure.Payments.SimulatedPaymentProvider(BikePOS.Models.TerminalProvider.Ingenico));
+    builder.Services.AddSingleton<BikePOS.Interfaces.Services.IPaymentTerminalProvider>(
+        new BikePOS.Infrastructure.Payments.SimulatedPaymentProvider(BikePOS.Models.TerminalProvider.Verifone));
+    builder.Services.AddSingleton<BikePOS.Interfaces.Services.IPaymentTerminalProvider>(
+        new BikePOS.Infrastructure.Payments.SimulatedPaymentProvider(BikePOS.Models.TerminalProvider.PAX));
+    builder.Services.AddSingleton<BikePOS.Interfaces.Services.IPaymentTerminalProvider>(
+        new BikePOS.Infrastructure.Payments.SimulatedPaymentProvider(BikePOS.Models.TerminalProvider.Nexgo));
+}
+else
+{
+    builder.Services.AddSingleton<BikePOS.Interfaces.Services.IPaymentTerminalProvider, BikePOS.Infrastructure.Payments.IngenicoPaymentProvider>();
+}
 builder.Services.AddSingleton<BikePOS.Infrastructure.Payments.PaymentTerminalService>();
+
+// Receipt Printers
+if (simulateTerminals)
+{
+    builder.Services.AddSingleton<BikePOS.Interfaces.Services.IReceiptPrinterProvider, BikePOS.Infrastructure.Printing.SimulatedReceiptProvider>();
+}
+else
+{
+    builder.Services.AddSingleton<BikePOS.Interfaces.Services.IReceiptPrinterProvider, BikePOS.Infrastructure.Printing.EscPosReceiptProvider>();
+}
+builder.Services.AddSingleton<BikePOS.Infrastructure.Printing.ReceiptPrinterService>();
 
 // DDD: Domain Event Dispatcher
 builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
@@ -105,6 +132,8 @@ builder.Services.AddScoped<IMechanicRepository, MechanicRepository>();
 // DDD: Application Command Handlers
 builder.Services.AddScoped<CreateTicketCommandHandler>();
 builder.Services.AddScoped<ProcessChargeCommandHandler>();
+builder.Services.AddScoped<PrintReceiptCommandHandler>();
+builder.Services.AddScoped<PrintServiceTagCommandHandler>();
 builder.Services.AddScoped<CancelTicketCommandHandler>();
 builder.Services.AddScoped<ProcessRefundCommandHandler>();
 builder.Services.AddScoped<CreateServiceCommandHandler>();
@@ -135,6 +164,13 @@ builder.Services.AddScoped<GetCustomerByIdQueryHandler>();
 builder.Services.AddScoped<ListTicketsQueryHandler>();
 builder.Services.AddScoped<GetTicketByIdQueryHandler>();
 builder.Services.AddScoped<SearchTicketsQueryHandler>();
+builder.Services.AddScoped<ListMetaFieldsQueryHandler>();
+builder.Services.AddScoped<LoadBaseFieldLayoutsQueryHandler>();
+builder.Services.AddScoped<LoadEntityMetaValuesQueryHandler>();
+builder.Services.AddScoped<LoadCustomerMetaValuesQueryHandler>();
+builder.Services.AddScoped<SaveEntityMetaValuesCommandHandler>();
+builder.Services.AddScoped<SaveCustomerMetaValuesCommandHandler>();
+builder.Services.AddScoped<ApplyCountryPresetsCommandHandler>();
 
 // DDD: Domain Event Handlers
 builder.Services.AddScoped<IDomainEventHandler<TicketChargedEvent>, TicketChargedEventHandler>();
@@ -167,108 +203,120 @@ builder.Services.AddScoped<IDomainEventHandler<CustomerCreatedEvent>, ErpCustome
     });
 }
 
-// Authentication: OIDC with external IdP
-builder.Services.AddAuthentication(options =>
+// Authentication: dev bypass or OIDC with external IdP
+var devBypassAuth = builder.Configuration.GetValue<bool>("DevBypassAuth");
+if (devBypassAuth)
 {
-    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
-})
-.AddCookie()
-.AddOpenIdConnect(options =>
+    builder.Services.AddAuthentication("DevBypass")
+        .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, DevBypassAuthHandler>("DevBypass", null);
+}
+else
 {
-    options.Authority = builder.Configuration["Oidc:Authority"];
-    options.ClientId = builder.Configuration["Oidc:ClientId"];
-    options.ClientSecret = builder.Configuration["Oidc:ClientSecret"];
-    options.ResponseType = OpenIdConnectResponseType.Code;
-    options.SaveTokens = true;
-    options.GetClaimsFromUserInfoEndpoint = true;
-    options.MapInboundClaims = false;
-    options.Scope.Add("openid");
-    options.Scope.Add("profile");
-    options.Scope.Add("email");
-
-    options.Events = new OpenIdConnectEvents
+    builder.Services.AddAuthentication(options =>
     {
-        OnTokenValidated = async context =>
+        options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
+    })
+    .AddCookie()
+    .AddOpenIdConnect(options =>
+    {
+        options.Authority = builder.Configuration["Oidc:Authority"];
+        options.ClientId = builder.Configuration["Oidc:ClientId"];
+        options.ClientSecret = builder.Configuration["Oidc:ClientSecret"];
+        options.ResponseType = OpenIdConnectResponseType.Code;
+        options.SaveTokens = true;
+        options.GetClaimsFromUserInfoEndpoint = true;
+        options.MapInboundClaims = false;
+        options.Scope.Add("openid");
+        options.Scope.Add("profile");
+        options.Scope.Add("email");
+
+        options.Events = new OpenIdConnectEvents
         {
-            var dbFactory = context.HttpContext.RequestServices
-                .GetRequiredService<IDbContextFactory<BikePosContext>>();
-            using var db = dbFactory.CreateDbContext();
-
-            var principal = context.Principal!;
-            var sub = principal.FindFirstValue("sub") ?? "";
-            var name = principal.FindFirstValue("name")
-                       ?? principal.FindFirstValue("preferred_username");
-            var email = principal.FindFirstValue("email");
-
-            // Upsert AppUser
-            var appUser = await db.AppUser.FirstOrDefaultAsync(u => u.ExternalSubjectId == sub);
-            if (appUser == null)
+            OnTokenValidated = async context =>
             {
-                appUser = new AppUser { ExternalSubjectId = sub, DisplayName = name, Email = email };
-                db.AppUser.Add(appUser);
-            }
-            else
-            {
-                appUser.DisplayName = name;
-                appUser.Email = email;
-                appUser.LastLoginAt = DateTime.UtcNow;
-            }
-            await db.SaveChangesAsync();
+                var dbFactory = context.HttpContext.RequestServices
+                    .GetRequiredService<IDbContextFactory<BikePosContext>>();
+                using var db = dbFactory.CreateDbContext();
 
-            // Check if IdP assigns this user a superadmin role (for bootstrap/setup)
-            var idpRoles = principal.FindAll("roles").Select(c => c.Value)
-                .Concat(principal.FindAll("role").Select(c => c.Value))
-                .Select(r => r.ToLowerInvariant())
-                .ToHashSet();
-            var isIdpSuperAdmin = idpRoles.Contains("superadmin") || idpRoles.Contains("super_admin");
+                var principal = context.Principal!;
+                var sub = principal.FindFirstValue("sub") ?? "";
+                var name = principal.FindFirstValue("name")
+                           ?? principal.FindFirstValue("preferred_username");
+                var email = principal.FindFirstValue("email");
 
-            // Find store assignment
-            var storeUser = await db.StoreUser
-                .Include(su => su.Store).ThenInclude(s => s.Company)
-                .Where(su => su.AppUserId == appUser.Id)
-                .FirstOrDefaultAsync();
-
-            // Auto-assign SuperAdmin if: IdP says superadmin, OR first user ever
-            if (storeUser == null && (isIdpSuperAdmin || !await db.StoreUser.AnyAsync()))
-            {
-                var defaultStore = await db.Store.Include(s => s.Company).FirstOrDefaultAsync();
-                if (defaultStore != null)
+                // Upsert AppUser
+                var appUser = await db.AppUser.FirstOrDefaultAsync(u => u.ExternalSubjectId == sub);
+                if (appUser == null)
                 {
-                    storeUser = new StoreUser
+                    appUser = new AppUser { ExternalSubjectId = sub, DisplayName = name, Email = email };
+                    db.AppUser.Add(appUser);
+                }
+                else
+                {
+                    appUser.DisplayName = name;
+                    appUser.Email = email;
+                    appUser.LastLoginAt = DateTime.UtcNow;
+                }
+                await db.SaveChangesAsync();
+
+                // Check if IdP assigns this user a superadmin role (for bootstrap/setup)
+                var idpRoles = principal.FindAll("roles").Select(c => c.Value)
+                    .Concat(principal.FindAll("role").Select(c => c.Value))
+                    .Select(r => r.ToLowerInvariant())
+                    .ToHashSet();
+                var isIdpSuperAdmin = idpRoles.Contains("superadmin") || idpRoles.Contains("super_admin");
+
+                // Find store assignment
+                var storeUser = await db.StoreUser
+                    .Include(su => su.Store).ThenInclude(s => s.Company)
+                    .Where(su => su.AppUserId == appUser.Id)
+                    .FirstOrDefaultAsync();
+
+                // Auto-assign SuperAdmin if: IdP says superadmin, OR first user ever
+                if (storeUser == null && (isIdpSuperAdmin || !await db.StoreUser.AnyAsync()))
+                {
+                    var defaultStore = await db.Store.Include(s => s.Company).FirstOrDefaultAsync();
+                    if (defaultStore != null)
                     {
-                        AppUserId = appUser.Id,
-                        StoreId = defaultStore.Id,
-                        Role = StoreRole.SuperAdmin
-                    };
-                    db.StoreUser.Add(storeUser);
-                    await db.SaveChangesAsync();
-                    storeUser.Store = defaultStore;
+                        storeUser = new StoreUser
+                        {
+                            AppUserId = appUser.Id,
+                            StoreId = defaultStore.Id,
+                            Role = StoreRole.SuperAdmin
+                        };
+                        db.StoreUser.Add(storeUser);
+                        await db.SaveChangesAsync();
+                        storeUser.Store = defaultStore;
+                    }
+                }
+
+                // Add tenant claims to the cookie identity
+                if (storeUser != null)
+                {
+                    var identity = (ClaimsIdentity)principal.Identity!;
+                    identity.AddClaim(new Claim("app_user_id", appUser.Id.ToString()));
+                    identity.AddClaim(new Claim("store_id", storeUser.StoreId.ToString()));
+                    identity.AddClaim(new Claim("store_name", storeUser.Store.Name));
+                    identity.AddClaim(new Claim("company_id", storeUser.Store.CompanyId.ToString()));
+                    identity.AddClaim(new Claim("company_name", storeUser.Store.Company.Name));
+                    identity.AddClaim(new Claim("conglomerate_id", storeUser.Store.Company.ConglomerateId.ToString()));
+                    identity.AddClaim(new Claim("store_role", storeUser.Role.ToString()));
+                    identity.AddClaim(new Claim(ClaimTypes.Role, storeUser.Role.ToString()));
                 }
             }
-
-            // Add tenant claims to the cookie identity
-            if (storeUser != null)
-            {
-                var identity = (ClaimsIdentity)principal.Identity!;
-                identity.AddClaim(new Claim("app_user_id", appUser.Id.ToString()));
-                identity.AddClaim(new Claim("store_id", storeUser.StoreId.ToString()));
-                identity.AddClaim(new Claim("store_name", storeUser.Store.Name));
-                identity.AddClaim(new Claim("company_id", storeUser.Store.CompanyId.ToString()));
-                identity.AddClaim(new Claim("company_name", storeUser.Store.Company.Name));
-                identity.AddClaim(new Claim("conglomerate_id", storeUser.Store.Company.ConglomerateId.ToString()));
-                identity.AddClaim(new Claim("store_role", storeUser.Role.ToString()));
-                identity.AddClaim(new Claim(ClaimTypes.Role, storeUser.Role.ToString()));
-            }
-        }
-    };
-});
+        };
+    });
+}
 
 builder.Services.AddAuthorization(options =>
 {
-    options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
-        .RequireAuthenticatedUser()
-        .Build();
+    if (!devBypassAuth)
+    {
+        options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .Build();
+    }
 });
 builder.Services.AddCascadingAuthenticationState();
 
@@ -638,3 +686,46 @@ static void ApplyFields(object entity, Dictionary<string, string?> fields)
 }
 
 app.Run();
+
+public class DevBypassAuthHandler : Microsoft.AspNetCore.Authentication.AuthenticationHandler<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions>
+{
+    private readonly IDbContextFactory<BikePosContext> _dbFactory;
+
+    public DevBypassAuthHandler(
+        Microsoft.Extensions.Options.IOptionsMonitor<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions> options,
+        Microsoft.Extensions.Logging.ILoggerFactory logger,
+        System.Text.Encodings.Web.UrlEncoder encoder,
+        IDbContextFactory<BikePosContext> dbFactory) : base(options, logger, encoder)
+    {
+        _dbFactory = dbFactory;
+    }
+
+    protected override async Task<Microsoft.AspNetCore.Authentication.AuthenticateResult> HandleAuthenticateAsync()
+    {
+        using var db = _dbFactory.CreateDbContext();
+        var store = await db.Store.Include(s => s.Company).FirstOrDefaultAsync();
+
+        var claims = new List<Claim>
+        {
+            new Claim("sub", "dev-user"),
+            new Claim("name", "Dev Admin"),
+            new Claim("email", "dev@bikepos.local"),
+            new Claim(ClaimTypes.Role, "SuperAdmin"),
+            new Claim("store_role", "SuperAdmin"),
+        };
+
+        if (store != null)
+        {
+            claims.Add(new Claim("store_id", store.Id.ToString()));
+            claims.Add(new Claim("store_name", store.Name));
+            claims.Add(new Claim("company_id", store.CompanyId.ToString()));
+            claims.Add(new Claim("company_name", store.Company.Name));
+            claims.Add(new Claim("conglomerate_id", store.Company.ConglomerateId.ToString()));
+        }
+
+        var identity = new ClaimsIdentity(claims, Scheme.Name);
+        var principal = new ClaimsPrincipal(identity);
+        var ticket = new Microsoft.AspNetCore.Authentication.AuthenticationTicket(principal, Scheme.Name);
+        return Microsoft.AspNetCore.Authentication.AuthenticateResult.Success(ticket);
+    }
+}

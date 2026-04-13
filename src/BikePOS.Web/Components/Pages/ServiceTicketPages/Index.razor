@@ -2,74 +2,148 @@
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "SuperAdmin,Admin,Mechanic")]
-@using Microsoft.AspNetCore.Components.QuickGrid
 @using BikePOS.Models
 @using BikePOS.Application.Queries
 @inject ListTicketsQueryHandler ListTickets
 
 <PageTitle>@L.Tickets_Title</PageTitle>
 
-<h1>@L.Tickets_Title</h1>
+<div class="p-6">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">@L.Tickets_Title</h1>
+        <a href="/tickets/create" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+            @L.Common_CreateNew
+        </a>
+    </div>
 
-<div class="mb-3">
-    <label class="form-label">@L.Tickets_FilterByStatus</label>
-    <select @bind="StatusFilter" @bind:event="onchange" class="form-select" style="width: 200px; display: inline-block;">
-        <option value="">@L.Status_All</option>
-        @foreach (var status in Enum.GetValues<TicketStatus>())
+    <div class="flex flex-wrap items-center gap-3 mb-4">
+        <input type="text" class="w-full max-w-md border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+               placeholder="@L.Common_Search"
+               @bind="searchFilter" @bind:event="oninput" />
+
+        <select @bind="StatusFilter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            <option value="">@L.Status_All</option>
+            @foreach (var status in Enum.GetValues<TicketStatus>())
+            {
+                <option value="@status">@status</option>
+            }
+        </select>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-gray-200 bg-gray-50 text-left text-gray-500">
+                    <th class="px-4 py-3 font-medium">#</th>
+                    <th class="px-4 py-3 font-medium">@L.Common_Status</th>
+                    <th class="px-4 py-3 font-medium">@L.Tickets_Component</th>
+                    <th class="px-4 py-3 font-medium">@L.Tickets_Mechanic</th>
+                    <th class="px-4 py-3 font-medium text-right">@L.Common_Price</th>
+                    <th class="px-4 py-3 font-medium">@L.Common_Created</th>
+                    <th class="px-4 py-3"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var ticket in PagedTickets)
+                {
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="px-4 py-3 text-gray-800 font-medium">@ticket.Id</td>
+                        <td class="px-4 py-3">
+                            <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium @StatusBadgeClass(ticket.Status)">
+                                @ticket.Status
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-gray-500">
+                            @ticket.Component?.Name
+                            <span class="text-xs text-gray-400 ml-1">@ticket.Component?.ComponentType</span>
+                        </td>
+                        <td class="px-4 py-3 text-gray-500">@(ticket.Mechanic?.Name ?? L.Common_Unassigned)</td>
+                        <td class="px-4 py-3 text-gray-500 text-right">@ticket.Price.ToString("C")</td>
+                        <td class="px-4 py-3 text-gray-500">@ticket.CreatedAt.ToString("g")</td>
+                        <td class="px-4 py-3 text-right space-x-2">
+                            <a href="@($"/tickets/edit?id={ticket.Id}")" class="text-indigo-600 hover:underline text-xs">@L.Common_Edit</a>
+                            <a href="@($"/tickets/details?id={ticket.Id}")" class="text-gray-500 hover:underline text-xs">@L.Common_Details</a>
+                            <a href="@($"/tickets/delete?id={ticket.Id}")" class="text-red-500 hover:underline text-xs">@L.Common_Delete</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @if (!FilteredTickets.Any())
         {
-            <option value="@status">@status</option>
+            <p class="text-sm text-gray-400 text-center py-8">@L.Common_NoResults</p>
         }
-    </select>
+    </div>
+
+    @if (TotalPages > 1)
+    {
+        <div class="flex items-center justify-between mt-4">
+            <p class="text-xs text-gray-500">
+                Page @(currentPage + 1) of @TotalPages
+            </p>
+            <div class="space-x-2">
+                <button class="px-3 py-1 text-sm border border-gray-300 rounded-lg disabled:opacity-50"
+                        @onclick="() => currentPage--" disabled="@(currentPage == 0)">
+                    Prev
+                </button>
+                <button class="px-3 py-1 text-sm border border-gray-300 rounded-lg disabled:opacity-50"
+                        @onclick="() => currentPage++" disabled="@(currentPage >= TotalPages - 1)">
+                    Next
+                </button>
+            </div>
+        </div>
+    }
 </div>
-
-<p>
-    <a href="tickets/create">@L.Common_CreateNew</a>
-</p>
-
-<QuickGrid Class="table" Items="FilteredTickets" Pagination="pagination">
-    <PropertyColumn Property="t => t.Id" Title="#" />
-    <PropertyColumn Property="t => t.Status" />
-    <TemplateColumn Title="@L.Tickets_Component" Context="ticket">
-        @ticket.Component?.Name
-        <span class="text-xs text-gray-400 ml-1">@ticket.Component?.ComponentType</span>
-    </TemplateColumn>
-    <TemplateColumn Title="@L.Tickets_Mechanic" Context="ticket">
-        @ticket.Mechanic?.Name
-    </TemplateColumn>
-    <PropertyColumn Property="t => t.Price" Format="C" />
-    <PropertyColumn Property="t => t.CreatedAt" Format="g" />
-
-    <TemplateColumn Context="ticket">
-        <a href="@($"tickets/edit?id={ticket.Id}")">@L.Common_Edit</a> |
-        <a href="@($"tickets/details?id={ticket.Id}")">@L.Common_Details</a> |
-        <a href="@($"tickets/delete?id={ticket.Id}")">@L.Common_Delete</a>
-    </TemplateColumn>
-</QuickGrid>
-
-<Paginator State="pagination" />
 
 @code {
     [CascadingParameter] public Text L { get; set; } = default!;
 
-    private PaginationState pagination = new PaginationState { ItemsPerPage = 10 };
+    private const int PageSize = 10;
+    private int currentPage = 0;
     private string StatusFilter = string.Empty;
+    private string searchFilter = "";
     private List<ServiceTicket> allTickets = new();
 
-    private IQueryable<ServiceTicket> FilteredTickets
+    private IEnumerable<ServiceTicket> FilteredTickets
     {
         get
         {
-            var query = allTickets.AsQueryable();
+            IEnumerable<ServiceTicket> query = allTickets;
             if (Enum.TryParse<TicketStatus>(StatusFilter, out var status))
             {
                 query = query.Where(t => t.Status == status);
+            }
+            if (!string.IsNullOrWhiteSpace(searchFilter))
+            {
+                var term = searchFilter.Trim();
+                query = query.Where(t =>
+                    t.Id.ToString().Contains(term) ||
+                    (t.Component?.Name?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (t.Mechanic?.Name?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false));
             }
             return query.OrderByDescending(t => t.CreatedAt);
         }
     }
 
+    private int TotalPages => (int)Math.Ceiling(FilteredTickets.Count() / (double)PageSize);
+
+    private IEnumerable<ServiceTicket> PagedTickets =>
+        FilteredTickets.Skip(currentPage * PageSize).Take(PageSize);
+
     protected override async Task OnInitializedAsync()
     {
         allTickets = await ListTickets.HandleAsync();
     }
+
+    private string StatusBadgeClass(TicketStatus status) => status switch
+    {
+        TicketStatus.Open => "bg-blue-100 text-blue-700",
+        TicketStatus.InProgress => "bg-amber-100 text-amber-700",
+        TicketStatus.WaitingForParts => "bg-orange-100 text-orange-700",
+        TicketStatus.Completed => "bg-green-100 text-green-700",
+        TicketStatus.Charged => "bg-emerald-100 text-emerald-700",
+        TicketStatus.Cancelled => "bg-gray-100 text-gray-500",
+        _ => "bg-gray-100 text-gray-500"
+    };
 }

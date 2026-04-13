@@ -1,37 +1,82 @@
 @page "/services"
+@rendermode InteractiveServer
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "SuperAdmin,Admin")]
-@using Microsoft.AspNetCore.Components.QuickGrid
 @using BikePOS.Models
 @using BikePOS.Application.Queries
 @inject ListServicesQueryHandler ListServices
-@inject NavigationManager NavigationManager
 
 <PageTitle>@L.Services_Title</PageTitle>
 
-<h1>@L.Services_Title</h1>
+<div class="p-6">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">@L.Services_Title</h1>
+        <a href="/services/create" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+            @L.Services_Create
+        </a>
+    </div>
 
-<p>
-    <a href="services/create">@L.Common_CreateNew</a>
-</p>
+    <div class="mb-4">
+        <input type="text" class="w-full max-w-md border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+               placeholder="@L.Common_Search"
+               @bind="searchFilter" @bind:event="oninput" />
+    </div>
 
-<QuickGrid Class="table" Items="services.AsQueryable()">
-    <PropertyColumn Property="service => service.Name" />
-    <PropertyColumn Property="service => service.Description" />
-    <PropertyColumn Property="service => service.DefaultPrice" />
-    <PropertyColumn Property="service => service.EstimatedMinutes" />
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-gray-200 bg-gray-50 text-left text-gray-500">
+                    <th class="px-4 py-3 font-medium">@L.Common_Name</th>
+                    <th class="px-4 py-3 font-medium">@L.Common_Description</th>
+                    <th class="px-4 py-3 font-medium text-right">@L.Common_DefaultPrice</th>
+                    <th class="px-4 py-3 font-medium text-right">@L.Common_EstimatedMinutes</th>
+                    <th class="px-4 py-3"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var service in FilteredServices)
+                {
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="px-4 py-3 text-gray-800 font-medium">@service.Name</td>
+                        <td class="px-4 py-3 text-gray-500">@service.Description</td>
+                        <td class="px-4 py-3 text-gray-500 text-right">@service.DefaultPrice.ToString("C")</td>
+                        <td class="px-4 py-3 text-gray-500 text-right">@service.EstimatedMinutes</td>
+                        <td class="px-4 py-3 text-right space-x-2">
+                            <a href="@($"/services/edit?id={service.Id}")" class="text-indigo-600 hover:underline text-xs">@L.Common_Edit</a>
+                            <a href="@($"/services/details?id={service.Id}")" class="text-gray-500 hover:underline text-xs">@L.Common_Details</a>
+                            <a href="@($"/services/delete?id={service.Id}")" class="text-red-500 hover:underline text-xs">@L.Common_Delete</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
 
-    <TemplateColumn Context="service">
-        <a href="@($"services/edit?id={service.Id}")">@L.Common_Edit</a> |
-        <a href="@($"services/details?id={service.Id}")">@L.Common_Details</a> |
-        <a href="@($"services/delete?id={service.Id}")">@L.Common_Delete</a>
-    </TemplateColumn>
-</QuickGrid>
+        @if (!FilteredServices.Any())
+        {
+            <p class="text-sm text-gray-400 text-center py-8">@L.Common_NoResults</p>
+        }
+    </div>
+</div>
 
 @code {
     [CascadingParameter] public Text L { get; set; } = default!;
 
     private List<Service> services = new();
+    private string searchFilter = "";
+
+    private IEnumerable<Service> FilteredServices
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(searchFilter))
+                return services;
+
+            var term = searchFilter.Trim();
+            return services.Where(s =>
+                (s.Name != null && s.Name.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (s.Description != null && s.Description.Contains(term, StringComparison.OrdinalIgnoreCase)));
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {

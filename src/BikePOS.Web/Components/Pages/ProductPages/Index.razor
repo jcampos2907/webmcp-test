@@ -1,36 +1,85 @@
 @page "/products"
+@rendermode InteractiveServer
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "SuperAdmin,Admin")]
-@using Microsoft.AspNetCore.Components.QuickGrid
 @using BikePOS.Models
 @using BikePOS.Application.Queries
 @inject ListProductsQueryHandler ListProducts
-@inject NavigationManager NavigationManager
 
-<PageTitle>Index</PageTitle>
+<PageTitle>@L.Products_Title</PageTitle>
 
-<h1>Index</h1>
+<div class="p-6">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">@L.Products_Title</h1>
+        <a href="/products/create" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+            @L.Products_Create
+        </a>
+    </div>
 
-<p>
-    <a href="products/create">Create New</a>
-</p>
+    <div class="mb-4">
+        <input type="text" class="w-full max-w-md border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+               placeholder="@L.Common_Search"
+               @bind="searchFilter" @bind:event="oninput" />
+    </div>
 
-<QuickGrid Class="table" Items="products.AsQueryable()">
-    <PropertyColumn Property="product => product.Name" />
-    <PropertyColumn Property="product => product.Sku" />
-    <PropertyColumn Property="product => product.Price" />
-    <PropertyColumn Property="product => product.QuantityInStock" />
-    <PropertyColumn Property="product => product.Category" />
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-gray-200 bg-gray-50 text-left text-gray-500">
+                    <th class="px-4 py-3 font-medium">@L.Common_Name</th>
+                    <th class="px-4 py-3 font-medium">@L.Common_SKU</th>
+                    <th class="px-4 py-3 font-medium text-right">@L.Common_Price</th>
+                    <th class="px-4 py-3 font-medium text-right">@L.Common_QuantityInStock</th>
+                    <th class="px-4 py-3 font-medium">@L.Common_Category</th>
+                    <th class="px-4 py-3"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var product in FilteredProducts)
+                {
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="px-4 py-3 text-gray-800 font-medium">@product.Name</td>
+                        <td class="px-4 py-3 text-gray-500">@product.Sku</td>
+                        <td class="px-4 py-3 text-gray-500 text-right">@product.Price.ToString("C")</td>
+                        <td class="px-4 py-3 text-gray-500 text-right">@product.QuantityInStock</td>
+                        <td class="px-4 py-3 text-gray-500">@product.Category</td>
+                        <td class="px-4 py-3 text-right space-x-2">
+                            <a href="@($"/products/edit?id={product.Id}")" class="text-indigo-600 hover:underline text-xs">@L.Common_Edit</a>
+                            <a href="@($"/products/details?id={product.Id}")" class="text-gray-500 hover:underline text-xs">@L.Common_Details</a>
+                            <a href="@($"/products/delete?id={product.Id}")" class="text-red-500 hover:underline text-xs">@L.Common_Delete</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
 
-    <TemplateColumn Context="product">
-        <a href="@($"products/edit?id={product.Id}")">Edit</a> |
-        <a href="@($"products/details?id={product.Id}")">Details</a> |
-        <a href="@($"products/delete?id={product.Id}")">Delete</a>
-    </TemplateColumn>
-</QuickGrid>
+        @if (!FilteredProducts.Any())
+        {
+            <p class="text-sm text-gray-400 text-center py-8">@L.Common_NoResults</p>
+        }
+    </div>
+</div>
 
 @code {
+    [CascadingParameter] public Text L { get; set; } = default!;
+
     private List<Product> products = new();
+    private string searchFilter = "";
+
+    private IEnumerable<Product> FilteredProducts
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(searchFilter))
+                return products;
+
+            var term = searchFilter.Trim();
+            return products.Where(p =>
+                (p.Name != null && p.Name.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (p.Sku != null && p.Sku.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (p.Category != null && p.Category.Contains(term, StringComparison.OrdinalIgnoreCase)));
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {

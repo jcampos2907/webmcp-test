@@ -71,6 +71,21 @@ public class SeedData
             context.SaveChanges();
         }
 
+        if (!context.ReceiptPrinter.Any())
+        {
+            context.ReceiptPrinter.Add(new ReceiptPrinter
+            {
+                StoreId = storeId,
+                Name = "Front Desk Printer",
+                IpAddress = "192.168.1.200",
+                Port = 9100,
+                Provider = PrinterProvider.EscPos,
+                PaperWidth = 48,
+                IsActive = true
+            });
+            context.SaveChanges();
+        }
+
         // Seed tickets + charges for POS testing and reports
         if (!context.ServiceTicket.Any() && context.Component.Any() && context.Mechanic.Any())
         {

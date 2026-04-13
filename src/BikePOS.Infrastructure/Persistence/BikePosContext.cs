@@ -31,6 +31,7 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
     public DbSet<OidcConfig> OidcConfig { get; set; } = default!;
     public DbSet<PaymentTerminal> PaymentTerminal { get; set; } = default!;
     public DbSet<PaymentSession> PaymentSession { get; set; } = default!;
+    public DbSet<ReceiptPrinter> ReceiptPrinter { get; set; } = default!;
     public DbSet<BaseFieldLayout> BaseFieldLayout { get; set; } = default!;
     public DbSet<TicketEvent> TicketEvent { get; set; } = default!;
     public DbSet<NotificationLog> NotificationLog { get; set; } = default!;
@@ -177,6 +178,12 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
             entity.HasOne(s => s.Charge).WithMany().HasForeignKey(s => s.ChargeId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(s => s.Terminal).WithMany().HasForeignKey(s => s.TerminalId).OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(s => s.Status);
+        });
+
+        modelBuilder.Entity<ReceiptPrinter>(entity =>
+        {
+            entity.HasOne(p => p.Store).WithMany().HasForeignKey(p => p.StoreId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(p => new { p.StoreId, p.IsActive });
         });
 
         modelBuilder.Entity<BaseFieldLayout>(entity =>

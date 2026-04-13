@@ -1,37 +1,92 @@
 @page "/mechanics"
+@rendermode InteractiveServer
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "SuperAdmin,Admin")]
-@using Microsoft.AspNetCore.Components.QuickGrid
 @using BikePOS.Models
 @using BikePOS.Application.Queries
 @inject ListMechanicsQueryHandler ListMechanics
-@inject NavigationManager NavigationManager
 
 <PageTitle>@L.Mechanics_Title</PageTitle>
 
-<h1>@L.Mechanics_Title</h1>
+<div class="p-6">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">@L.Mechanics_Title</h1>
+        <a href="/mechanics/create" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+            @L.Mechanics_Create
+        </a>
+    </div>
 
-<p>
-    <a href="mechanics/create">@L.Common_CreateNew</a>
-</p>
+    <div class="mb-4">
+        <input type="text" class="w-full max-w-md border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+               placeholder="@L.Common_Search"
+               @bind="searchFilter" @bind:event="oninput" />
+    </div>
 
-<QuickGrid Class="table" Items="mechanics.AsQueryable()">
-    <PropertyColumn Property="mechanic => mechanic.Name" />
-    <PropertyColumn Property="mechanic => mechanic.Phone" />
-    <PropertyColumn Property="mechanic => mechanic.Email" />
-    <PropertyColumn Property="mechanic => mechanic.IsActive" />
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-gray-200 bg-gray-50 text-left text-gray-500">
+                    <th class="px-4 py-3 font-medium">@L.Common_Name</th>
+                    <th class="px-4 py-3 font-medium">@L.Common_Phone</th>
+                    <th class="px-4 py-3 font-medium">@L.Common_Email</th>
+                    <th class="px-4 py-3 font-medium">@L.Common_Status</th>
+                    <th class="px-4 py-3"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var mechanic in FilteredMechanics)
+                {
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="px-4 py-3 text-gray-800 font-medium">@mechanic.Name</td>
+                        <td class="px-4 py-3 text-gray-500">@mechanic.Phone</td>
+                        <td class="px-4 py-3 text-gray-500">@mechanic.Email</td>
+                        <td class="px-4 py-3">
+                            @if (mechanic.IsActive)
+                            {
+                                <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">@L.Common_Active</span>
+                            }
+                            else
+                            {
+                                <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">@L.Common_Inactive</span>
+                            }
+                        </td>
+                        <td class="px-4 py-3 text-right space-x-2">
+                            <a href="@($"/mechanics/edit?id={mechanic.Id}")" class="text-indigo-600 hover:underline text-xs">@L.Common_Edit</a>
+                            <a href="@($"/mechanics/details?id={mechanic.Id}")" class="text-gray-500 hover:underline text-xs">@L.Common_Details</a>
+                            <a href="@($"/mechanics/delete?id={mechanic.Id}")" class="text-red-500 hover:underline text-xs">@L.Common_Delete</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
 
-    <TemplateColumn Context="mechanic">
-        <a href="@($"mechanics/edit?id={mechanic.Id}")">@L.Common_Edit</a> |
-        <a href="@($"mechanics/details?id={mechanic.Id}")">@L.Common_Details</a> |
-        <a href="@($"mechanics/delete?id={mechanic.Id}")">@L.Common_Delete</a>
-    </TemplateColumn>
-</QuickGrid>
+        @if (!FilteredMechanics.Any())
+        {
+            <p class="text-sm text-gray-400 text-center py-8">@L.Common_NoResults</p>
+        }
+    </div>
+</div>
 
 @code {
     [CascadingParameter] public Text L { get; set; } = default!;
 
     private List<Mechanic> mechanics = new();
+    private string searchFilter = "";
+
+    private IEnumerable<Mechanic> FilteredMechanics
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(searchFilter))
+                return mechanics;
+
+            var term = searchFilter.Trim();
+            return mechanics.Where(m =>
+                (m.Name != null && m.Name.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (m.Phone != null && m.Phone.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (m.Email != null && m.Email.Contains(term, StringComparison.OrdinalIgnoreCase)));
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {

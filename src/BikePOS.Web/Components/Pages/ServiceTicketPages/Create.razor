@@ -13,6 +13,10 @@
 @inject ListMechanicsQueryHandler ListMechanicsHandler
 @inject ListProductsQueryHandler ListProductsHandler
 @inject CreateTicketCommandHandler CreateTicketHandler
+@inject PrintServiceTagCommandHandler PrintTagHandler
+@inject ListMetaFieldsQueryHandler ListMetaFieldsHandler
+@inject LoadBaseFieldLayoutsQueryHandler LoadBaseFieldsHandler
+@inject SaveEntityMetaValuesCommandHandler SaveEntityMetaHandler
 @inject ShopCultureService CultureService
 @inject TenantContext Tenant
 @inject IJSRuntime JS
@@ -544,10 +548,7 @@
             newComponentType = availableComponentTypes[0];
         }
 
-        componentMetaFields = await context.MetaFieldDefinition
-            .Where(f => f.IsActive && f.EntityType == "Component" && f.CompanyId == Tenant.CompanyId)
-            .OrderBy(f => f.SortOrder).ThenBy(f => f.Label)
-            .ToListAsync();
+        componentMetaFields = await ListMetaFieldsHandler.HandleAsync("Component", Tenant.CompanyId);
         foreach (var field in componentMetaFields)
         {
             if (!string.IsNullOrEmpty(field.DefaultValue) && !componentMetaValues.ContainsKey(field.Id))
@@ -615,21 +616,8 @@
         await context.SaveChangesAsync();
 
         // Save component meta values
-        foreach (var field in componentMetaFields)
-        {
-            var val = componentMetaValues.TryGetValue(field.Id, out var v) ? v : null;
-            if (!string.IsNullOrWhiteSpace(val) && IsComponentMetaFieldVisible(field))
-            {
-                context.EntityMetaValue.Add(new EntityMetaValue
-                {
-                    EntityType = "Component",
-                    EntityId = component.Id,
-                    MetaFieldDefinitionId = field.Id,
-                    Value = val
-                });
-            }
-        }
-        await context.SaveChangesAsync();
+        await SaveEntityMetaHandler.CreateAsync("Component", component.Id,
+            componentMetaFields, componentMetaValues, IsComponentMetaFieldVisible);
 
         showCreateComponent = false;
         newComponentName = ""; newComponentSku = ""; newComponentColor = ""; newComponentBrand = ""; newComponentType = "Bicicleta";
@@ -926,6 +914,8 @@
             }
             await context.SaveChangesAsync();
         }
+
+        _ = PrintTagHandler.HandleAsync(new PrintServiceTagRequest(result.TicketId));
 
         NavigationManager.NavigateTo(navigateToCharge ? $"/?ticketId={result.TicketId}" : $"/tickets/details?id={result.TicketId}");
     }
