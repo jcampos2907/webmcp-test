@@ -1,5 +1,18 @@
+using BikePOS.Api.Endpoints;
+using BikePOS.Application.Commands;
+using BikePOS.Application.EventHandlers;
 using BikePOS.Application.Queries;
 using BikePOS.Data;
+using BikePOS.Domain.Aggregates.Customer.Events;
+using BikePOS.Domain.Aggregates.Inventory.Events;
+using BikePOS.Domain.Aggregates.ServiceTicket.Events;
+using BikePOS.Infrastructure;
+using BikePOS.Infrastructure.Erp;
+using BikePOS.Infrastructure.Persistence;
+using BikePOS.Interfaces.Events;
+using BikePOS.Interfaces.Repositories;
+using BikePOS.Interfaces.Services;
+using BikePOS.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,8 +23,58 @@ var connectionString = builder.Configuration.GetConnectionString("BikePosContext
 builder.Services.AddDbContextFactory<BikePosContext>(options =>
     options.UseSqlite(connectionString, b => b.MigrationsAssembly("BikePOS.Web")));
 
+// Infrastructure
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<IErpAdapter, GenericWebhookAdapter>();
+builder.Services.AddScoped<ErpSyncService>();
+builder.Services.AddSingleton<SyncTriggerService>();
+builder.Services.AddScoped<TicketEventService>();
+builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+
+// Repositories
+builder.Services.AddScoped<IServiceTicketRepository, ServiceTicketRepository>();
+builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
+builder.Services.AddScoped<IProductRepository, ProductRepository>();
+builder.Services.AddScoped<IComponentRepository, ComponentRepository>();
+builder.Services.AddScoped<IChargeRepository, ChargeRepository>();
+builder.Services.AddScoped<IMechanicRepository, MechanicRepository>();
+
+// Command handlers
+builder.Services.AddScoped<CreateTicketCommandHandler>();
+builder.Services.AddScoped<CancelTicketCommandHandler>();
+builder.Services.AddScoped<CreateServiceCommandHandler>();
+builder.Services.AddScoped<UpdateServiceCommandHandler>();
+builder.Services.AddScoped<DeleteServiceCommandHandler>();
+builder.Services.AddScoped<CreateMechanicCommandHandler>();
+builder.Services.AddScoped<UpdateMechanicCommandHandler>();
+builder.Services.AddScoped<DeleteMechanicCommandHandler>();
+builder.Services.AddScoped<CreateProductCommandHandler>();
+builder.Services.AddScoped<UpdateProductCommandHandler>();
+builder.Services.AddScoped<DeleteProductCommandHandler>();
+builder.Services.AddScoped<CreateCustomerCommandHandler>();
+builder.Services.AddScoped<UpdateCustomerCommandHandler>();
+builder.Services.AddScoped<DeleteCustomerCommandHandler>();
+
+// Query handlers
+builder.Services.AddScoped<GetTicketDetailsQueryHandler>();
+builder.Services.AddScoped<DailySalesQueryHandler>();
+builder.Services.AddScoped<ListServicesQueryHandler>();
+builder.Services.AddScoped<GetServiceByIdQueryHandler>();
+builder.Services.AddScoped<ListMechanicsQueryHandler>();
+builder.Services.AddScoped<GetMechanicByIdQueryHandler>();
+builder.Services.AddScoped<GetMechanicWorkloadQueryHandler>();
+builder.Services.AddScoped<ListProductsQueryHandler>();
+builder.Services.AddScoped<GetProductByIdQueryHandler>();
 builder.Services.AddScoped<ListCustomersQueryHandler>();
 builder.Services.AddScoped<GetCustomerByIdQueryHandler>();
+builder.Services.AddScoped<ListTicketsQueryHandler>();
+builder.Services.AddScoped<GetTicketByIdQueryHandler>();
+builder.Services.AddScoped<SearchTicketsQueryHandler>();
+
+// Domain event handlers (registered so dispatcher finds them; LowStock/etc rely on notification stack, skip those)
+builder.Services.AddScoped<IDomainEventHandler<CustomerCreatedEvent>, ErpCustomerCreatedHandler>();
+builder.Services.AddScoped<IDomainEventHandler<TicketCreatedEvent>, ErpTicketCreatedHandler>();
+builder.Services.AddScoped<IDomainEventHandler<TicketStatusChangedEvent>, ErpTicketStatusChangedHandler>();
 
 builder.Services.AddOpenApi();
 
@@ -31,17 +94,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors(CorsPolicy);
 
-app.MapGet("/api/customers", async (ListCustomersQueryHandler handler, string? search, CancellationToken ct) =>
-{
-    var customers = await handler.HandleAsync(search, ct);
-    return Results.Ok(customers.Select(c => new CustomerListDto(
-        c.Id, c.FirstName, c.LastName, $"{c.FirstName} {c.LastName}".Trim(), c.Phone, c.Email, c.City)));
-});
-
-app.MapGet("/api/customers/{id}", async (string id, GetCustomerByIdQueryHandler handler, CancellationToken ct) =>
-{
-    var customer = await handler.HandleAsync(id, includeComponents: true, ct);
-    return customer is null ? Results.NotFound() : Results.Ok(customer);
-});
+app.MapCustomerEndpoints();
+app.MapMechanicEndpoints();
+app.MapServiceEndpoints();
+app.MapProductEndpoints();
+app.MapTicketEndpoints();
+app.MapDashboardEndpoints();
 
 app.Run();
