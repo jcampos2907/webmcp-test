@@ -60,3 +60,6 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Playwright MCP
+.playwright-mcp/

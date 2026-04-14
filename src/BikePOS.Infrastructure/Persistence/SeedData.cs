@@ -97,8 +97,7 @@ public class SeedData
             var now = DateTime.UtcNow;
             int ticketNum = 0;
 
-            // Generate ~30 historical tickets across the last 30 days with charges
-            var paymentMethods = new[] { PaymentMethod.Cash, PaymentMethod.Card, PaymentMethod.Transfer };
+            // Generate ~30 historical tickets across the last 30 days (all uncharged for testing)
 
             for (int daysAgo = 30; daysAgo >= 0; daysAgo--)
             {
@@ -110,8 +109,7 @@ public class SeedData
                     var mech = mechanics[rng.Next(mechanics.Count)];
                     var svc = services[rng.Next(services.Count)];
                     var createdAt = now.AddDays(-daysAgo).AddHours(rng.Next(8, 17)).AddMinutes(rng.Next(0, 60));
-                    var isCharged = daysAgo > 1 || (daysAgo == 1 && rng.Next(2) == 0);
-                    var isInProgress = !isCharged && rng.Next(2) == 0;
+                    var isInProgress = rng.Next(3) == 0;
 
                     var ticket = new ServiceTicket
                     {
@@ -121,7 +119,7 @@ public class SeedData
                         BaseServiceId = svc.Id,
                         Price = svc.DefaultPrice + rng.Next(0, 50),
                         DiscountPercent = rng.Next(4) == 0 ? rng.Next(5, 15) : 0,
-                        Status = isCharged ? TicketStatus.Charged : isInProgress ? TicketStatus.InProgress : TicketStatus.Completed,
+                        Status = isInProgress ? TicketStatus.InProgress : TicketStatus.Completed,
                         Description = $"Service on {comp.Name}",
                         StoreId = storeId,
                         TicketNumber = ticketNum,
@@ -147,25 +145,6 @@ public class SeedData
                     }
                     context.SaveChanges();
 
-                    // Create charge if ticket is charged
-                    if (isCharged)
-                    {
-                        var chargedAt = ticket.UpdatedAt.AddMinutes(rng.Next(5, 60));
-                        var method = paymentMethods[rng.Next(paymentMethods.Length)];
-                        context.Charge.Add(new Charge
-                        {
-                            ServiceTicketId = ticket.Id,
-                            Amount = ticket.Price * (1 - ticket.DiscountPercent / 100m),
-                            ChargedAt = chargedAt,
-                            CashierName = "seed",
-                            PaymentMethod = method,
-                            PaymentStatus = PaymentStatus.Completed,
-                            CompletedAt = chargedAt,
-                            StoreId = storeId,
-                            CreatedBy = "seed"
-                        });
-                        context.SaveChanges();
-                    }
                 }
             }
 
@@ -217,21 +196,6 @@ public class SeedData
             };
 
             context.ServiceTicket.AddRange(ticket1, ticket2, ticket3);
-            context.SaveChanges();
-
-            // Partial payment on ticket 2
-            context.Charge.Add(new Charge
-            {
-                ServiceTicketId = ticket2.Id,
-                Amount = 100m,
-                ChargedAt = now.AddHours(-2),
-                CashierName = "seed",
-                PaymentMethod = PaymentMethod.Cash,
-                PaymentStatus = PaymentStatus.Completed,
-                CompletedAt = now.AddHours(-2),
-                StoreId = storeId,
-                CreatedBy = "seed"
-            });
             context.SaveChanges();
         }
 
