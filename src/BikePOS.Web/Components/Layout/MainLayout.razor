@@ -3,6 +3,11 @@
 @inject I18nText I18nText
 @implements IDisposable
 
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
 @if (L != null)
 {
     <CascadingValue Value="L">
@@ -16,6 +21,7 @@
                         @Body
                     </main>
                 </div>
+                <BikePOS.Components.Shared.AiAssistant />
             </div>
         </TenantInitializer>
     </CascadingValue>

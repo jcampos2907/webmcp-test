@@ -1,9 +1,7 @@
 using BikePOS.Components;
 using BikePOS.Data;
 using Microsoft.EntityFrameworkCore;
-using Blazorise;
-using Blazorise.Tailwind;
-using Blazorise.Icons.FontAwesome;
+using MudBlazor.Services;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -32,10 +30,7 @@ var connectionString = builder.Configuration.GetConnectionString("BikePosContext
 builder.Services.AddDbContextFactory<BikePosContext>(options =>
     options.UseSqlite(connectionString, b => b.MigrationsAssembly("BikePOS.Web")));
 
-builder.Services
-    .AddBlazorise(options => { options.Immediate = true; })
-    .AddTailwindProviders()
-    .AddFontAwesomeIcons();
+builder.Services.AddMudServices();
 
 builder.Services.AddQuickGridEntityFrameworkAdapter();
 

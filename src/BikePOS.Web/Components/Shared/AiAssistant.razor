@@ -1,0 +1,144 @@
+@rendermode InteractiveServer
+
+<div class="ai-assistant-root">
+    @if (isOpen)
+    {
+        <div class="ai-chat-panel">
+            <div class="ai-chat-header">
+                <div class="flex items-center gap-2">
+                    <div class="ai-header-icon">
+                        <i class="fa-solid fa-sparkles"></i>
+                    </div>
+                    <div>
+                        <div class="font-semibold text-sm">AI Assistant</div>
+                        <div class="text-xs opacity-80">Ask me anything</div>
+                    </div>
+                </div>
+                <button class="ai-close-btn" @onclick="Toggle" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="ai-chat-messages" @ref="messagesEl">
+                @if (messages.Count == 0)
+                {
+                    <div class="ai-empty-state">
+                        <div class="ai-empty-icon">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-3">How can I help you today?</p>
+                        <div class="ai-suggestion-grid">
+                            <button class="ai-suggestion" @onclick='() => SendSuggestion("Show me today\u0027s revenue")'>
+                                Today's revenue
+                            </button>
+                            <button class="ai-suggestion" @onclick='() => SendSuggestion("Which mechanic has the most open tickets?")'>
+                                Mechanic workload
+                            </button>
+                            <button class="ai-suggestion" @onclick='() => SendSuggestion("List low-stock products")'>
+                                Low-stock products
+                            </button>
+                            <button class="ai-suggestion" @onclick='() => SendSuggestion("Create a new ticket")'>
+                                Create ticket
+                            </button>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var msg in messages)
+                    {
+                        <div class="ai-msg @(msg.IsUser ? "ai-msg-user" : "ai-msg-bot")">
+                            @if (!msg.IsUser)
+                            {
+                                <div class="ai-msg-avatar">
+                                    <i class="fa-solid fa-sparkles"></i>
+                                </div>
+                            }
+                            <div class="ai-msg-bubble">@msg.Text</div>
+                        </div>
+                    }
+                    @if (isThinking)
+                    {
+                        <div class="ai-msg ai-msg-bot">
+                            <div class="ai-msg-avatar">
+                                <i class="fa-solid fa-sparkles"></i>
+                            </div>
+                            <div class="ai-msg-bubble ai-typing">
+                                <span></span><span></span><span></span>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+
+            <div class="ai-chat-input">
+                <input type="text"
+                       placeholder="Ask something..."
+                       @bind="input"
+                       @bind:event="oninput"
+                       @onkeydown="OnKeyDown"
+                       disabled="@isThinking" />
+                <button class="ai-send-btn" @onclick="Send" disabled="@(string.IsNullOrWhiteSpace(input) || isThinking)">
+                    <i class="fa-solid fa-arrow-up"></i>
+                </button>
+            </div>
+        </div>
+    }
+
+    <button class="ai-fab @(isOpen ? "ai-fab-open" : "")" @onclick="Toggle" aria-label="AI Assistant">
+        @if (isOpen)
+        {
+            <i class="fa-solid fa-xmark"></i>
+        }
+        else
+        {
+            <i class="fa-solid fa-sparkles"></i>
+        }
+    </button>
+</div>
+
+@code {
+    private bool isOpen;
+    private bool isThinking;
+    private string input = "";
+    private List<ChatMessage> messages = new();
+    private ElementReference messagesEl;
+
+    private record ChatMessage(string Text, bool IsUser);
+
+    private void Toggle() => isOpen = !isOpen;
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await Send();
+        }
+    }
+
+    private async Task SendSuggestion(string text)
+    {
+        input = text;
+        await Send();
+    }
+
+    private async Task Send()
+    {
+        var text = input?.Trim();
+        if (string.IsNullOrEmpty(text) || isThinking) return;
+
+        messages.Add(new ChatMessage(text, true));
+        input = "";
+        isThinking = true;
+        StateHasChanged();
+
+        // Placeholder — will be wired to an agent backend later
+        await Task.Delay(800);
+
+        messages.Add(new ChatMessage(
+            "I'm not wired up to an agent yet. Once connected, I'll be able to answer questions about your shop.",
+            false));
+        isThinking = false;
+        StateHasChanged();
+    }
+}

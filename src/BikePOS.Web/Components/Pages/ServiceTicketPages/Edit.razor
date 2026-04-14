@@ -22,6 +22,7 @@
 @inject ProcessChargeCommandHandler ChargeHandler
 @inject BikePOS.Infrastructure.Payments.PaymentTerminalService TerminalService
 @inject PrintReceiptCommandHandler PrintHandler
+@inject ISnackbar Snackbar
 @inject IJSRuntime JS
 @using BikePOS.Components.Shared
 
@@ -563,10 +564,6 @@
     </div>
 }
 
-<Snackbar @ref="snackbar" Color="SnackbarColor.Success" Interval="3000" Location="SnackbarLocation.BottomEnd">
-    <SnackbarBody>@L.Tickets_TicketSaved</SnackbarBody>
-</Snackbar>
-
 @code {
     [CascadingParameter] public Text L { get; set; } = default!;
     CultureInfo culture = CultureInfo.CurrentCulture;
@@ -631,7 +628,6 @@
 
     private enum TerminalModalStatus { Processing, Success, Failed }
 
-    private Snackbar snackbar = null!;
 
     // Product selector
     private bool showProductSelector = false;
@@ -1077,7 +1073,7 @@
         using var ctx2 = DbFactory.CreateDbContext();
         await LoadTimeline(ctx2);
 
-        await snackbar.Show();
+        Snackbar.Add(L.Tickets_TicketSaved, Severity.Success);
     }
 
     private async Task CancelTicket()
@@ -1098,7 +1094,7 @@
         using var ctx2 = DbFactory.CreateDbContext();
         await LoadTimeline(ctx2);
 
-        await snackbar.Show();
+        Snackbar.Add(L.Tickets_TicketSaved, Severity.Success);
     }
 
     private async Task ProcessRefund()
