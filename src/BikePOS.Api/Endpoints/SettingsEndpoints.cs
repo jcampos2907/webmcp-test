@@ -1,6 +1,6 @@
-using BikePOS.Api.Auth;
 using BikePOS.Data;
 using BikePOS.Models;
+using BikePOS.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace BikePOS.Api.Endpoints;
@@ -16,10 +16,13 @@ public static class SettingsEndpoints
 
     public static void MapSettingsEndpoints(this WebApplication app)
     {
-        var g = app.MapGroup("/api/settings").RequireAuthorization(Policies.SuperAdmin);
+        // No endpoint-level permission filter: each handler calls guard.Require("settings.manage")
+        // so the rule lives with the work, not the route.
+        var g = app.MapGroup("/api/settings");
 
-        g.MapGet("/shop", async (IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapGet("/shop", async (PermissionGuard guard, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("settings.manage");
             using var db = f.CreateDbContext();
             var all = await db.ShopSetting.Where(s => s.StoreId == null).ToListAsync(ct);
             string? Get(string k) => all.FirstOrDefault(s => s.Key == k)?.Value;
@@ -28,8 +31,9 @@ public static class SettingsEndpoints
                 Get("shop_email"), Get("shop_tax_id"), Get("receipt_footer")));
         });
 
-        g.MapPut("/shop", async (ShopSettingsDto body, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapPut("/shop", async (ShopSettingsDto body, PermissionGuard guard, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("settings.manage");
             using var db = f.CreateDbContext();
             var existing = await db.ShopSetting.Where(s => s.StoreId == null && Keys.Contains(s.Key)).ToListAsync(ct);
             var map = new Dictionary<string, string?>

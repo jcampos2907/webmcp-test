@@ -90,33 +90,6 @@ public static class AuthEndpoints
         });
     }
 
-    /// <summary>
-    /// Flat permission flags for the SPA. The backend is the source of truth — these
-    /// are for hiding/disabling UI only.
-    /// </summary>
-    public static string[] PermissionsFor(StoreRole role)
-    {
-        var list = new List<string>();
-        if (Roles.Covers(role, StoreRole.Cashier))
-        {
-            list.AddRange(new[] { "pos.use", "tickets.view", "customers.view", "products.view", "services.view", "mechanics.view", "reports.view.own" });
-        }
-        if (Roles.Covers(role, StoreRole.Mechanic))
-        {
-            list.AddRange(new[] { "tickets.update.status", "tickets.update.own" });
-        }
-        if (Roles.Covers(role, StoreRole.Admin))
-        {
-            list.AddRange(new[] { "products.manage", "services.manage", "mechanics.manage", "customers.manage", "tickets.manage", "reports.view.all" });
-        }
-        if (Roles.Covers(role, StoreRole.SuperAdmin))
-        {
-            list.AddRange(new[] { "settings.manage", "users.manage", "stores.switch.any" });
-        }
-        if (Roles.Covers(role, StoreRole.Developer))
-        {
-            list.Add("system.admin");
-        }
-        return list.Distinct().ToArray();
-    }
+    /// <summary>SPA-facing permission flags, delegating to the shared catalog.</summary>
+    public static string[] PermissionsFor(StoreRole role) => PermissionCatalog.For(role);
 }

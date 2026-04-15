@@ -21,21 +21,25 @@ public class CancelTicketCommandHandler
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly TicketEventService _ticketEventService;
     private readonly SyncTriggerService _syncTrigger;
+    private readonly PermissionGuard _guard;
 
     public CancelTicketCommandHandler(
         IDbContextFactory<BikePosContext> dbFactory,
         IDomainEventDispatcher eventDispatcher,
         TicketEventService ticketEventService,
-        SyncTriggerService syncTrigger)
+        SyncTriggerService syncTrigger,
+        PermissionGuard guard)
     {
         _dbFactory = dbFactory;
         _eventDispatcher = eventDispatcher;
         _ticketEventService = ticketEventService;
         _syncTrigger = syncTrigger;
+        _guard = guard;
     }
 
     public async Task<bool> HandleAsync(CancelTicketRequest request, CancellationToken ct = default)
     {
+        _guard.Require("tickets.manage");
         using var db = _dbFactory.CreateDbContext();
 
         var ticket = await db.ServiceTicket

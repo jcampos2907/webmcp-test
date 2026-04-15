@@ -5,6 +5,7 @@ using BikePOS.Interfaces.Events;
 using BikePOS.Domain.Events;
 using BikePOS.Infrastructure.Erp;
 using BikePOS.Models;
+using BikePOS.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace BikePOS.Application.Commands;
@@ -95,11 +96,17 @@ public class UpdateCustomerCommandHandler
 public class DeleteCustomerCommandHandler
 {
     private readonly IDbContextFactory<BikePosContext> _dbFactory;
+    private readonly PermissionGuard _guard;
 
-    public DeleteCustomerCommandHandler(IDbContextFactory<BikePosContext> dbFactory) => _dbFactory = dbFactory;
+    public DeleteCustomerCommandHandler(IDbContextFactory<BikePosContext> dbFactory, PermissionGuard guard)
+    {
+        _dbFactory = dbFactory;
+        _guard = guard;
+    }
 
     public async Task<bool> HandleAsync(DeleteCustomerRequest request, CancellationToken ct = default)
     {
+        _guard.Require("customers.manage");
         using var db = _dbFactory.CreateDbContext();
         var customer = await db.Customer.FindAsync(new object[] { request.Id }, ct);
         if (customer is null) return false;

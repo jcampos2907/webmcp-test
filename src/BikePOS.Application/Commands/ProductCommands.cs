@@ -1,5 +1,6 @@
 using BikePOS.Data;
 using BikePOS.Models;
+using BikePOS.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace BikePOS.Application.Commands;
@@ -13,11 +14,17 @@ public record DeleteProductRequest(string Id);
 public class CreateProductCommandHandler
 {
     private readonly IDbContextFactory<BikePosContext> _dbFactory;
+    private readonly PermissionGuard _guard;
 
-    public CreateProductCommandHandler(IDbContextFactory<BikePosContext> dbFactory) => _dbFactory = dbFactory;
+    public CreateProductCommandHandler(IDbContextFactory<BikePosContext> dbFactory, PermissionGuard guard)
+    {
+        _dbFactory = dbFactory;
+        _guard = guard;
+    }
 
     public async Task<CreateProductResult> HandleAsync(CreateProductRequest request, CancellationToken ct = default)
     {
+        _guard.Require("products.manage");
         using var db = _dbFactory.CreateDbContext();
         var product = new Product
         {
@@ -37,11 +44,17 @@ public class CreateProductCommandHandler
 public class UpdateProductCommandHandler
 {
     private readonly IDbContextFactory<BikePosContext> _dbFactory;
+    private readonly PermissionGuard _guard;
 
-    public UpdateProductCommandHandler(IDbContextFactory<BikePosContext> dbFactory) => _dbFactory = dbFactory;
+    public UpdateProductCommandHandler(IDbContextFactory<BikePosContext> dbFactory, PermissionGuard guard)
+    {
+        _dbFactory = dbFactory;
+        _guard = guard;
+    }
 
     public async Task<bool> HandleAsync(UpdateProductRequest request, CancellationToken ct = default)
     {
+        _guard.Require("products.manage");
         using var db = _dbFactory.CreateDbContext();
         var product = await db.Product.FindAsync(new object[] { request.Id }, ct);
         if (product is null) return false;
@@ -59,11 +72,17 @@ public class UpdateProductCommandHandler
 public class DeleteProductCommandHandler
 {
     private readonly IDbContextFactory<BikePosContext> _dbFactory;
+    private readonly PermissionGuard _guard;
 
-    public DeleteProductCommandHandler(IDbContextFactory<BikePosContext> dbFactory) => _dbFactory = dbFactory;
+    public DeleteProductCommandHandler(IDbContextFactory<BikePosContext> dbFactory, PermissionGuard guard)
+    {
+        _dbFactory = dbFactory;
+        _guard = guard;
+    }
 
     public async Task<bool> HandleAsync(DeleteProductRequest request, CancellationToken ct = default)
     {
+        _guard.Require("products.manage");
         using var db = _dbFactory.CreateDbContext();
         var product = await db.Product.FindAsync(new object[] { request.Id }, ct);
         if (product is null) return false;

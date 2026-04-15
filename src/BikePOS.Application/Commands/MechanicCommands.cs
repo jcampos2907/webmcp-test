@@ -1,5 +1,6 @@
 using BikePOS.Data;
 using BikePOS.Models;
+using BikePOS.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace BikePOS.Application.Commands;
@@ -13,11 +14,17 @@ public record DeleteMechanicRequest(string Id);
 public class CreateMechanicCommandHandler
 {
     private readonly IDbContextFactory<BikePosContext> _dbFactory;
+    private readonly PermissionGuard _guard;
 
-    public CreateMechanicCommandHandler(IDbContextFactory<BikePosContext> dbFactory) => _dbFactory = dbFactory;
+    public CreateMechanicCommandHandler(IDbContextFactory<BikePosContext> dbFactory, PermissionGuard guard)
+    {
+        _dbFactory = dbFactory;
+        _guard = guard;
+    }
 
     public async Task<CreateMechanicResult> HandleAsync(CreateMechanicRequest request, CancellationToken ct = default)
     {
+        _guard.Require("mechanics.manage");
         using var db = _dbFactory.CreateDbContext();
         var mechanic = new Mechanic
         {
@@ -36,11 +43,17 @@ public class CreateMechanicCommandHandler
 public class UpdateMechanicCommandHandler
 {
     private readonly IDbContextFactory<BikePosContext> _dbFactory;
+    private readonly PermissionGuard _guard;
 
-    public UpdateMechanicCommandHandler(IDbContextFactory<BikePosContext> dbFactory) => _dbFactory = dbFactory;
+    public UpdateMechanicCommandHandler(IDbContextFactory<BikePosContext> dbFactory, PermissionGuard guard)
+    {
+        _dbFactory = dbFactory;
+        _guard = guard;
+    }
 
     public async Task<bool> HandleAsync(UpdateMechanicRequest request, CancellationToken ct = default)
     {
+        _guard.Require("mechanics.manage");
         using var db = _dbFactory.CreateDbContext();
         var mechanic = await db.Mechanic.FindAsync(new object[] { request.Id }, ct);
         if (mechanic is null) return false;
@@ -57,11 +70,17 @@ public class UpdateMechanicCommandHandler
 public class DeleteMechanicCommandHandler
 {
     private readonly IDbContextFactory<BikePosContext> _dbFactory;
+    private readonly PermissionGuard _guard;
 
-    public DeleteMechanicCommandHandler(IDbContextFactory<BikePosContext> dbFactory) => _dbFactory = dbFactory;
+    public DeleteMechanicCommandHandler(IDbContextFactory<BikePosContext> dbFactory, PermissionGuard guard)
+    {
+        _dbFactory = dbFactory;
+        _guard = guard;
+    }
 
     public async Task<bool> HandleAsync(DeleteMechanicRequest request, CancellationToken ct = default)
     {
+        _guard.Require("mechanics.manage");
         using var db = _dbFactory.CreateDbContext();
         var mechanic = await db.Mechanic.FindAsync(new object[] { request.Id }, ct);
         if (mechanic is null) return false;

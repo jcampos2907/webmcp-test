@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using BikePOS.Application.Commands;
 using BikePOS.Data;
 using BikePOS.Services;
 using Microsoft.EntityFrameworkCore;
@@ -27,5 +28,16 @@ public class BikePosTools
         db.CurrentStoreId = tenant.StoreId;
         var items = await db.Service.OrderBy(s => s.Name).ToListAsync(ct);
         return items.Select(s => new ServiceDto(s.Id, s.Name, s.Description, s.DefaultPrice, s.EstimatedMinutes)).ToList();
+    }
+
+    [McpServerTool(Name = "delete_product")]
+    [Description("Deletes a product by id from the caller's currently-active store. Enforcement lives in DeleteProductCommandHandler — it calls PermissionGuard.Require(\"products.manage\") and throws if the caller's role doesn't cover it, so this tool doesn't re-check.")]
+    public static async Task<string> DeleteProduct(
+        [Description("The product id to delete.")] string productId,
+        DeleteProductCommandHandler handler,
+        CancellationToken ct)
+    {
+        var ok = await handler.HandleAsync(new DeleteProductRequest(productId), ct);
+        return ok ? $"Deleted product {productId}." : $"Product {productId} not found.";
     }
 }

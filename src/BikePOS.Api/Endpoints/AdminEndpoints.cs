@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using BikePOS.Api.Auth;
 using BikePOS.Data;
 using BikePOS.Models;
 using BikePOS.Services;
@@ -42,10 +41,11 @@ public static class AdminEndpoints
     // ============ Organization ============
     static void MapOrganizationEndpoints(WebApplication app)
     {
-        var g = app.MapGroup("/api/admin/organization").RequireAuthorization(Policies.SuperAdmin);
+        var g = app.MapGroup("/api/admin/organization");
 
-        g.MapGet("", async (IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapGet("", async (PermissionGuard guard, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("settings.manage");
             using var db = f.CreateDbContext();
             var data = await db.Conglomerate
                 .Include(c => c.Companies).ThenInclude(co => co.Stores)
@@ -61,8 +61,9 @@ public static class AdminEndpoints
             )));
         });
 
-        g.MapPut("/conglomerates/{id}", async (string id, UpsertConglomerateDto body, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapPut("/conglomerates/{id}", async (string id, UpsertConglomerateDto body, PermissionGuard guard, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("settings.manage");
             using var db = f.CreateDbContext();
             var c = await db.Conglomerate.FindAsync([id], ct);
             if (c is null) return Results.NotFound();
@@ -71,8 +72,9 @@ public static class AdminEndpoints
             return Results.NoContent();
         });
 
-        g.MapPost("/conglomerates", async (UpsertConglomerateDto body, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapPost("/conglomerates", async (UpsertConglomerateDto body, PermissionGuard guard, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("settings.manage");
             using var db = f.CreateDbContext();
             var c = new Conglomerate { Name = body.Name };
             db.Conglomerate.Add(c);
@@ -80,8 +82,9 @@ public static class AdminEndpoints
             return Results.Created($"/api/admin/organization/conglomerates/{c.Id}", new { c.Id });
         });
 
-        g.MapPost("/companies", async (UpsertCompanyDto body, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapPost("/companies", async (UpsertCompanyDto body, PermissionGuard guard, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("settings.manage");
             using var db = f.CreateDbContext();
             var c = new Company
             {
@@ -97,8 +100,9 @@ public static class AdminEndpoints
             return Results.Created($"/api/admin/organization/companies/{c.Id}", new { c.Id });
         });
 
-        g.MapPut("/companies/{id}", async (string id, UpsertCompanyDto body, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapPut("/companies/{id}", async (string id, UpsertCompanyDto body, PermissionGuard guard, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("settings.manage");
             using var db = f.CreateDbContext();
             var c = await db.Company.FindAsync([id], ct);
             if (c is null) return Results.NotFound();
@@ -111,8 +115,9 @@ public static class AdminEndpoints
             return Results.NoContent();
         });
 
-        g.MapDelete("/companies/{id}", async (string id, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapDelete("/companies/{id}", async (string id, PermissionGuard guard, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("settings.manage");
             using var db = f.CreateDbContext();
             var c = await db.Company.Include(co => co.Stores).FirstOrDefaultAsync(co => co.Id == id, ct);
             if (c is null) return Results.NotFound();
@@ -122,8 +127,9 @@ public static class AdminEndpoints
             return Results.NoContent();
         });
 
-        g.MapPost("/stores", async (UpsertStoreDto body, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapPost("/stores", async (UpsertStoreDto body, PermissionGuard guard, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("settings.manage");
             using var db = f.CreateDbContext();
             var s = new Store
             {
@@ -139,8 +145,9 @@ public static class AdminEndpoints
             return Results.Created($"/api/admin/organization/stores/{s.Id}", new { s.Id });
         });
 
-        g.MapPut("/stores/{id}", async (string id, UpsertStoreDto body, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapPut("/stores/{id}", async (string id, UpsertStoreDto body, PermissionGuard guard, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("settings.manage");
             using var db = f.CreateDbContext();
             var s = await db.Store.FindAsync([id], ct);
             if (s is null) return Results.NotFound();
@@ -153,8 +160,9 @@ public static class AdminEndpoints
             return Results.NoContent();
         });
 
-        g.MapDelete("/stores/{id}", async (string id, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapDelete("/stores/{id}", async (string id, PermissionGuard guard, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("settings.manage");
             using var db = f.CreateDbContext();
             var s = await db.Store.FindAsync([id], ct);
             if (s is null) return Results.NotFound();
@@ -167,10 +175,11 @@ public static class AdminEndpoints
     // ============ Terminals ============
     static void MapTerminalEndpoints(WebApplication app)
     {
-        var g = app.MapGroup("/api/admin/terminals").RequireAuthorization(Policies.SuperAdmin);
+        var g = app.MapGroup("/api/admin/terminals");
 
-        g.MapGet("", async (IDbContextFactory<BikePosContext> f, string? storeId, CancellationToken ct) =>
+        g.MapGet("", async (PermissionGuard guard, IDbContextFactory<BikePosContext> f, string? storeId, CancellationToken ct) =>
         {
+            guard.Require("settings.manage");
             using var db = f.CreateDbContext();
             var q = db.PaymentTerminal.Include(t => t.Store).AsQueryable();
             if (!string.IsNullOrEmpty(storeId)) q = q.Where(t => t.StoreId == storeId);
@@ -180,8 +189,9 @@ public static class AdminEndpoints
                 t.Provider.ToString(), t.IsActive, t.LastSeenAt)));
         });
 
-        g.MapPost("", async (UpsertTerminalDto body, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapPost("", async (UpsertTerminalDto body, PermissionGuard guard, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("settings.manage");
             if (!Enum.TryParse<TerminalProvider>(body.Provider, true, out var provider))
                 return Results.BadRequest(new { error = "Invalid provider" });
             using var db = f.CreateDbContext();
@@ -195,8 +205,9 @@ public static class AdminEndpoints
             return Results.Created($"/api/admin/terminals/{t.Id}", new { t.Id });
         });
 
-        g.MapPut("/{id}", async (string id, UpsertTerminalDto body, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapPut("/{id}", async (string id, UpsertTerminalDto body, PermissionGuard guard, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("settings.manage");
             if (!Enum.TryParse<TerminalProvider>(body.Provider, true, out var provider))
                 return Results.BadRequest(new { error = "Invalid provider" });
             using var db = f.CreateDbContext();
@@ -212,8 +223,9 @@ public static class AdminEndpoints
             return Results.NoContent();
         });
 
-        g.MapDelete("/{id}", async (string id, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapDelete("/{id}", async (string id, PermissionGuard guard, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("settings.manage");
             using var db = f.CreateDbContext();
             var t = await db.PaymentTerminal.FindAsync([id], ct);
             if (t is null) return Results.NotFound();
@@ -226,10 +238,11 @@ public static class AdminEndpoints
     // ============ Users ============
     static void MapUserEndpoints(WebApplication app)
     {
-        var g = app.MapGroup("/api/admin/users").RequireAuthorization(Policies.SuperAdmin);
+        var g = app.MapGroup("/api/admin/users");
 
-        g.MapGet("", async (IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapGet("", async (PermissionGuard guard, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("users.manage");
             using var db = f.CreateDbContext();
             var users = await db.AppUser
                 .Include(u => u.StoreUsers).ThenInclude(su => su.Store).ThenInclude(s => s!.Company)
@@ -249,8 +262,9 @@ public static class AdminEndpoints
         });
 
         g.MapPost("/{userId}/roles", async (string userId, UpsertUserRoleDto body,
-            TenantContext tenant, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+            PermissionGuard guard, TenantContext tenant, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("users.manage");
             if (!Enum.TryParse<StoreRole>(body.Role, true, out var role))
                 return Results.BadRequest(new { error = "Invalid role" });
             if (!Enum.TryParse<RoleScope>(body.Scope, true, out var scope))
@@ -302,8 +316,9 @@ public static class AdminEndpoints
         });
 
         g.MapDelete("/roles/{storeUserId}", async (string storeUserId, HttpContext ctx,
-            TenantContext tenant, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+            PermissionGuard guard, TenantContext tenant, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("users.manage");
             using var db = f.CreateDbContext();
             db.CurrentStoreId = null;
             var su = await db.StoreUser.FindAsync([storeUserId], ct);
@@ -344,10 +359,11 @@ public static class AdminEndpoints
     // ============ OIDC ============
     static void MapOidcEndpoints(WebApplication app)
     {
-        var g = app.MapGroup("/api/admin/oidc").RequireAuthorization(Policies.SuperAdmin);
+        var g = app.MapGroup("/api/admin/oidc");
 
-        g.MapGet("", async (IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapGet("", async (PermissionGuard guard, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("settings.manage");
             using var db = f.CreateDbContext();
             var items = await db.OidcConfig.OrderByDescending(c => c.UpdatedAt).ToListAsync(ct);
             return Results.Ok(items.Select(c => new OidcConfigDto(
@@ -357,8 +373,9 @@ public static class AdminEndpoints
                 c.GetClaimsFromUserInfoEndpoint, c.ProviderName, c.IsActive, c.UpdatedAt)));
         });
 
-        g.MapPost("", async (UpsertOidcConfigDto body, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapPost("", async (UpsertOidcConfigDto body, PermissionGuard guard, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("settings.manage");
             using var db = f.CreateDbContext();
             var c = new OidcConfig
             {
@@ -379,8 +396,9 @@ public static class AdminEndpoints
             return Results.Created($"/api/admin/oidc/{c.Id}", new { c.Id });
         });
 
-        g.MapPut("/{id}", async (string id, UpsertOidcConfigDto body, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapPut("/{id}", async (string id, UpsertOidcConfigDto body, PermissionGuard guard, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("settings.manage");
             using var db = f.CreateDbContext();
             var c = await db.OidcConfig.FindAsync([id], ct);
             if (c is null) return Results.NotFound();
@@ -400,8 +418,9 @@ public static class AdminEndpoints
             return Results.NoContent();
         });
 
-        g.MapDelete("/{id}", async (string id, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapDelete("/{id}", async (string id, PermissionGuard guard, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
+            guard.Require("settings.manage");
             using var db = f.CreateDbContext();
             var c = await db.OidcConfig.FindAsync([id], ct);
             if (c is null) return Results.NotFound();

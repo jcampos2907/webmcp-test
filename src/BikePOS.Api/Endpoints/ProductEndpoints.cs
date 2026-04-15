@@ -1,4 +1,3 @@
-using BikePOS.Api.Auth;
 using BikePOS.Application.Commands;
 using BikePOS.Application.Queries;
 
@@ -23,18 +22,18 @@ public static class ProductEndpoints
         {
             var r = await h.HandleAsync(req, ct);
             return Results.Created($"/api/products/{r.Id}", r);
-        }).RequireAuthorization(Policies.Admin);
+        });
 
         g.MapPut("/{id}", async (string id, UpdateProductRequest req, UpdateProductCommandHandler h, CancellationToken ct) =>
         {
             var ok = await h.HandleAsync(req with { Id = id }, ct);
             return ok ? Results.NoContent() : Results.NotFound();
-        }).RequireAuthorization(Policies.Admin);
+        });
 
         g.MapDelete("/{id}", async (string id, DeleteProductCommandHandler h, CancellationToken ct) =>
         {
             var ok = await h.HandleAsync(new DeleteProductRequest(id), ct);
             return ok ? Results.NoContent() : Results.NotFound();
-        }).RequireAuthorization(Policies.Admin);
+        });
     }
 }

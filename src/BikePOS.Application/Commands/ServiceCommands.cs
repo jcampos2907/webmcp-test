@@ -1,5 +1,6 @@
 using BikePOS.Data;
 using BikePOS.Models;
+using BikePOS.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace BikePOS.Application.Commands;
@@ -13,11 +14,17 @@ public record DeleteServiceRequest(string Id);
 public class CreateServiceCommandHandler
 {
     private readonly IDbContextFactory<BikePosContext> _dbFactory;
+    private readonly PermissionGuard _guard;
 
-    public CreateServiceCommandHandler(IDbContextFactory<BikePosContext> dbFactory) => _dbFactory = dbFactory;
+    public CreateServiceCommandHandler(IDbContextFactory<BikePosContext> dbFactory, PermissionGuard guard)
+    {
+        _dbFactory = dbFactory;
+        _guard = guard;
+    }
 
     public async Task<CreateServiceResult> HandleAsync(CreateServiceRequest request, CancellationToken ct = default)
     {
+        _guard.Require("services.manage");
         using var db = _dbFactory.CreateDbContext();
         var service = new Service
         {
@@ -36,11 +43,17 @@ public class CreateServiceCommandHandler
 public class UpdateServiceCommandHandler
 {
     private readonly IDbContextFactory<BikePosContext> _dbFactory;
+    private readonly PermissionGuard _guard;
 
-    public UpdateServiceCommandHandler(IDbContextFactory<BikePosContext> dbFactory) => _dbFactory = dbFactory;
+    public UpdateServiceCommandHandler(IDbContextFactory<BikePosContext> dbFactory, PermissionGuard guard)
+    {
+        _dbFactory = dbFactory;
+        _guard = guard;
+    }
 
     public async Task<bool> HandleAsync(UpdateServiceRequest request, CancellationToken ct = default)
     {
+        _guard.Require("services.manage");
         using var db = _dbFactory.CreateDbContext();
         var service = await db.Service.FindAsync(new object[] { request.Id }, ct);
         if (service is null) return false;
@@ -57,11 +70,17 @@ public class UpdateServiceCommandHandler
 public class DeleteServiceCommandHandler
 {
     private readonly IDbContextFactory<BikePosContext> _dbFactory;
+    private readonly PermissionGuard _guard;
 
-    public DeleteServiceCommandHandler(IDbContextFactory<BikePosContext> dbFactory) => _dbFactory = dbFactory;
+    public DeleteServiceCommandHandler(IDbContextFactory<BikePosContext> dbFactory, PermissionGuard guard)
+    {
+        _dbFactory = dbFactory;
+        _guard = guard;
+    }
 
     public async Task<bool> HandleAsync(DeleteServiceRequest request, CancellationToken ct = default)
     {
+        _guard.Require("services.manage");
         using var db = _dbFactory.CreateDbContext();
         var service = await db.Service.FindAsync(new object[] { request.Id }, ct);
         if (service is null) return false;

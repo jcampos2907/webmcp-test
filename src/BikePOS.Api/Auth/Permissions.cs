@@ -1,28 +1,11 @@
+// Policy + MinRoleHandler are retained only for potential future endpoint-level
+// gating. Current auth model: PermissionGuard (in BikePOS.Services) is called
+// inside every mutating handler — REST and MCP share the same vocabulary.
 using BikePOS.Models;
 using BikePOS.Services;
 using Microsoft.AspNetCore.Authorization;
 
 namespace BikePOS.Api.Auth;
-
-/// <summary>
-/// Role hierarchy: higher rank implies every lower-rank permission.
-/// Developer is the escape hatch (everything SuperAdmin + system-level).
-/// </summary>
-public static class Roles
-{
-    public static int Rank(StoreRole r) => r switch
-    {
-        StoreRole.Cashier => 10,
-        StoreRole.Mechanic => 20,
-        StoreRole.Admin => 30,
-        StoreRole.SuperAdmin => 40,
-        StoreRole.Developer => 50,
-        _ => 0
-    };
-
-    public static bool Covers(StoreRole? actual, StoreRole required) =>
-        actual.HasValue && Rank(actual.Value) >= Rank(required);
-}
 
 public class MinRoleRequirement : IAuthorizationRequirement
 {

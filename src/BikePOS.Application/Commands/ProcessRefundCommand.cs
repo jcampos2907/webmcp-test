@@ -31,21 +31,25 @@ public class ProcessRefundCommandHandler
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly TicketEventService _ticketEventService;
     private readonly SyncTriggerService _syncTrigger;
+    private readonly PermissionGuard _guard;
 
     public ProcessRefundCommandHandler(
         IDbContextFactory<BikePosContext> dbFactory,
         IDomainEventDispatcher eventDispatcher,
         TicketEventService ticketEventService,
-        SyncTriggerService syncTrigger)
+        SyncTriggerService syncTrigger,
+        PermissionGuard guard)
     {
         _dbFactory = dbFactory;
         _eventDispatcher = eventDispatcher;
         _ticketEventService = ticketEventService;
         _syncTrigger = syncTrigger;
+        _guard = guard;
     }
 
     public async Task<ProcessRefundResult> HandleAsync(ProcessRefundRequest request, CancellationToken ct = default)
     {
+        _guard.Require("tickets.manage");
         using var db = _dbFactory.CreateDbContext();
 
         var ticket = await db.ServiceTicket

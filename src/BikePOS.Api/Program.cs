@@ -237,6 +237,7 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddScoped<MembershipResolver>();
 builder.Services.AddScoped<IAuthorizationHandler, MinRoleHandler>();
+builder.Services.AddScoped<PermissionGuard>();
 
 // MCP server — exposes shop capabilities as tools to MCP clients (our own assistant
 // widget today, Claude Desktop / Cursor / etc. tomorrow). Streamable-HTTP transport
@@ -269,6 +270,22 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors(CorsPolicy);
+
+// Map ForbiddenException → 403 for any transport. Centralized so REST endpoints
+// and MCP tools get the same response shape for missing permissions.
+app.Use(async (ctx, next) =>
+{
+    try { await next(); }
+    catch (ForbiddenException ex)
+    {
+        if (!ctx.Response.HasStarted)
+        {
+            ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await ctx.Response.WriteAsJsonAsync(new { error = ex.Message, permission = ex.Permission });
+        }
+    }
+});
+
 app.UseAuthentication();
 
 // Tenant resolution: every authenticated request resolves the active store the user can
