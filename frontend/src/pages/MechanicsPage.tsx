@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
-import { Plus } from "lucide-react"
-import { buttonVariants } from "@/components/ui/button"
+import { Pencil, Plus, Wrench } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { PageHeader } from "@/components/PageHeader"
 import { mechanicsApi, type Mechanic } from "@/lib/api"
 
 export default function MechanicsPage() {
@@ -15,16 +16,21 @@ export default function MechanicsPage() {
     mechanicsApi.list().then(setItems).finally(() => setLoading(false))
   }, [])
 
-  return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <PageHeader
-        title="Mechanics"
-        actions={
-          <Link to="/mechanics/new" className={buttonVariants()}><Plus className="h-4 w-4" />New mechanic</Link>
-        }
-      />
+  const active = items.filter((m) => m.isActive).length
 
-      <div className="rounded-md border bg-card">
+  return (
+    <div className="p-6 lg:p-8 max-w-6xl mx-auto space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Mechanics</h1>
+          <p className="text-sm text-muted-foreground">{items.length} total · {active} active</p>
+        </div>
+        <Button nativeButton={false} render={<Link to="/mechanics/new" />}>
+          <Plus className="h-4 w-4" /> New mechanic
+        </Button>
+      </div>
+
+      <Card>
         <Table>
           <TableHeader>
             <TableRow>
@@ -32,30 +38,48 @@ export default function MechanicsPage() {
               <TableHead>Phone</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-20"></TableHead>
+              <TableHead className="w-16 text-right">Edit</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading && <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>}
-            {!loading && items.length === 0 && <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No mechanics</TableCell></TableRow>}
+            {loading && Array.from({ length: 4 }).map((_, i) => (
+              <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-5" /></TableCell></TableRow>
+            ))}
+            {!loading && items.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5}>
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <Wrench className="h-8 w-8 mb-2 opacity-40" />
+                    <p className="text-sm">No mechanics</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            )}
             {!loading && items.map((m) => (
               <TableRow key={m.id}>
                 <TableCell className="font-medium">{m.name}</TableCell>
-                <TableCell>{m.phone ?? "—"}</TableCell>
-                <TableCell>{m.email ?? "—"}</TableCell>
+                <TableCell className="text-muted-foreground">{m.phone ?? "—"}</TableCell>
+                <TableCell className="text-muted-foreground">{m.email ?? "—"}</TableCell>
                 <TableCell>
                   <Badge variant={m.isActive ? "default" : "secondary"}>
                     {m.isActive ? "Active" : "Inactive"}
                   </Badge>
                 </TableCell>
-                <TableCell>
-                  <Link to={`/mechanics/${m.id}`} className={buttonVariants({ size: "sm", variant: "ghost" })}>Edit</Link>
+                <TableCell className="text-right">
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    nativeButton={false}
+                    render={<Link to={`/mechanics/${m.id}`} aria-label="Edit" />}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
-      </div>
+      </Card>
     </div>
   )
 }

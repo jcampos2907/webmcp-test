@@ -1,75 +1,112 @@
-import { useEffect, useState, type FormEvent } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
 import { PageHeader } from "@/components/PageHeader"
 import { customersApi, type CustomerInput } from "@/lib/api"
 
-const empty: CustomerInput = {
+const schema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  phone: z.string().nullable(),
+  email: z.string().nullable().refine(
+    (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
+    { message: "Invalid email" }
+  ),
+  street: z.string().nullable(),
+  city: z.string().nullable(),
+  state: z.string().nullable(),
+  zipCode: z.string().nullable(),
+  country: z.string().nullable(),
+})
+
+type FormValues = z.infer<typeof schema>
+
+const empty: FormValues = {
   firstName: "",
   lastName: "",
-  phone: null,
-  email: null,
-  street: null,
-  city: null,
-  state: null,
-  zipCode: null,
-  country: null,
+  phone: "",
+  email: "",
+  street: "",
+  city: "",
+  state: "",
+  zipCode: "",
+  country: "",
 }
 
 export default function CustomerFormPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const isEdit = Boolean(id)
-  const [form, setForm] = useState<CustomerInput>(empty)
   const [loading, setLoading] = useState(isEdit)
-  const [saving, setSaving] = useState(false)
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: empty,
+  })
 
   useEffect(() => {
     if (!id) return
     customersApi
       .get(id)
       .then((c) =>
-        setForm({
+        form.reset({
           firstName: c.firstName,
           lastName: c.lastName,
-          phone: c.phone,
-          email: c.email,
-          street: c.street,
-          city: c.city,
-          state: c.state,
-          zipCode: c.zipCode,
-          country: c.country,
+          phone: c.phone ?? "",
+          email: c.email ?? "",
+          street: c.street ?? "",
+          city: c.city ?? "",
+          state: c.state ?? "",
+          zipCode: c.zipCode ?? "",
+          country: c.country ?? "",
         })
       )
       .finally(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault()
-    setSaving(true)
+  async function onSubmit(values: FormValues) {
+    const payload: CustomerInput = {
+      firstName: values.firstName,
+      lastName: values.lastName,
+      phone: values.phone || null,
+      email: values.email || null,
+      street: values.street || null,
+      city: values.city || null,
+      state: values.state || null,
+      zipCode: values.zipCode || null,
+      country: values.country || null,
+    }
     try {
       if (isEdit && id) {
-        await customersApi.update(id, form)
+        await customersApi.update(id, payload)
         toast.success("Customer updated")
       } else {
-        await customersApi.create(form)
+        await customersApi.create(payload)
         toast.success("Customer created")
       }
       navigate("/customers")
     } catch (err) {
       toast.error(String(err))
-    } finally {
-      setSaving(false)
     }
   }
 
   async function onDelete() {
-    if (!id) return
-    if (!confirm("Delete this customer?")) return
+    if (!id || !confirm("Delete this customer?")) return
     try {
       await customersApi.remove(id)
       toast.success("Customer deleted")
@@ -86,61 +123,70 @@ export default function CustomerFormPage() {
       <PageHeader title={isEdit ? "Edit customer" : "New customer"} />
       <Card>
         <CardContent className="pt-6">
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="First name" required value={form.firstName} onChange={(v) => setForm({ ...form, firstName: v })} />
-              <Field label="Last name" required value={form.lastName} onChange={(v) => setForm({ ...form, lastName: v })} />
-              <Field label="Phone" value={form.phone ?? ""} onChange={(v) => setForm({ ...form, phone: v || null })} />
-              <Field label="Email" type="email" value={form.email ?? ""} onChange={(v) => setForm({ ...form, email: v || null })} />
-              <Field label="Street" value={form.street ?? ""} onChange={(v) => setForm({ ...form, street: v || null })} className="col-span-2" />
-              <Field label="City" value={form.city ?? ""} onChange={(v) => setForm({ ...form, city: v || null })} />
-              <Field label="State" value={form.state ?? ""} onChange={(v) => setForm({ ...form, state: v || null })} />
-              <Field label="Zip code" value={form.zipCode ?? ""} onChange={(v) => setForm({ ...form, zipCode: v || null })} />
-              <Field label="Country" value={form.country ?? ""} onChange={(v) => setForm({ ...form, country: v || null })} />
-            </div>
-            <div className="flex justify-between pt-2">
-              <div>
-                {isEdit && (
-                  <Button type="button" variant="destructive" onClick={onDelete}>
-                    Delete
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <TextField control={form.control} name="firstName" label="First name *" />
+                <TextField control={form.control} name="lastName" label="Last name *" />
+                <TextField control={form.control} name="phone" label="Phone" />
+                <TextField control={form.control} name="email" label="Email" type="email" />
+                <TextField control={form.control} name="street" label="Street" className="col-span-2" />
+                <TextField control={form.control} name="city" label="City" />
+                <TextField control={form.control} name="state" label="State" />
+                <TextField control={form.control} name="zipCode" label="Zip code" />
+                <TextField control={form.control} name="country" label="Country" />
+              </div>
+              <div className="flex justify-between pt-2">
+                <div>
+                  {isEdit && (
+                    <Button type="button" variant="destructive" onClick={onDelete}>
+                      Delete
+                    </Button>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" onClick={() => navigate("/customers")}>
+                    Cancel
                   </Button>
-                )}
+                  <Button type="submit" disabled={form.formState.isSubmitting}>
+                    {form.formState.isSubmitting ? "Saving..." : "Save"}
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => navigate("/customers")}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={saving}>
-                  {saving ? "Saving..." : "Save"}
-                </Button>
-              </div>
-            </div>
-          </form>
+            </form>
+          </Form>
         </CardContent>
       </Card>
     </div>
   )
 }
 
-function Field({
+function TextField({
+  control,
+  name,
   label,
-  value,
-  onChange,
   type = "text",
-  required,
   className,
 }: {
+  control: ReturnType<typeof useForm<FormValues>>["control"]
+  name: keyof FormValues
   label: string
-  value: string
-  onChange: (v: string) => void
   type?: string
-  required?: boolean
   className?: string
 }) {
   return (
-    <div className={className}>
-      <Label className="mb-2 block">{label}{required && " *"}</Label>
-      <Input type={type} value={value} onChange={(e) => onChange(e.target.value)} required={required} />
-    </div>
+    <FormField
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <FormItem className={className}>
+          <FormLabel>{label}</FormLabel>
+          <FormControl>
+            <Input type={type} {...field} value={field.value ?? ""} />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
   )
 }

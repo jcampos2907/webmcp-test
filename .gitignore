@@ -63,3 +63,5 @@ nunit-*.xml
 
 # Playwright MCP
 .playwright-mcp/
+
+screenshots/
