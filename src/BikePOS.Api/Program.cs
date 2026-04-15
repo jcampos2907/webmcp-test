@@ -237,6 +237,14 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddScoped<MembershipResolver>();
 builder.Services.AddScoped<IAuthorizationHandler, MinRoleHandler>();
+
+// MCP server — exposes shop capabilities as tools to MCP clients (our own assistant
+// widget today, Claude Desktop / Cursor / etc. tomorrow). Streamable-HTTP transport
+// runs in-process so every tool inherits the caller's auth cookie + TenantContext.
+builder.Services
+    .AddMcpServer()
+    .WithHttpTransport()
+    .WithToolsFromAssembly();
 builder.Services.AddAuthorization(options =>
 {
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
@@ -335,5 +343,9 @@ app.MapSettingsEndpoints();
 app.MapAdminEndpoints();
 app.MapSessionEndpoints();
 app.MapTerminalPublicEndpoints();
+app.MapAssistantEndpoints();
+
+// MCP streamable-HTTP transport; reuses the same auth cookie as the REST API.
+app.MapMcp("/mcp").RequireAuthorization();
 
 app.Run();

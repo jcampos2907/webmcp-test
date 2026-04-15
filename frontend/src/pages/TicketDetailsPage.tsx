@@ -474,7 +474,7 @@ function ProductsPosSheet({
 
   return (
     <Sheet open onOpenChange={(v) => !v && onClose()}>
-      <SheetContent className="flex flex-col gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-none data-[side=right]:sm:w-[min(72rem,95vw)]">
+      <SheetContent className="flex flex-col gap-0 p-0 !w-[min(88rem,98vw)] !max-w-none">
         <SheetHeader className="p-4 border-b">
           <SheetTitle>Products — {ticket.ticketDisplay}</SheetTitle>
         </SheetHeader>

@@ -129,3 +129,62 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 }
+/* AI Assistant — rainbow/gradient accents */
+@keyframes ai-fab-rotate { to { filter: hue-rotate(360deg); } }
+@keyframes ai-fab-pulse {
+  0%, 100% { box-shadow: 0 8px 24px rgba(0,0,0,0.18), 0 0 0 0 rgba(168,155,254,0.55); }
+  50%      { box-shadow: 0 8px 24px rgba(0,0,0,0.18), 0 0 0 12px rgba(168,155,254,0); }
+}
+@keyframes ai-gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+
+.ai-fab {
+  background: conic-gradient(from 0deg, #ff6b6b, #feca57, #48dbfb, #a29bfe, #ff6bcb, #ff6b6b);
+  animation: ai-fab-rotate 6s linear infinite, ai-fab-pulse 2.2s ease-in-out infinite;
+}
+.ai-fab::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 9999px;
+  background: #fff;
+  z-index: 0;
+}
+.ai-fab > * { position: relative; z-index: 1; }
+.ai-fab-icon {
+  background: linear-gradient(135deg, #ff6b6b, #feca57, #48dbfb, #a29bfe, #ff6bcb);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: ai-gradient-shift 4s ease infinite;
+}
+.ai-fab-open {
+  animation: none;
+  background: #1e1b4b;
+}
+.ai-fab-open::before { background: #1e1b4b; }
+
+.ai-chat-header {
+  background: linear-gradient(135deg, #ff6b6b, #feca57, #48dbfb, #a29bfe, #ff6bcb);
+  background-size: 300% 300%;
+  animation: ai-gradient-shift 8s ease infinite;
+  color: white;
+}
+.ai-header-icon {
+  background: linear-gradient(135deg, #a29bfe, #ff6bcb);
+  color: white;
+}
+.ai-send-btn {
+  background: linear-gradient(135deg, #a29bfe, #ff6bcb);
+  color: white;
+  border: 0;
+}
+.ai-send-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.ai-msg-user-bubble {
+  background: linear-gradient(135deg, #a29bfe, #ff6bcb);
+  color: white;
+}

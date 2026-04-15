@@ -537,3 +537,14 @@ export const oidcApi = {
     request<void>(`/api/admin/oidc/${id}`, { method: "PUT", body: JSON.stringify(input) }),
   remove: (id: string) => request<void>(`/api/admin/oidc/${id}`, { method: "DELETE" }),
 }
+
+// ============ AI Assistant ============
+export type ChatMessage = { role: "user" | "assistant"; content: string }
+
+export const assistantApi = {
+  chat: (messages: ChatMessage[]) =>
+    request<{ content: string }>("/api/assistant/chat", {
+      method: "POST",
+      body: JSON.stringify({ messages }),
+    }),
+}
