@@ -262,7 +262,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors(CorsPolicy);
 app.UseAuthentication();
-app.UseAuthorization();
 
 // Tenant resolution: every authenticated request resolves the active store the user can
 // operate on. Rules:
@@ -316,6 +315,8 @@ app.Use(async (ctx, next) =>
     }
     await next();
 });
+
+app.UseAuthorization();
 
 // Auth endpoints (anonymous — allow login flow before user is authenticated)
 app.MapAuthEndpoints();
