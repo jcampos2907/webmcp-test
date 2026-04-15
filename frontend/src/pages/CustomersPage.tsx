@@ -38,8 +38,10 @@ export default function CustomersPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Customers</h1>
           <p className="text-sm text-muted-foreground">{customers.length} total</p>
         </div>
-        <Button nativeButton={false} render={<Link to="/customers/new" />}>
-          <Plus className="h-4 w-4" /> New customer
+        <Button asChild>
+          <Link to="/customers/new">
+            <Plus className="h-4 w-4" /> New customer
+          </Link>
         </Button>
       </div>
 
@@ -88,13 +90,10 @@ export default function CustomersPage() {
                   <TableCell className="text-muted-foreground">{c.email ?? "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{c.city ?? "—"}</TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      nativeButton={false}
-                      render={<Link to={`/customers/${c.id}`} aria-label="Edit" />}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
+                    <Button asChild size="icon-sm" variant="ghost">
+                      <Link to={`/customers/${c.id}`} aria-label="Edit">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Link>
                     </Button>
                   </TableCell>
                 </TableRow>

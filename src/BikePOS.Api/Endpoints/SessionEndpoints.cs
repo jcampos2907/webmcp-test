@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using BikePOS.Api.Auth;
 using BikePOS.Data;
 using BikePOS.Services;
 using Microsoft.EntityFrameworkCore;
@@ -15,19 +17,28 @@ public static class SessionEndpoints
     {
         var g = app.MapGroup("/api/session");
 
-        g.MapGet("", async (TenantContext tenant, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapGet("", async (HttpContext ctx, TenantContext tenant, MembershipResolver resolver, IDbContextFactory<BikePosContext> f, CancellationToken c) =>
         {
+            var appUserId = ctx.User.FindFirstValue("app_user_id");
+            if (string.IsNullOrEmpty(appUserId)) return Results.Unauthorized();
+
+            var memberships = await resolver.ResolveAsync(appUserId, c);
+
             using var db = f.CreateDbContext();
-            // Bypass store filter so the picker always sees every store
             db.CurrentStoreId = null;
-            var stores = await db.Store
-                .Include(s => s.Company).ThenInclude(c => c.Conglomerate)
-                .OrderBy(s => s.Company.Name).ThenBy(s => s.Name)
-                .ToListAsync(ct);
-            var all = stores.Select(s => new SessionStoreDto(
-                s.Id, s.Name, s.IsActive,
-                s.CompanyId, s.Company.Name, s.Company.CountryCode,
-                s.Company.ConglomerateId, s.Company.Conglomerate.Name)).ToList();
+            var storeMeta = await db.Store.Include(s => s.Company).ThenInclude(co => co.Conglomerate)
+                .Where(s => memberships.Select(m => m.StoreId).Contains(s.Id))
+                .ToDictionaryAsync(s => s.Id, c);
+
+            var all = memberships.Select(m =>
+            {
+                var s = storeMeta[m.StoreId];
+                return new SessionStoreDto(
+                    s.Id, s.Name, s.IsActive,
+                    s.CompanyId, s.Company.Name, s.Company.CountryCode,
+                    s.Company.ConglomerateId, s.Company.Conglomerate.Name);
+            }).ToList();
+
             var current = tenant.StoreId is null ? null : all.FirstOrDefault(x => x.Id == tenant.StoreId);
             return Results.Ok(new SessionDto(current, all));
         });

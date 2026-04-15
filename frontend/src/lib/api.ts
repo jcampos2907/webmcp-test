@@ -10,13 +10,51 @@ function buildHeaders(init?: RequestInit): HeadersInit | undefined {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, { ...init, headers: buildHeaders(init) })
+  const res = await fetch(path, { ...init, credentials: "include", headers: buildHeaders(init) })
+  if (res.status === 401) {
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+      const returnUrl = window.location.pathname + window.location.search
+      window.location.href = `/login?returnUrl=${encodeURIComponent(returnUrl)}`
+    }
+    throw new Error("Unauthorized")
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => "")
     throw new Error(`API ${res.status}${text ? `: ${text}` : ""}`)
   }
   if (res.status === 204) return undefined as T
   return res.json()
+}
+
+// ============ Auth ============
+export type Permission =
+  | "pos.use" | "tickets.view" | "customers.view" | "products.view" | "services.view"
+  | "mechanics.view" | "reports.view.own" | "tickets.update.status" | "tickets.update.own"
+  | "products.manage" | "services.manage" | "mechanics.manage" | "customers.manage"
+  | "tickets.manage" | "reports.view.all" | "settings.manage" | "users.manage"
+  | "stores.switch.any" | "system.admin"
+
+export type StoreMembership = {
+  storeId: string; storeName: string; companyId: string; companyName: string;
+  conglomerateId: string; conglomerateName: string; role: string; viaScope: string;
+}
+export type Me = {
+  id: string; displayName: string | null; email: string | null;
+  currentStoreId: string | null; currentRole: string | null;
+  permissions: Permission[];
+  stores: StoreMembership[];
+}
+
+export const authApi = {
+  me: async (): Promise<Me | null> => {
+    const res = await fetch("/api/auth/me", { credentials: "include" })
+    if (res.status === 401) return null
+    if (!res.ok) throw new Error(`API ${res.status}`)
+    return res.json()
+  },
+  loginUrl: (returnUrl: string) =>
+    `/api/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`,
+  logoutUrl: () => "/api/auth/logout",
 }
 
 // ============ Session (current store / store switcher) ============
@@ -454,16 +492,26 @@ export const terminalsApi = {
 }
 
 // ============ Admin: Users ============
-export type AdminUserRole = { storeUserId: string; storeId: string; storeName: string; role: string }
+export type RoleScope = "Store" | "Company" | "Conglomerate"
+export type AdminUserRole = {
+  storeUserId: string; scope: RoleScope;
+  storeId: string | null; storeName: string | null;
+  companyId: string | null; companyName: string | null;
+  conglomerateId: string | null; conglomerateName: string | null;
+  role: string
+}
 export type AdminUser = {
   id: string; displayName: string | null; email: string | null; externalSubjectId: string;
   lastLoginAt: string | null; createdAt: string; assignments: AdminUserRole[];
 }
+export type UpsertRolePayload = {
+  scope: RoleScope; storeId?: string | null; companyId?: string | null; conglomerateId?: string | null; role: string;
+}
 
 export const usersApi = {
   list: () => request<AdminUser[]>("/api/admin/users"),
-  upsertRole: (userId: string, storeId: string, role: string) =>
-    request<void>(`/api/admin/users/${userId}/roles`, { method: "POST", body: JSON.stringify({ storeId, role }) }),
+  upsertRole: (userId: string, payload: UpsertRolePayload) =>
+    request<void>(`/api/admin/users/${userId}/roles`, { method: "POST", body: JSON.stringify(payload) }),
   removeRole: (storeUserId: string) =>
     request<void>(`/api/admin/users/roles/${storeUserId}`, { method: "DELETE" }),
 }

@@ -1,3 +1,4 @@
+using BikePOS.Api.Auth;
 using BikePOS.Application.Commands;
 using BikePOS.Application.Queries;
 using BikePOS.Data;
@@ -60,7 +61,7 @@ public static class TicketEndpoints
         {
             var ok = await h.HandleAsync(new CancelTicketRequest(id, null, null), ct);
             return ok ? Results.NoContent() : Results.NotFound();
-        });
+        }).RequireAuthorization(Policies.Admin);
 
         g.MapPost("/{id}/status", async (string id, ChangeStatusDto body, IDbContextFactory<BikePosContext> dbFactory, TicketEventService events, CancellationToken ct) =>
         {
@@ -96,7 +97,7 @@ public static class TicketEndpoints
                 return Results.BadRequest(new { error = "Invalid payment method" });
             var result = await h.HandleAsync(new ProcessRefundRequest(id, body.Amount, method, body.CashierName, null), ct);
             return result.ErrorMessage is null ? Results.Ok(result) : Results.BadRequest(result);
-        });
+        }).RequireAuthorization(Policies.Admin);
 
         g.MapPut("/{id}", async (string id, UpdateTicketDto body, IDbContextFactory<BikePosContext> dbFactory, TicketEventService events, CancellationToken ct) =>
         {

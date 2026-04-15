@@ -261,7 +261,17 @@ public class BikePosContext(DbContextOptions<BikePosContext> options) : DbContex
                 .HasForeignKey(su => su.StoreId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            entity.HasIndex(su => new { su.AppUserId, su.StoreId }).IsUnique();
+            entity.HasOne(su => su.Company)
+                .WithMany()
+                .HasForeignKey(su => su.CompanyId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(su => su.Conglomerate)
+                .WithMany()
+                .HasForeignKey(su => su.ConglomerateId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(su => new { su.AppUserId, su.Scope, su.StoreId, su.CompanyId, su.ConglomerateId }).IsUnique();
         });
 
         modelBuilder.Entity<AppUser>(entity =>

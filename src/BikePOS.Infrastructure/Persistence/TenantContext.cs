@@ -40,6 +40,9 @@ public class TenantContext
     /// without re-authenticating. Once set, PopulateFromClaims won't overwrite
     /// store/company/conglomerate fields.
     /// </summary>
+    /// <summary>Sets the effective role for the active store (computed by MembershipResolver per request).</summary>
+    public void SetRole(StoreRole role) => Role = role;
+
     public void SwitchContext(string storeId, string storeName, string companyId, string companyName, string conglomerateId)
     {
         StoreId = storeId;

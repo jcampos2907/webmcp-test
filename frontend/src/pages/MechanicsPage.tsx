@@ -7,8 +7,11 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { mechanicsApi, type Mechanic } from "@/lib/api"
+import { useSession } from "@/lib/session"
 
 export default function MechanicsPage() {
+  const { can } = useSession()
+  const canManage = can("mechanics.manage")
   const [items, setItems] = useState<Mechanic[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -25,9 +28,13 @@ export default function MechanicsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Mechanics</h1>
           <p className="text-sm text-muted-foreground">{items.length} total · {active} active</p>
         </div>
-        <Button nativeButton={false} render={<Link to="/mechanics/new" />}>
-          <Plus className="h-4 w-4" /> New mechanic
-        </Button>
+        {canManage && (
+          <Button asChild>
+            <Link to="/mechanics/new">
+              <Plus className="h-4 w-4" /> New mechanic
+            </Link>
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -38,16 +45,16 @@ export default function MechanicsPage() {
               <TableHead>Phone</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-16 text-right">Edit</TableHead>
+              {canManage && <TableHead className="w-16 text-right">Edit</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading && Array.from({ length: 4 }).map((_, i) => (
-              <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-5" /></TableCell></TableRow>
+              <TableRow key={i}><TableCell colSpan={canManage ? 5 : 4}><Skeleton className="h-5" /></TableCell></TableRow>
             ))}
             {!loading && items.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5}>
+                <TableCell colSpan={canManage ? 5 : 4}>
                   <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                     <Wrench className="h-8 w-8 mb-2 opacity-40" />
                     <p className="text-sm">No mechanics</p>
@@ -65,16 +72,15 @@ export default function MechanicsPage() {
                     {m.isActive ? "Active" : "Inactive"}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    nativeButton={false}
-                    render={<Link to={`/mechanics/${m.id}`} aria-label="Edit" />}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                </TableCell>
+                {canManage && (
+                  <TableCell className="text-right">
+                    <Button asChild size="icon-sm" variant="ghost">
+                      <Link to={`/mechanics/${m.id}`} aria-label="Edit">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Link>
+                    </Button>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>

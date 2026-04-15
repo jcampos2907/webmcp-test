@@ -91,8 +91,10 @@ export default function TicketsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Service Tickets</h1>
           <p className="text-sm text-muted-foreground">{filtered.length} ticket{filtered.length === 1 ? "" : "s"}</p>
         </div>
-        <Button nativeButton={false} render={<Link to="/tickets/new" />}>
-          <Plus /> New ticket
+        <Button asChild>
+          <Link to="/tickets/new">
+            <Plus /> New ticket
+          </Link>
         </Button>
       </div>
 

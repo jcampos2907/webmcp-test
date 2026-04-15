@@ -1,3 +1,4 @@
+using BikePOS.Api.Auth;
 using BikePOS.Application.Commands;
 using BikePOS.Application.Queries;
 
@@ -22,18 +23,18 @@ public static class ServiceEndpoints
         {
             var r = await h.HandleAsync(req, ct);
             return Results.Created($"/api/services/{r.Id}", r);
-        });
+        }).RequireAuthorization(Policies.Admin);
 
         g.MapPut("/{id}", async (string id, UpdateServiceRequest req, UpdateServiceCommandHandler h, CancellationToken ct) =>
         {
             var ok = await h.HandleAsync(req with { Id = id }, ct);
             return ok ? Results.NoContent() : Results.NotFound();
-        });
+        }).RequireAuthorization(Policies.Admin);
 
         g.MapDelete("/{id}", async (string id, DeleteServiceCommandHandler h, CancellationToken ct) =>
         {
             var ok = await h.HandleAsync(new DeleteServiceRequest(id), ct);
             return ok ? Results.NoContent() : Results.NotFound();
-        });
+        }).RequireAuthorization(Policies.Admin);
     }
 }

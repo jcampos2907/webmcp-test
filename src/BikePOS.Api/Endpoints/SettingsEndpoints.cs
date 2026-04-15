@@ -1,3 +1,4 @@
+using BikePOS.Api.Auth;
 using BikePOS.Data;
 using BikePOS.Models;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +16,7 @@ public static class SettingsEndpoints
 
     public static void MapSettingsEndpoints(this WebApplication app)
     {
-        var g = app.MapGroup("/api/settings");
+        var g = app.MapGroup("/api/settings").RequireAuthorization(Policies.SuperAdmin);
 
         g.MapGet("/shop", async (IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {

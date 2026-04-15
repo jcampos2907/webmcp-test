@@ -1,191 +1,238 @@
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
-import { Plus, UserCog, X } from "lucide-react"
+import { Shield, UserCog, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table"
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select"
-import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from "@/components/ui/form"
-import {
-  usersApi, organizationApi,
-  type AdminUser, type AdminStore, type AdminUserRole,
-} from "@/lib/api"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { usersApi, type AdminUser, type AdminUserRole } from "@/lib/api"
+import { useSession } from "@/lib/session"
 
-const ROLES = ["Cashier", "Mechanic", "Admin", "SuperAdmin", "Developer"] as const
-
-const schema = z.object({
-  storeId: z.string().min(1, "Pick a store"),
-  role: z.string().min(1),
-})
-type FormValues = z.infer<typeof schema>
+const STORE_ROLES = ["None", "Cashier", "Mechanic", "Admin"] as const
+type StoreRoleChoice = (typeof STORE_ROLES)[number]
 
 export default function UsersSection() {
+  const { currentStore, user: me } = useSession()
   const [users, setUsers] = useState<AdminUser[]>([])
-  const [stores, setStores] = useState<AdminStore[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeUser, setActiveUser] = useState<AdminUser | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: { storeId: "", role: "Cashier" },
-  })
+  const conglomerateId = currentStore?.conglomerateId ?? null
+  const conglomerateName = currentStore?.conglomerateName ?? "—"
+  const storeId = currentStore?.id ?? null
+  const storeName = currentStore?.name ?? "—"
 
   async function load() {
     setLoading(true)
     try {
-      const [us, tree] = await Promise.all([usersApi.list(), organizationApi.tree()])
-      setUsers(us)
-      setStores(tree.flatMap((c) => c.companies.flatMap((co) => co.stores)))
+      setUsers(await usersApi.list())
     } finally { setLoading(false) }
   }
   useEffect(() => { load() }, [])
 
-  const storeMap = useMemo(() => new Map(stores.map((s) => [s.id, s.name])), [stores])
+  const superAdmins = useMemo(() => users
+    .map((u) => {
+      const sa = u.assignments.find((a) => a.scope === "Conglomerate"
+        && a.role === "SuperAdmin" && a.conglomerateId === conglomerateId)
+      return sa ? { user: u, assignment: sa } : null
+    })
+    .filter((x): x is { user: AdminUser; assignment: AdminUserRole } => x !== null),
+    [users, conglomerateId])
 
-  function openAssign(user: AdminUser) {
-    setActiveUser(user)
-    form.reset({ storeId: stores[0]?.id ?? "", role: "Cashier" })
+  const superAdminUserIds = useMemo(() => new Set(superAdmins.map((x) => x.user.id)), [superAdmins])
+  const nonSuperAdmins = useMemo(() => users.filter((u) => !superAdminUserIds.has(u.id)), [users, superAdminUserIds])
+
+  function currentStoreRole(u: AdminUser): AdminUserRole | null {
+    return u.assignments.find((a) => a.scope === "Store" && a.storeId === storeId) ?? null
   }
 
-  async function onSubmit(values: FormValues) {
-    if (!activeUser) return
+  async function promoteToSuperAdmin(userId: string) {
+    if (!conglomerateId) return
+    setBusy(userId)
     try {
-      await usersApi.upsertRole(activeUser.id, values.storeId, values.role)
-      toast.success("Role assigned")
-      setActiveUser(null)
-      load()
+      await usersApi.upsertRole(userId, { scope: "Conglomerate", conglomerateId, role: "SuperAdmin" })
+      toast.success("Granted SuperAdmin")
+      await load()
     } catch (e) { toast.error(String(e)) }
+    finally { setBusy(null) }
   }
 
-  async function removeRole(r: AdminUserRole) {
-    if (!confirm(`Remove ${r.role} role at ${r.storeName}?`)) return
-    try { await usersApi.removeRole(r.storeUserId); toast.success("Role removed"); load() }
-    catch (e) { toast.error(String(e)) }
+  async function revokeSuperAdmin(a: AdminUserRole, userId: string) {
+    if (userId === me?.id && !confirm("Remove your own SuperAdmin role? You will be locked out of this settings page.")) return
+    setBusy(a.storeUserId)
+    try {
+      await usersApi.removeRole(a.storeUserId)
+      toast.success("SuperAdmin revoked")
+      await load()
+    } catch (e) { toast.error(String(e)) }
+    finally { setBusy(null) }
+  }
+
+  async function setStoreRole(u: AdminUser, next: StoreRoleChoice) {
+    if (!storeId) return
+    const existing = currentStoreRole(u)
+    setBusy(u.id)
+    try {
+      if (next === "None") {
+        if (existing) {
+          await usersApi.removeRole(existing.storeUserId)
+          toast.success(`Removed role at ${storeName}`)
+        }
+      } else {
+        await usersApi.upsertRole(u.id, { scope: "Store", storeId, role: next })
+        toast.success(`Set ${next} at ${storeName}`)
+      }
+      await load()
+    } catch (e) { toast.error(String(e)) }
+    finally { setBusy(null) }
+  }
+
+  if (!currentStore) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <p className="text-sm text-muted-foreground">Pick an active store to manage users.</p>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
-    <Card>
-      <CardContent className="pt-6">
-        {loading ? (
-          <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
-        ) : users.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
-            <UserCog className="h-8 w-8 mb-2 opacity-40" />
-            <p className="text-sm">No users yet</p>
-            <p className="text-xs mt-1">Users are provisioned on first OIDC sign-in.</p>
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Roles</TableHead>
-                <TableHead>Last login</TableHead>
-                <TableHead className="w-20 text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((u) => (
-                <TableRow key={u.id}>
-                  <TableCell className="font-medium">
-                    <div>{u.displayName ?? "—"}</div>
-                    <div className="text-[11px] text-muted-foreground font-mono truncate max-w-[200px]">{u.externalSubjectId}</div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{u.email ?? "—"}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1.5">
-                      {u.assignments.length === 0 && <span className="text-xs text-muted-foreground italic">none</span>}
-                      {u.assignments.map((a) => (
-                        <Badge key={a.storeUserId} variant="secondary" className="gap-1 pr-1">
-                          <span className="text-[10px]">{a.storeName || storeMap.get(a.storeId) || "?"}</span>
-                          <span className="text-[10px] font-normal opacity-70">· {a.role}</span>
-                          <button onClick={() => removeRole(a)} className="rounded hover:bg-muted ml-0.5 p-0.5">
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">
-                    {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "never"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button size="sm" variant="outline" onClick={() => openAssign(u)}>
-                      <Plus className="h-3.5 w-3.5" /> Role
-                    </Button>
-                  </TableCell>
-                </TableRow>
+    <div className="space-y-6">
+      {/* SuperAdmins — conglomerate-wide */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Shield className="h-4 w-4" /> SuperAdmins
+          </CardTitle>
+          <CardDescription>Conglomerate-wide access — {conglomerateName}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <Skeleton className="h-10" />
+          ) : superAdmins.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">No SuperAdmins configured.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {superAdmins.map(({ user, assignment }) => (
+                <Badge key={assignment.storeUserId} variant="secondary" className="gap-1.5 pr-1 py-1">
+                  <span className="text-xs">{user.displayName || user.email || user.externalSubjectId.slice(0, 10)}</span>
+                  {user.email && <span className="text-[10px] opacity-70">· {user.email}</span>}
+                  <button
+                    onClick={() => revokeSuperAdmin(assignment, user.id)}
+                    disabled={busy === assignment.storeUserId}
+                    className="rounded hover:bg-muted p-0.5 ml-0.5"
+                    aria-label="Revoke SuperAdmin"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
               ))}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
+            </div>
+          )}
+          {!loading && nonSuperAdmins.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground">Promote:</span>
+              {nonSuperAdmins.map((u) => (
+                <Button
+                  key={u.id}
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === u.id}
+                  onClick={() => promoteToSuperAdmin(u.id)}
+                >
+                  {u.displayName || u.email || u.externalSubjectId.slice(0, 10)}
+                </Button>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-      <Dialog open={!!activeUser} onOpenChange={(v) => !v && setActiveUser(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Assign role — {activeUser?.displayName ?? activeUser?.email}</DialogTitle></DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-              <FormField
-                control={form.control}
-                name="storeId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Store</FormLabel>
-                    <Select value={field.value} onValueChange={(v) => field.onChange(v ?? "")}>
-                      <FormControl>
-                        <SelectTrigger className="w-full"><SelectValue placeholder="Pick a store" /></SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {stores.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Role</FormLabel>
-                    <Select value={field.value} onValueChange={(v) => field.onChange(v ?? "Cashier")}>
-                      <FormControl>
-                        <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <p className="text-xs text-muted-foreground">Reassigning the same store updates the existing role.</p>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setActiveUser(null)}>Cancel</Button>
-                <Button type="submit" disabled={form.formState.isSubmitting}>Save</Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-    </Card>
+      {/* Staff — scoped to active store */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <UserCog className="h-4 w-4" /> Staff at {storeName}
+          </CardTitle>
+          <CardDescription>
+            Store roles apply only here. SuperAdmins override everything.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
+          ) : users.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+              <UserCog className="h-8 w-8 mb-2 opacity-40" />
+              <p className="text-sm">No users yet</p>
+              <p className="text-xs mt-1">Users are provisioned on first OIDC sign-in.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role at {storeName}</TableHead>
+                  <TableHead className="text-muted-foreground">Other assignments</TableHead>
+                  <TableHead className="text-right">Last login</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map((u) => {
+                  const isSuper = superAdminUserIds.has(u.id)
+                  const current = currentStoreRole(u)?.role ?? "None"
+                  const other = u.assignments.filter((a) => {
+                    if (a.scope === "Store" && a.storeId === storeId) return false
+                    if (a.scope === "Conglomerate" && a.conglomerateId === conglomerateId && a.role === "SuperAdmin") return false
+                    return true
+                  })
+                  return (
+                    <TableRow key={u.id}>
+                      <TableCell className="font-medium">
+                        <div>{u.displayName ?? "—"}</div>
+                        <div className="text-[11px] text-muted-foreground font-mono truncate max-w-[180px]">{u.externalSubjectId}</div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{u.email ?? "—"}</TableCell>
+                      <TableCell>
+                        {isSuper ? (
+                          <Badge variant="default">SuperAdmin (conglomerate)</Badge>
+                        ) : (
+                          <Select
+                            value={current}
+                            onValueChange={(v) => setStoreRole(u, v as StoreRoleChoice)}
+                            disabled={busy === u.id}
+                          >
+                            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {STORE_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {other.length === 0 ? "—" : other.map((a) => (
+                          <div key={a.storeUserId}>
+                            {a.scope === "Store" && <span>{a.role} @ {a.storeName}</span>}
+                            {a.scope === "Company" && <span>{a.role} @ {a.companyName} (company)</span>}
+                            {a.scope === "Conglomerate" && <span>{a.role} @ {a.conglomerateName} (conglomerate)</span>}
+                          </div>
+                        ))}
+                      </TableCell>
+                      <TableCell className="text-right text-xs text-muted-foreground">
+                        {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : "never"}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }

@@ -172,8 +172,10 @@ function MetaFieldsSection() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Button render={<Link to="/settings/meta-fields" />} nativeButton={false}>
-          <Tags className="h-4 w-4" /> Open meta fields editor
+        <Button asChild>
+          <Link to="/settings/meta-fields">
+            <Tags className="h-4 w-4" /> Open meta fields editor
+          </Link>
         </Button>
       </CardContent>
     </Card>

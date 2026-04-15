@@ -1,3 +1,4 @@
+using BikePOS.Api.Auth;
 using BikePOS.Application.Commands;
 using BikePOS.Application.Queries;
 
@@ -39,6 +40,6 @@ public static class CustomerEndpoints
         {
             var ok = await h.HandleAsync(new DeleteCustomerRequest(id), ct);
             return ok ? Results.NoContent() : Results.NotFound();
-        });
+        }).RequireAuthorization(Policies.Admin);
     }
 }

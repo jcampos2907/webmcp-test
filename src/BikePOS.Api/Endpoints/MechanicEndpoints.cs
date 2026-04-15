@@ -1,3 +1,4 @@
+using BikePOS.Api.Auth;
 using BikePOS.Application.Commands;
 using BikePOS.Application.Queries;
 
@@ -25,18 +26,18 @@ public static class MechanicEndpoints
         {
             var r = await h.HandleAsync(req, ct);
             return Results.Created($"/api/mechanics/{r.Id}", r);
-        });
+        }).RequireAuthorization(Policies.Admin);
 
         g.MapPut("/{id}", async (string id, UpdateMechanicRequest req, UpdateMechanicCommandHandler h, CancellationToken ct) =>
         {
             var ok = await h.HandleAsync(req with { Id = id }, ct);
             return ok ? Results.NoContent() : Results.NotFound();
-        });
+        }).RequireAuthorization(Policies.Admin);
 
         g.MapDelete("/{id}", async (string id, DeleteMechanicCommandHandler h, CancellationToken ct) =>
         {
             var ok = await h.HandleAsync(new DeleteMechanicRequest(id), ct);
             return ok ? Results.NoContent() : Results.NotFound();
-        });
+        }).RequireAuthorization(Policies.Admin);
     }
 }

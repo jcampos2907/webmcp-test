@@ -49,11 +49,15 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground">Today's activity and quick actions</p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button variant="outline" size="lg" className="gap-2" nativeButton={false} render={<Link to="/pos" />}>
-            <Package className="h-4 w-4" /> Open POS
+          <Button asChild variant="outline" size="lg" className="gap-2">
+            <Link to="/pos">
+              <Package className="h-4 w-4" /> Open POS
+            </Link>
           </Button>
-          <Button size="lg" className="gap-2" nativeButton={false} render={<Link to="/tickets/new" />}>
-            <Plus className="h-4 w-4" /> New Ticket
+          <Button asChild size="lg" className="gap-2">
+            <Link to="/tickets/new">
+              <Plus className="h-4 w-4" /> New Ticket
+            </Link>
           </Button>
         </div>
       </div>
@@ -82,8 +86,10 @@ export default function DashboardPage() {
               <CardTitle>Recent charges</CardTitle>
               <CardDescription>Latest 8 payments</CardDescription>
             </div>
-            <Button size="sm" variant="ghost" nativeButton={false} render={<Link to="/reports" />}>
-              View <ArrowRight />
+            <Button asChild size="sm" variant="ghost">
+              <Link to="/reports">
+                View <ArrowRight />
+              </Link>
             </Button>
           </CardHeader>
           <CardContent>

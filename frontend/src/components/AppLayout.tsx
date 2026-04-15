@@ -31,41 +31,43 @@ import {
 } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
-import { SessionProvider } from "@/lib/session"
+import { useSession } from "@/lib/session"
+import { authApi, type Permission } from "@/lib/api"
 import { StoreSwitcher } from "@/components/StoreSwitcher"
 
-type Item = { to: string; label: string; icon: ComponentType<{ className?: string }>; end?: boolean }
+type Item = { to: string; label: string; icon: ComponentType<{ className?: string }>; end?: boolean; requires?: Permission }
 
 const main: Item[] = [
   { to: "/", label: "Home", icon: Home, end: true },
-  { to: "/pos", label: "POS", icon: Store },
-  { to: "/tickets", label: "Tickets", icon: Ticket },
-  { to: "/customers", label: "Customers", icon: Users },
+  { to: "/pos", label: "POS", icon: Store, requires: "pos.use" },
+  { to: "/tickets", label: "Tickets", icon: Ticket, requires: "tickets.view" },
+  { to: "/customers", label: "Customers", icon: Users, requires: "customers.view" },
 ]
 
 const admin: Item[] = [
-  { to: "/mechanics", label: "Mechanics", icon: Wrench },
-  { to: "/mechanics/workload", label: "Workload", icon: ClipboardList },
-  { to: "/services", label: "Services", icon: Cog },
-  { to: "/products", label: "Products", icon: Package },
-  { to: "/reports", label: "Reports", icon: BarChart3 },
+  { to: "/mechanics", label: "Mechanics", icon: Wrench, requires: "mechanics.view" },
+  { to: "/mechanics/workload", label: "Workload", icon: ClipboardList, requires: "mechanics.view" },
+  { to: "/services", label: "Services", icon: Cog, requires: "services.view" },
+  { to: "/products", label: "Products", icon: Package, requires: "products.view" },
+  { to: "/reports", label: "Reports", icon: BarChart3, requires: "reports.view.own" },
 ]
 
 function NavItems({ items }: { items: Item[] }) {
   const { pathname } = useLocation()
+  const { can } = useSession()
+  const visible = items.filter((i) => !i.requires || can(i.requires))
+  if (visible.length === 0) return null
   return (
     <SidebarMenu>
-      {items.map((item) => {
+      {visible.map((item) => {
         const isActive = item.end ? pathname === item.to : pathname.startsWith(item.to)
         return (
           <SidebarMenuItem key={item.to}>
-            <SidebarMenuButton
-              isActive={isActive}
-              tooltip={item.label}
-              render={<NavLink to={item.to} end={item.end} />}
-            >
-              <item.icon />
-              <span>{item.label}</span>
+            <SidebarMenuButton asChild isActive={isActive} tooltip={item.label}>
+              <NavLink to={item.to} end={item.end}>
+                <item.icon />
+                <span>{item.label}</span>
+              </NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>
         )
@@ -76,9 +78,10 @@ function NavItems({ items }: { items: Item[] }) {
 
 export default function AppLayout() {
   const { pathname } = useLocation()
+  const { user, can, role } = useSession()
+  const showSettings = can("settings.manage")
   return (
     <TooltipProvider delayDuration={0}>
-      <SessionProvider>
       <SidebarProvider>
         <Sidebar collapsible="icon">
           <SidebarHeader className="border-b">
@@ -114,18 +117,21 @@ export default function AppLayout() {
               <StoreSwitcher />
             </div>
             <SidebarMenu>
+              {showSettings && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname.startsWith("/settings")} tooltip="Settings">
+                    <NavLink to="/settings">
+                      <Settings />
+                      <span>Settings</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  isActive={pathname.startsWith("/settings")}
-                  tooltip="Settings"
-                  render={<NavLink to="/settings" />}
+                  tooltip={user?.email ? `Logout (${user.email})` : "Logout"}
+                  onClick={() => { window.location.href = authApi.logoutUrl() }}
                 >
-                  <Settings />
-                  <span>Settings</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton tooltip="Logout">
                   <LogOut />
                   <span>Logout</span>
                 </SidebarMenuButton>
@@ -137,6 +143,10 @@ export default function AppLayout() {
         <SidebarInset>
           <header className="sticky top-0 z-10 flex h-12 items-center gap-2 border-b bg-background/80 backdrop-blur px-4">
             <SidebarTrigger />
+            <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+              <span>{user?.displayName || user?.email}</span>
+              {role && <span className="rounded-md border px-1.5 py-0.5 font-medium">{role}</span>}
+            </div>
           </header>
           <div className="flex-1 overflow-y-auto">
             <Outlet />
@@ -145,7 +155,6 @@ export default function AppLayout() {
 
         <Toaster richColors />
       </SidebarProvider>
-      </SessionProvider>
     </TooltipProvider>
   )
 }

@@ -1,5 +1,8 @@
+using System.Security.Claims;
+using BikePOS.Api.Auth;
 using BikePOS.Data;
 using BikePOS.Models;
+using BikePOS.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace BikePOS.Api.Endpoints;
@@ -20,9 +23,9 @@ public static class AdminEndpoints
     public record UpsertTerminalDto(string StoreId, string Name, string IpAddress, int Port, string Provider, bool IsActive);
 
     // --- User DTOs ---
-    public record UserRoleDto(string StoreUserId, string StoreId, string StoreName, string Role);
+    public record UserRoleDto(string StoreUserId, string Scope, string? StoreId, string? StoreName, string? CompanyId, string? CompanyName, string? ConglomerateId, string? ConglomerateName, string Role);
     public record UserDto(string Id, string? DisplayName, string? Email, string ExternalSubjectId, DateTime? LastLoginAt, DateTime CreatedAt, List<UserRoleDto> Assignments);
-    public record UpsertUserRoleDto(string StoreId, string Role);
+    public record UpsertUserRoleDto(string Scope, string? StoreId, string? CompanyId, string? ConglomerateId, string Role);
 
     // --- OAuth DTOs ---
     public record OidcConfigDto(string Id, string ConglomerateId, string Authority, string ClientId, bool HasClientSecret, string ResponseType, string Scopes, bool MapInboundClaims, bool SaveTokens, bool GetClaimsFromUserInfoEndpoint, string? ProviderName, bool IsActive, DateTime UpdatedAt);
@@ -39,7 +42,7 @@ public static class AdminEndpoints
     // ============ Organization ============
     static void MapOrganizationEndpoints(WebApplication app)
     {
-        var g = app.MapGroup("/api/admin/organization");
+        var g = app.MapGroup("/api/admin/organization").RequireAuthorization(Policies.SuperAdmin);
 
         g.MapGet("", async (IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
@@ -164,7 +167,7 @@ public static class AdminEndpoints
     // ============ Terminals ============
     static void MapTerminalEndpoints(WebApplication app)
     {
-        var g = app.MapGroup("/api/admin/terminals");
+        var g = app.MapGroup("/api/admin/terminals").RequireAuthorization(Policies.SuperAdmin);
 
         g.MapGet("", async (IDbContextFactory<BikePosContext> f, string? storeId, CancellationToken ct) =>
         {
@@ -223,29 +226,64 @@ public static class AdminEndpoints
     // ============ Users ============
     static void MapUserEndpoints(WebApplication app)
     {
-        var g = app.MapGroup("/api/admin/users");
+        var g = app.MapGroup("/api/admin/users").RequireAuthorization(Policies.SuperAdmin);
 
         g.MapGet("", async (IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
             using var db = f.CreateDbContext();
             var users = await db.AppUser
-                .Include(u => u.StoreUsers).ThenInclude(su => su.Store)
+                .Include(u => u.StoreUsers).ThenInclude(su => su.Store).ThenInclude(s => s!.Company)
+                .Include(u => u.StoreUsers).ThenInclude(su => su.Company)
+                .Include(u => u.StoreUsers).ThenInclude(su => su.Conglomerate)
                 .AsSplitQuery()
                 .OrderByDescending(u => u.LastLoginAt ?? u.CreatedAt)
                 .ToListAsync(ct);
             return Results.Ok(users.Select(u => new UserDto(
                 u.Id, u.DisplayName, u.Email, u.ExternalSubjectId, u.LastLoginAt, u.CreatedAt,
                 u.StoreUsers.Select(su => new UserRoleDto(
-                    su.Id, su.StoreId, su.Store?.Name ?? "", su.Role.ToString())).ToList())));
+                    su.Id, su.Scope.ToString(),
+                    su.StoreId, su.Store?.Name,
+                    su.CompanyId, su.Company?.Name,
+                    su.ConglomerateId, su.Conglomerate?.Name,
+                    su.Role.ToString())).ToList())));
         });
 
-        g.MapPost("/{userId}/roles", async (string userId, UpsertUserRoleDto body, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapPost("/{userId}/roles", async (string userId, UpsertUserRoleDto body,
+            TenantContext tenant, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
             if (!Enum.TryParse<StoreRole>(body.Role, true, out var role))
                 return Results.BadRequest(new { error = "Invalid role" });
+            if (!Enum.TryParse<RoleScope>(body.Scope, true, out var scope))
+                return Results.BadRequest(new { error = "Invalid scope" });
+
+            // Enforce the two legal shapes:
+            //   SuperAdmin @ Conglomerate  — matching the active conglomerate
+            //   {Cashier,Mechanic,Admin} @ Store — matching the active store
+            // Anything else is rejected.
+            if (role == StoreRole.SuperAdmin)
+            {
+                if (scope != RoleScope.Conglomerate || string.IsNullOrEmpty(body.ConglomerateId))
+                    return Results.BadRequest(new { error = "SuperAdmin must be Conglomerate-scoped" });
+                if (body.ConglomerateId != tenant.ConglomerateId)
+                    return Results.BadRequest(new { error = "Can only grant SuperAdmin in the active conglomerate" });
+            }
+            else if (role == StoreRole.Developer)
+            {
+                return Results.BadRequest(new { error = "Developer role cannot be assigned from the UI" });
+            }
+            else
+            {
+                if (scope != RoleScope.Store || string.IsNullOrEmpty(body.StoreId))
+                    return Results.BadRequest(new { error = "Non-SuperAdmin roles must be Store-scoped" });
+                if (body.StoreId != tenant.StoreId)
+                    return Results.BadRequest(new { error = "Can only grant store roles at the active store" });
+            }
+
             using var db = f.CreateDbContext();
-            var existing = await db.StoreUser.FirstOrDefaultAsync(
-                x => x.AppUserId == userId && x.StoreId == body.StoreId, ct);
+            db.CurrentStoreId = null;
+            var existing = await db.StoreUser.FirstOrDefaultAsync(x =>
+                x.AppUserId == userId && x.Scope == scope &&
+                x.StoreId == body.StoreId && x.CompanyId == body.CompanyId && x.ConglomerateId == body.ConglomerateId, ct);
             if (existing is not null)
             {
                 existing.Role = role;
@@ -254,18 +292,49 @@ public static class AdminEndpoints
             {
                 db.StoreUser.Add(new StoreUser
                 {
-                    AppUserId = userId, StoreId = body.StoreId, Role = role,
+                    AppUserId = userId, Scope = scope,
+                    StoreId = body.StoreId, CompanyId = body.CompanyId, ConglomerateId = body.ConglomerateId,
+                    Role = role,
                 });
             }
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
         });
 
-        g.MapDelete("/roles/{storeUserId}", async (string storeUserId, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
+        g.MapDelete("/roles/{storeUserId}", async (string storeUserId, HttpContext ctx,
+            TenantContext tenant, IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {
             using var db = f.CreateDbContext();
+            db.CurrentStoreId = null;
             var su = await db.StoreUser.FindAsync([storeUserId], ct);
             if (su is null) return Results.NotFound();
+
+            // Scope-of-removal must match the actor's active context
+            if (su.Scope == RoleScope.Conglomerate)
+            {
+                if (su.ConglomerateId != tenant.ConglomerateId)
+                    return Results.BadRequest(new { error = "Out-of-scope removal" });
+                // Prevent removing the last SuperAdmin in a conglomerate — would lock everyone out
+                if (su.Role == StoreRole.SuperAdmin)
+                {
+                    var remaining = await db.StoreUser.CountAsync(x =>
+                        x.Scope == RoleScope.Conglomerate && x.ConglomerateId == su.ConglomerateId && x.Role == StoreRole.SuperAdmin, ct);
+                    if (remaining <= 1) return Results.BadRequest(new { error = "Cannot remove the last SuperAdmin" });
+                }
+                // Self-demotion: a SuperAdmin removing their own SuperAdmin role is allowed
+                // as long as the guard above passes.
+                _ = ctx.User.FindFirstValue("app_user_id");
+            }
+            else if (su.Scope == RoleScope.Store)
+            {
+                if (su.StoreId != tenant.StoreId)
+                    return Results.BadRequest(new { error = "Can only revoke roles at the active store" });
+            }
+            else
+            {
+                return Results.BadRequest(new { error = "Unsupported scope" });
+            }
+
             db.StoreUser.Remove(su);
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
@@ -275,7 +344,7 @@ public static class AdminEndpoints
     // ============ OIDC ============
     static void MapOidcEndpoints(WebApplication app)
     {
-        var g = app.MapGroup("/api/admin/oidc");
+        var g = app.MapGroup("/api/admin/oidc").RequireAuthorization(Policies.SuperAdmin);
 
         g.MapGet("", async (IDbContextFactory<BikePosContext> f, CancellationToken ct) =>
         {

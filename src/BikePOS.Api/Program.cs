@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using BikePOS.Api.Auth;
 using BikePOS.Api.Endpoints;
 using BikePOS.Application.Commands;
 using BikePOS.Application.EventHandlers;
@@ -13,8 +15,13 @@ using BikePOS.Infrastructure.Persistence;
 using BikePOS.Interfaces.Events;
 using BikePOS.Interfaces.Repositories;
 using BikePOS.Interfaces.Services;
+using BikePOS.Models;
 using BikePOS.Services;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -114,12 +121,137 @@ builder.Services.AddScoped<IDomainEventHandler<TicketStatusChangedEvent>, ErpTic
 
 builder.Services.AddOpenApi();
 
+// ---- Authentication: cookie + Keycloak OIDC (BFF pattern) ----
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        // Default challenge = cookie → returns 401 for API callers.
+        // Explicit OIDC challenge is used by /api/auth/login for the interactive flow.
+        options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    })
+    .AddCookie(options =>
+    {
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        options.Cookie.Name = "bikepos.auth";
+        options.ExpireTimeSpan = TimeSpan.FromDays(7);
+        options.SlidingExpiration = true;
+        // Return 401 instead of 302 to /Account/Login for API callers
+        options.Events.OnRedirectToLogin = ctx =>
+        {
+            ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        };
+        options.Events.OnRedirectToAccessDenied = ctx =>
+        {
+            ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        };
+    })
+    .AddOpenIdConnect(options =>
+    {
+        options.Authority = builder.Configuration["Oidc:Authority"];
+        options.ClientId = builder.Configuration["Oidc:ClientId"];
+        options.ClientSecret = builder.Configuration["Oidc:ClientSecret"];
+        options.ResponseType = OpenIdConnectResponseType.Code;
+        options.SaveTokens = false; // keep cookie small; tokens not needed for v1 BFF
+        options.GetClaimsFromUserInfoEndpoint = true;
+        options.MapInboundClaims = false;
+        options.Scope.Add("openid");
+        options.Scope.Add("profile");
+        options.Scope.Add("email");
+        // Route callbacks under /api/* so the Vite dev proxy forwards them
+        options.CallbackPath = "/api/auth/signin-oidc";
+        options.SignedOutCallbackPath = "/api/auth/signout-callback-oidc";
+        options.RemoteSignOutPath = "/api/auth/signout-oidc";
+
+        options.Events = new OpenIdConnectEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var dbFactory = context.HttpContext.RequestServices
+                    .GetRequiredService<IDbContextFactory<BikePosContext>>();
+                await using var db = dbFactory.CreateDbContext();
+                db.CurrentStoreId = null; // bypass tenant filter
+
+                var principal = context.Principal!;
+                var sub = principal.FindFirstValue("sub") ?? "";
+                var name = principal.FindFirstValue("name")
+                           ?? principal.FindFirstValue("preferred_username");
+                var email = principal.FindFirstValue("email");
+
+                // Upsert AppUser
+                var appUser = await db.AppUser.FirstOrDefaultAsync(u => u.ExternalSubjectId == sub);
+                if (appUser == null)
+                {
+                    appUser = new AppUser { ExternalSubjectId = sub, DisplayName = name, Email = email };
+                    db.AppUser.Add(appUser);
+                }
+                else
+                {
+                    appUser.DisplayName = name;
+                    appUser.Email = email;
+                    appUser.LastLoginAt = DateTime.UtcNow;
+                }
+                await db.SaveChangesAsync();
+
+                // Bootstrap: first user ever, or IdP marks them SuperAdmin → conglomerate-wide SuperAdmin
+                var idpRoles = principal.FindAll("roles").Select(c => c.Value)
+                    .Concat(principal.FindAll("role").Select(c => c.Value))
+                    .Select(r => r.ToLowerInvariant())
+                    .ToHashSet();
+                var isIdpSuperAdmin = idpRoles.Contains("superadmin") || idpRoles.Contains("super_admin");
+
+                var hasAnyAssignment = await db.StoreUser.AnyAsync(su => su.AppUserId == appUser.Id);
+                if (!hasAnyAssignment && (isIdpSuperAdmin || !await db.StoreUser.AnyAsync()))
+                {
+                    var defaultStore = await db.Store.Include(s => s.Company).FirstOrDefaultAsync();
+                    if (defaultStore != null)
+                    {
+                        db.StoreUser.Add(new StoreUser
+                        {
+                            AppUserId = appUser.Id,
+                            Scope = RoleScope.Conglomerate,
+                            ConglomerateId = defaultStore.Company.ConglomerateId,
+                            Role = StoreRole.SuperAdmin
+                        });
+                        await db.SaveChangesAsync();
+                    }
+                }
+
+                var identity = (ClaimsIdentity)principal.Identity!;
+                identity.AddClaim(new Claim("app_user_id", appUser.Id));
+                // Store/Company/Role claims are populated per-request by tenant middleware (they depend on the active store).
+            },
+            OnRemoteFailure = context =>
+            {
+                // Don't crash the app when IdP login is cancelled or errors — send user back to /login
+                var spaBase = builder.Configuration["Spa:BaseUrl"] ?? "/";
+                context.Response.Redirect($"{spaBase.TrimEnd('/')}/login?error=oidc");
+                context.HandleResponse();
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+builder.Services.AddScoped<MembershipResolver>();
+builder.Services.AddScoped<IAuthorizationHandler, MinRoleHandler>();
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+    Policies.Register(options);
+});
+
 const string CorsPolicy = "Frontend";
 builder.Services.AddCors(options =>
     options.AddPolicy(CorsPolicy, p => p
-        .WithOrigins("http://localhost:5173")
+        .WithOrigins(builder.Configuration["Spa:BaseUrl"] ?? "http://localhost:5173")
         .AllowAnyHeader()
-        .AllowAnyMethod()));
+        .AllowAnyMethod()
+        .AllowCredentials()));
 
 var app = builder.Build();
 
@@ -129,28 +261,66 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors(CorsPolicy);
+app.UseAuthentication();
+app.UseAuthorization();
 
-// Tenant resolution: read X-Store-Id header and populate TenantContext
+// Tenant resolution: every authenticated request resolves the active store the user can
+// operate on. Rules:
+//   - X-Store-Id header, if present, must be a store the user has an effective membership for
+//     (Store / Company / Conglomerate scope). Otherwise 403.
+//   - No header → pick the first accessible store deterministically.
+//   - The effective role for that store (highest-ranked covering assignment) is written to
+//     TenantContext.Role and is what policy handlers check.
 app.Use(async (ctx, next) =>
 {
-    var storeId = ctx.Request.Headers["X-Store-Id"].ToString();
-    if (!string.IsNullOrWhiteSpace(storeId))
+    var path = ctx.Request.Path.Value ?? "";
+    if (ctx.User.Identity?.IsAuthenticated == true && !path.StartsWith("/api/auth/"))
     {
-        var factory = ctx.RequestServices.GetRequiredService<IDbContextFactory<BikePosContext>>();
-        await using var db = factory.CreateDbContext();
-        // Bypass the tenant wrapper by reading directly (scoped decorator uses same inner factory under filter)
-        db.CurrentStoreId = null;
-        var store = await db.Store.Include(s => s.Company).ThenInclude(c => c.Conglomerate)
-            .FirstOrDefaultAsync(s => s.Id == storeId);
-        if (store != null)
+        var tenant = ctx.RequestServices.GetRequiredService<TenantContext>();
+        var resolver = ctx.RequestServices.GetRequiredService<MembershipResolver>();
+        var appUserId = ctx.User.FindFirstValue("app_user_id");
+        if (string.IsNullOrEmpty(appUserId))
         {
-            var tenant = ctx.RequestServices.GetRequiredService<TenantContext>();
-            tenant.SwitchContext(store.Id, store.Name, store.CompanyId, store.Company.Name, store.Company.ConglomerateId);
+            ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return;
         }
+
+        var memberships = await resolver.ResolveAsync(appUserId);
+        if (memberships.Count == 0)
+        {
+            ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await ctx.Response.WriteAsync("No store memberships");
+            return;
+        }
+
+        var requestedStoreId = ctx.Request.Headers["X-Store-Id"].ToString();
+        EffectiveMembership? active;
+        if (!string.IsNullOrWhiteSpace(requestedStoreId))
+        {
+            active = memberships.FirstOrDefault(m => m.StoreId == requestedStoreId);
+            if (active == null)
+            {
+                ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await ctx.Response.WriteAsync("Not a member of requested store");
+                return;
+            }
+        }
+        else
+        {
+            active = memberships[0];
+        }
+
+        tenant.PopulateFromClaims(ctx.User);
+        tenant.SwitchContext(active.StoreId, active.StoreName, active.CompanyId, active.CompanyName, active.ConglomerateId);
+        tenant.SetRole(active.Role);
     }
     await next();
 });
 
+// Auth endpoints (anonymous — allow login flow before user is authenticated)
+app.MapAuthEndpoints();
+
+// FallbackPolicy above already requires authenticated user for everything else
 app.MapCustomerEndpoints();
 app.MapMechanicEndpoints();
 app.MapServiceEndpoints();
