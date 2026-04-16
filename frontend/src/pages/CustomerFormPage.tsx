@@ -8,13 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
+  Field, FieldGroup, FieldLabel, FieldError,
+} from "@/components/ui/field"
+import { Form, FormField } from "@/components/ui/form"
 import { PageHeader } from "@/components/PageHeader"
 import { customersApi, type CustomerInput } from "@/lib/api"
 
@@ -124,18 +120,22 @@ export default function CustomerFormPage() {
       <Card>
         <CardContent className="pt-6">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <TextField control={form.control} name="firstName" label="First name *" />
-                <TextField control={form.control} name="lastName" label="Last name *" />
-                <TextField control={form.control} name="phone" label="Phone" />
-                <TextField control={form.control} name="email" label="Email" type="email" />
-                <TextField control={form.control} name="street" label="Street" className="col-span-2" />
-                <TextField control={form.control} name="city" label="City" />
-                <TextField control={form.control} name="state" label="State" />
-                <TextField control={form.control} name="zipCode" label="Zip code" />
-                <TextField control={form.control} name="country" label="Country" />
-              </div>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FieldGroup>
+                <div className="grid grid-cols-2 gap-4">
+                  <TextField control={form.control} name="firstName" label="First name" required />
+                  <TextField control={form.control} name="lastName" label="Last name" required />
+                  <TextField control={form.control} name="phone" label="Phone" />
+                  <TextField control={form.control} name="email" label="Email" type="email" />
+                </div>
+                <TextField control={form.control} name="street" label="Street" />
+                <div className="grid grid-cols-2 gap-4">
+                  <TextField control={form.control} name="city" label="City" />
+                  <TextField control={form.control} name="state" label="State" />
+                  <TextField control={form.control} name="zipCode" label="Zip code" />
+                  <TextField control={form.control} name="country" label="Country" />
+                </div>
+              </FieldGroup>
               <div className="flex justify-between pt-2">
                 <div>
                   {isEdit && (
@@ -166,26 +166,29 @@ function TextField({
   name,
   label,
   type = "text",
+  required,
   className,
 }: {
   control: ReturnType<typeof useForm<FormValues>>["control"]
   name: keyof FormValues
   label: string
   type?: string
+  required?: boolean
   className?: string
 }) {
   return (
     <FormField
       control={control}
       name={name}
-      render={({ field }) => (
-        <FormItem className={className}>
-          <FormLabel>{label}</FormLabel>
-          <FormControl>
-            <Input type={type} {...field} value={field.value ?? ""} />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
+      render={({ field, fieldState }) => (
+        <Field className={className} data-invalid={fieldState.invalid || undefined}>
+          <FieldLabel htmlFor={name}>
+            {label}
+            {required && <span className="text-destructive">*</span>}
+          </FieldLabel>
+          <Input id={name} type={type} {...field} value={field.value ?? ""} aria-invalid={fieldState.invalid} />
+          <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+        </Field>
       )}
     />
   )

@@ -188,3 +188,55 @@
   background: linear-gradient(135deg, #a29bfe, #ff6bcb);
   color: white;
 }
+
+/* Inline Cadence accents — suggest button + summary card */
+.cadence-suggest-btn {
+  background: linear-gradient(135deg, rgba(162,155,254,0.12), rgba(255,107,203,0.12));
+  color: #7c3aed;
+  border: 1px solid rgba(162,155,254,0.35);
+}
+.cadence-suggest-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(162,155,254,0.22), rgba(255,107,203,0.22));
+  color: #6d28d9;
+}
+.cadence-suggest-btn .cadence-icon {
+  color: #c026d3;
+}
+
+.cadence-summary-card {
+  position: relative;
+  border: 0;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(135deg, #ff6b6b, #feca57, #48dbfb, #a29bfe, #ff6bcb) border-box;
+  border: 1.5px solid transparent;
+  box-shadow: 0 4px 20px -8px rgba(162,155,254,0.45);
+}
+.cadence-summary-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg,
+    rgba(255,107,107,0.05),
+    rgba(254,202,87,0.05),
+    rgba(72,219,251,0.06),
+    rgba(162,155,254,0.08),
+    rgba(255,107,203,0.06));
+  pointer-events: none;
+}
+.cadence-summary-card > * { position: relative; }
+.cadence-summary-badge {
+  background: linear-gradient(135deg, #a29bfe, #ff6bcb);
+  color: white;
+}
+.cadence-summary-title {
+  background: linear-gradient(135deg, #a29bfe, #ff6bcb);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: ai-gradient-shift 4s ease infinite;
+  font-weight: 600;
+}

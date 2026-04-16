@@ -538,13 +538,90 @@ export const oidcApi = {
   remove: (id: string) => request<void>(`/api/admin/oidc/${id}`, { method: "DELETE" }),
 }
 
-// ============ AI Assistant ============
+// ============ Cadence Assistant ============
 export type ChatMessage = { role: "user" | "assistant"; content: string }
 
-export const assistantApi = {
-  chat: (messages: ChatMessage[]) =>
-    request<{ content: string }>("/api/assistant/chat", {
+export type ReportsUiAction =
+  | { action: "set_date_range"; from: string; to: string }
+  | { action: "select_tab"; tab: "daily" | "services" | "mechanics" }
+
+export type ChatChart = {
+  kind: "bar" | "line" | "area"
+  title?: string
+  data: Record<string, unknown>[]
+  xKey: string
+  series: { key: string; label: string; color?: string }[]
+}
+
+export type ChatDownload = {
+  filename: string
+  mime: string
+  content: string
+}
+
+export type CadenceEvent =
+  | { type: "text_delta"; data: { text: string } }
+  | { type: "tool_call_start"; data: { id: string; name: string; args: unknown } }
+  | { type: "tool_call_end"; data: { id: string; result: string } }
+  | { type: "ui_action"; data: ReportsUiAction }
+  | { type: "chart"; data: ChatChart }
+  | { type: "download"; data: ChatDownload }
+  | { type: "done"; data: Record<string, never> }
+
+export const cadenceApi = {
+  suggestTicketDescription: (bike: string, service: string) =>
+    request<{ suggestion: string }>("/api/assistant/suggest-ticket-description", {
       method: "POST",
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({ bike, service }),
     }),
+}
+
+export function streamReportSummary(
+  report: "daily" | "services" | "mechanics",
+  from: string,
+  to: string,
+  signal?: AbortSignal,
+) {
+  return streamFromUrl("/api/assistant/summarize-report", { report, from, to }, signal)
+}
+
+async function* streamFromUrl(
+  url: string,
+  body: unknown,
+  signal?: AbortSignal,
+): AsyncGenerator<CadenceEvent> {
+  const res = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  })
+  if (!res.ok || !res.body) throw new Error(`Assistant error: ${res.status}`)
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ""
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let idx: number
+    while ((idx = buffer.indexOf("\n\n")) !== -1) {
+      const frame = buffer.slice(0, idx)
+      buffer = buffer.slice(idx + 2)
+      const line = frame.split("\n").find((l) => l.startsWith("data:"))
+      if (!line) continue
+      const json = line.slice(5).trim()
+      if (!json) continue
+      try { yield JSON.parse(json) as CadenceEvent } catch { /* ignore */ }
+    }
+  }
+}
+
+export function streamCadence(messages: ChatMessage[], signal?: AbortSignal) {
+  return streamFromUrl("/api/assistant/chat", { messages }, signal)
+}
+
+export function streamReportsChat(messages: ChatMessage[], signal?: AbortSignal) {
+  return streamFromUrl("/api/assistant/reports-chat", { messages }, signal)
 }

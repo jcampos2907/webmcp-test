@@ -13,9 +13,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from "@/components/ui/form"
+import { Form, FormField } from "@/components/ui/form"
+import { Field, FieldGroup, FieldLabel, FieldError } from "@/components/ui/field"
 import {
   organizationApi,
   type AdminCompany, type AdminConglomerate, type AdminStore,
@@ -250,72 +249,72 @@ export default function OrganizationSection() {
         <DialogContent>
           <DialogHeader><DialogTitle>{companyEditingId ? "Edit company" : "New company"}</DialogTitle></DialogHeader>
           <Form {...companyForm}>
-            <form onSubmit={companyForm.handleSubmit(saveCompany)} className="space-y-3">
-              <FormField
-                control={companyForm.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl><Input {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={companyForm.handleSubmit(saveCompany)} className="space-y-6">
+              <FieldGroup>
                 <FormField
                   control={companyForm.control}
-                  name="currency"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Currency</FormLabel>
-                      <FormControl>
+                  name="name"
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid || undefined}>
+                      <FieldLabel htmlFor="company-name">Name</FieldLabel>
+                      <Input id="company-name" {...field} aria-invalid={fieldState.invalid} />
+                      <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                    </Field>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={companyForm.control}
+                    name="currency"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel htmlFor="company-currency">Currency</FieldLabel>
                         <Input
+                          id="company-currency"
                           maxLength={10}
                           {...field}
                           onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                          aria-invalid={fieldState.invalid}
                         />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={companyForm.control}
-                  name="locale"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Locale</FormLabel>
-                      <FormControl><Input placeholder="es-CR" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={companyForm.control}
-                  name="taxId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tax ID</FormLabel>
-                      <FormControl><Input {...field} value={field.value ?? ""} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={companyForm.control}
-                  name="countryCode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Country</FormLabel>
-                      <FormControl>
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                  <FormField
+                    control={companyForm.control}
+                    name="locale"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel htmlFor="company-locale">Locale</FieldLabel>
+                        <Input id="company-locale" placeholder="es-CR" {...field} aria-invalid={fieldState.invalid} />
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                  <FormField
+                    control={companyForm.control}
+                    name="taxId"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel htmlFor="company-taxId">Tax ID</FieldLabel>
+                        <Input id="company-taxId" {...field} value={field.value ?? ""} />
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                  <FormField
+                    control={companyForm.control}
+                    name="countryCode"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel>Country</FieldLabel>
                         <CountrySelect value={field.value ?? ""} onChange={(code) => field.onChange(code)} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                </div>
+              </FieldGroup>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => { setCompanyOpen(false); setCompanyEditingId(null) }}>Cancel</Button>
                 <Button type="submit" disabled={companyForm.formState.isSubmitting}>Save</Button>
@@ -329,65 +328,65 @@ export default function OrganizationSection() {
         <DialogContent>
           <DialogHeader><DialogTitle>{storeEditingId ? "Edit store" : "New store"}</DialogTitle></DialogHeader>
           <Form {...storeForm}>
-            <form onSubmit={storeForm.handleSubmit(saveStore)} className="space-y-3">
-              <FormField
-                control={storeForm.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl><Input {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={storeForm.control}
-                name="address"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Address</FormLabel>
-                    <FormControl><Input {...field} value={field.value ?? ""} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={storeForm.handleSubmit(saveStore)} className="space-y-6">
+              <FieldGroup>
                 <FormField
                   control={storeForm.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone</FormLabel>
-                      <FormControl><Input {...field} value={field.value ?? ""} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
+                  name="name"
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid || undefined}>
+                      <FieldLabel htmlFor="store-name">Name</FieldLabel>
+                      <Input id="store-name" {...field} aria-invalid={fieldState.invalid} />
+                      <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                    </Field>
                   )}
                 />
                 <FormField
                   control={storeForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl><Input type="email" {...field} value={field.value ?? ""} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
+                  name="address"
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid || undefined}>
+                      <FieldLabel htmlFor="store-address">Address</FieldLabel>
+                      <Input id="store-address" {...field} value={field.value ?? ""} />
+                      <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                    </Field>
                   )}
                 />
-              </div>
-              <FormField
-                control={storeForm.control}
-                name="isActive"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                    <FormControl>
-                      <Checkbox checked={field.value} onCheckedChange={(c) => field.onChange(Boolean(c))} />
-                    </FormControl>
-                    <FormLabel className="mb-0">Active</FormLabel>
-                  </FormItem>
-                )}
-              />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={storeForm.control}
+                    name="phone"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel htmlFor="store-phone">Phone</FieldLabel>
+                        <Input id="store-phone" {...field} value={field.value ?? ""} />
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                  <FormField
+                    control={storeForm.control}
+                    name="email"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel htmlFor="store-email">Email</FieldLabel>
+                        <Input id="store-email" type="email" {...field} value={field.value ?? ""} />
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={storeForm.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <Field orientation="horizontal">
+                      <Checkbox id="store-isActive" checked={field.value} onCheckedChange={(c) => field.onChange(Boolean(c))} />
+                      <FieldLabel htmlFor="store-isActive" className="font-normal">Active</FieldLabel>
+                    </Field>
+                  )}
+                />
+              </FieldGroup>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => { setStoreOpen(false); setStoreEditingId(null) }}>Cancel</Button>
                 <Button type="submit" disabled={storeForm.formState.isSubmitting}>Save</Button>

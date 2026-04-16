@@ -16,9 +16,8 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
-import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from "@/components/ui/form"
+import { Form, FormField } from "@/components/ui/form"
+import { Field, FieldGroup, FieldLabel, FieldError } from "@/components/ui/field"
 import {
   oidcApi, organizationApi,
   type AdminOidcConfig, type AdminConglomerate, type UpsertOidcConfig,
@@ -177,108 +176,107 @@ export default function OAuthSection() {
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-              <FormField
-                control={form.control}
-                name="conglomerateId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Conglomerate</FormLabel>
-                    <Select value={field.value} onValueChange={(v) => field.onChange(v ?? "")}>
-                      <FormControl>
-                        <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {conglomerates.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="providerName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Provider name</FormLabel>
-                    <FormControl><Input placeholder="e.g. Okta, Auth0" {...field} value={field.value ?? ""} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="authority"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Authority</FormLabel>
-                    <FormControl><Input placeholder="https://example.auth0.com/" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FieldGroup>
                 <FormField
                   control={form.control}
-                  name="clientId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Client ID</FormLabel>
-                      <FormControl><Input {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
+                  name="conglomerateId"
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid || undefined}>
+                      <FieldLabel>Conglomerate</FieldLabel>
+                      <Select value={field.value} onValueChange={(v) => field.onChange(v ?? "")}>
+                        <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {conglomerates.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                    </Field>
                   )}
                 />
                 <FormField
                   control={form.control}
-                  name="clientSecret"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Client secret</FormLabel>
-                      <FormControl>
+                  name="providerName"
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid || undefined}>
+                      <FieldLabel htmlFor="oidc-providerName">Provider name</FieldLabel>
+                      <Input id="oidc-providerName" placeholder="e.g. Okta, Auth0" {...field} value={field.value ?? ""} />
+                      <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                    </Field>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="authority"
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid || undefined}>
+                      <FieldLabel htmlFor="oidc-authority">Authority</FieldLabel>
+                      <Input id="oidc-authority" placeholder="https://example.auth0.com/" {...field} aria-invalid={fieldState.invalid} />
+                      <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                    </Field>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="clientId"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel htmlFor="oidc-clientId">Client ID</FieldLabel>
+                        <Input id="oidc-clientId" {...field} aria-invalid={fieldState.invalid} />
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="clientSecret"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel htmlFor="oidc-clientSecret">Client secret</FieldLabel>
                         <Input
+                          id="oidc-clientSecret"
                           type="password"
                           placeholder={editingId ? "leave blank to keep" : ""}
                           {...field}
                           value={field.value ?? ""}
                         />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <FormField
-                  control={form.control}
-                  name="responseType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Response type</FormLabel>
-                      <FormControl><Input {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="scopes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Scopes</FormLabel>
-                      <FormControl><Input {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <BoolField control={form.control} name="isActive" label="Active" />
-                <BoolField control={form.control} name="saveTokens" label="Save tokens" />
-                <BoolField control={form.control} name="mapInboundClaims" label="Map inbound claims" />
-                <BoolField control={form.control} name="getClaimsFromUserInfoEndpoint" label="UserInfo claims" />
-              </div>
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="responseType"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel htmlFor="oidc-responseType">Response type</FieldLabel>
+                        <Input id="oidc-responseType" {...field} aria-invalid={fieldState.invalid} />
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="scopes"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel htmlFor="oidc-scopes">Scopes</FieldLabel>
+                        <Input id="oidc-scopes" {...field} aria-invalid={fieldState.invalid} />
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <BoolField control={form.control} name="isActive" label="Active" />
+                  <BoolField control={form.control} name="saveTokens" label="Save tokens" />
+                  <BoolField control={form.control} name="mapInboundClaims" label="Map inbound claims" />
+                  <BoolField control={form.control} name="getClaimsFromUserInfoEndpoint" label="UserInfo claims" />
+                </div>
+              </FieldGroup>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => { setOpen(false); setEditingId(null) }}>Cancel</Button>
                 <Button type="submit" disabled={form.formState.isSubmitting}>Save</Button>
@@ -305,12 +303,10 @@ function BoolField({
       control={control}
       name={name}
       render={({ field }) => (
-        <FormItem className="flex flex-row items-center gap-2 space-y-0">
-          <FormControl>
-            <Checkbox checked={field.value} onCheckedChange={(c) => field.onChange(Boolean(c))} />
-          </FormControl>
-          <FormLabel className="mb-0">{label}</FormLabel>
-        </FormItem>
+        <Field orientation="horizontal">
+          <Checkbox id={`oidc-${name}`} checked={field.value} onCheckedChange={(c) => field.onChange(Boolean(c))} />
+          <FieldLabel htmlFor={`oidc-${name}`} className="font-normal">{label}</FieldLabel>
+        </Field>
       )}
     />
   )

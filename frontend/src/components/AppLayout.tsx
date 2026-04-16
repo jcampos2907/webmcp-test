@@ -34,7 +34,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { useSession } from "@/lib/session"
 import { authApi, type Permission } from "@/lib/api"
 import { StoreSwitcher } from "@/components/StoreSwitcher"
-import { AiAssistant } from "@/components/AiAssistant"
+import { Cadence } from "@/components/Cadence"
 
 type Item = { to: string; label: string; icon: ComponentType<{ className?: string }>; end?: boolean; requires?: Permission }
 
@@ -154,7 +154,7 @@ export default function AppLayout() {
           </div>
         </SidebarInset>
 
-        <AiAssistant />
+        <Cadence />
         <Toaster richColors />
       </SidebarProvider>
     </TooltipProvider>

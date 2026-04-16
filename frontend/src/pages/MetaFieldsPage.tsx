@@ -19,9 +19,8 @@ import {
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from "@/components/ui/form"
+import { Form, FormField } from "@/components/ui/form"
+import { Field, FieldGroup, FieldLabel, FieldError } from "@/components/ui/field"
 import { PageHeader } from "@/components/PageHeader"
 import { metaFieldsApi, type MetaField, type MetaFieldInput } from "@/lib/api"
 
@@ -184,150 +183,144 @@ export default function MetaFieldsPage() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader><DialogTitle>{editing ? "Edit field" : "New field"}</DialogTitle></DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <FormField
-                  control={form.control}
-                  name="entityType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Entity type</FormLabel>
-                      <Select value={field.value} onValueChange={(v) => field.onChange(v ?? "Customer")}>
-                        <FormControl>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FieldGroup>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="entityType"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel>Entity type</FieldLabel>
+                        <Select value={field.value} onValueChange={(v) => field.onChange(v ?? "Customer")}>
                           <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {ENTITY_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="fieldType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Field type</FormLabel>
-                      <Select value={field.value} onValueChange={(v) => field.onChange(v ?? "text")}>
-                        <FormControl>
+                          <SelectContent>
+                            {ENTITY_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="fieldType"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel>Field type</FieldLabel>
+                        <Select value={field.value} onValueChange={(v) => field.onChange(v ?? "text")}>
                           <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {FIELD_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <FormField
-                  control={form.control}
-                  name="key"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Key (unique)</FormLabel>
-                      <FormControl><Input placeholder="tax_id" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="label"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Label</FormLabel>
-                      <FormControl><Input placeholder="Tax ID" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <FormField
-                  control={form.control}
-                  name="sortOrder"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Sort order</FormLabel>
-                      <FormControl>
+                          <SelectContent>
+                            {FIELD_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="key"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel htmlFor="meta-key">Key (unique)</FieldLabel>
+                        <Input id="meta-key" placeholder="tax_id" {...field} aria-invalid={fieldState.invalid} />
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="label"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel htmlFor="meta-label">Label</FieldLabel>
+                        <Input id="meta-label" placeholder="Tax ID" {...field} aria-invalid={fieldState.invalid} />
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-4 items-end">
+                  <FormField
+                    control={form.control}
+                    name="sortOrder"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel htmlFor="meta-sortOrder">Sort order</FieldLabel>
                         <Input
+                          id="meta-sortOrder"
                           type="number"
                           value={field.value ?? 0}
                           onChange={(e) => field.onChange(e.target.value === "" ? 0 : Number(e.target.value))}
                           onBlur={field.onBlur}
                           name={field.name}
                           ref={field.ref}
+                          aria-invalid={fieldState.invalid}
                         />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="isRequired"
+                    render={({ field }) => (
+                      <Field orientation="horizontal">
+                        <Checkbox id="meta-isRequired" checked={field.value} onCheckedChange={(c) => field.onChange(Boolean(c))} />
+                        <FieldLabel htmlFor="meta-isRequired" className="font-normal">Required</FieldLabel>
+                      </Field>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="isActive"
+                    render={({ field }) => (
+                      <Field orientation="horizontal">
+                        <Checkbox id="meta-isActive" checked={field.value} onCheckedChange={(c) => field.onChange(Boolean(c))} />
+                        <FieldLabel htmlFor="meta-isActive" className="font-normal">Active</FieldLabel>
+                      </Field>
+                    )}
+                  />
+                </div>
                 <FormField
                   control={form.control}
-                  name="isRequired"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center gap-2 space-y-0 pb-2 self-end">
-                      <FormControl>
-                        <Checkbox checked={field.value} onCheckedChange={(c) => field.onChange(Boolean(c))} />
-                      </FormControl>
-                      <FormLabel className="mb-0">Required</FormLabel>
-                    </FormItem>
+                  name="defaultValue"
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid || undefined}>
+                      <FieldLabel htmlFor="meta-defaultValue">Default value</FieldLabel>
+                      <Input id="meta-defaultValue" {...field} value={field.value ?? ""} />
+                      <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                    </Field>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="isActive"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center gap-2 space-y-0 pb-2 self-end">
-                      <FormControl>
-                        <Checkbox checked={field.value} onCheckedChange={(c) => field.onChange(Boolean(c))} />
-                      </FormControl>
-                      <FormLabel className="mb-0">Active</FormLabel>
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <FormField
-                control={form.control}
-                name="defaultValue"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Default value</FormLabel>
-                    <FormControl><Input {...field} value={field.value ?? ""} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
+                {fieldType === "select" && (
+                  <FormField
+                    control={form.control}
+                    name="options"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel htmlFor="meta-options">Options (comma-separated)</FieldLabel>
+                        <Input id="meta-options" placeholder="Option A,Option B" {...field} value={field.value ?? ""} />
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
                 )}
-              />
-              {fieldType === "select" && (
                 <FormField
                   control={form.control}
-                  name="options"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Options (comma-separated)</FormLabel>
-                      <FormControl><Input placeholder="Option A,Option B" {...field} value={field.value ?? ""} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
+                  name="regexPattern"
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid || undefined}>
+                      <FieldLabel htmlFor="meta-regexPattern">Regex pattern (optional)</FieldLabel>
+                      <Input id="meta-regexPattern" {...field} value={field.value ?? ""} />
+                      <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                    </Field>
                   )}
                 />
-              )}
-              <FormField
-                control={form.control}
-                name="regexPattern"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Regex pattern (optional)</FormLabel>
-                    <FormControl><Input {...field} value={field.value ?? ""} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              </FieldGroup>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
                 <Button type="submit" disabled={form.formState.isSubmitting}>Save</Button>

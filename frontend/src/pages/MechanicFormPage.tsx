@@ -9,13 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent } from "@/components/ui/card"
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
+  Field, FieldGroup, FieldLabel, FieldError,
+} from "@/components/ui/field"
+import { Form, FormField } from "@/components/ui/form"
 import { PageHeader } from "@/components/PageHeader"
 import { mechanicsApi, type MechanicInput } from "@/lib/api"
 
@@ -98,61 +94,58 @@ export default function MechanicFormPage() {
       <Card>
         <CardContent className="pt-6">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name *</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone</FormLabel>
-                    <FormControl>
-                      <Input {...field} value={field.value ?? ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" {...field} value={field.value ?? ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="isActive"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                    <FormControl>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FieldGroup>
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid || undefined}>
+                      <FieldLabel htmlFor="name">Name <span className="text-destructive">*</span></FieldLabel>
+                      <Input id="name" {...field} aria-invalid={fieldState.invalid} />
+                      <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                    </Field>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel htmlFor="phone">Phone</FieldLabel>
+                        <Input id="phone" {...field} value={field.value ?? ""} />
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel htmlFor="email">Email</FieldLabel>
+                        <Input id="email" type="email" {...field} value={field.value ?? ""} aria-invalid={fieldState.invalid} />
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <Field orientation="horizontal">
                       <Checkbox
+                        id="isActive"
                         checked={field.value}
                         onCheckedChange={(c) => field.onChange(Boolean(c))}
                       />
-                    </FormControl>
-                    <FormLabel className="mb-0">Active</FormLabel>
-                  </FormItem>
-                )}
-              />
+                      <FieldLabel htmlFor="isActive" className="font-normal">Active</FieldLabel>
+                    </Field>
+                  )}
+                />
+              </FieldGroup>
               <div className="flex justify-between pt-2">
                 <div>
                   {isEdit && (

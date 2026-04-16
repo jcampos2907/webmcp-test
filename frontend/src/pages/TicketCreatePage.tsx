@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import { Plus, Trash2, Search } from "lucide-react"
+import { Plus, Trash2, Search, Sparkles, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,10 +15,14 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
+import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field"
 import { PageHeader } from "@/components/PageHeader"
+import { EntityPicker } from "@/components/EntityPicker"
+import { SegmentedToggle } from "@/components/Field"
 import {
   customersApi, mechanicsApi, servicesApi, productsApi,
-  componentsApi, createTicketApi,
+  componentsApi, createTicketApi, cadenceApi,
   type Customer, type Mechanic, type Service, type Product, type ComponentItem,
 } from "@/lib/api"
 
@@ -40,15 +44,41 @@ export default function TicketCreatePage() {
   const [discountPercent, setDiscountPercent] = useState(0)
   const [description, setDescription] = useState("")
 
-  const [componentMode, setComponentMode] = useState<"existing" | "new">("new")
+  const [componentMode, setComponentMode] = useState<"existing" | "new">("existing")
   const [componentId, setComponentId] = useState<string>("")
   const [newComponent, setNewComponent] = useState({
-    name: "", componentType: "Bike", brand: "", color: "", sku: "", price: 0,
+    name: "", componentType: "Bike", brand: "", color: "", sku: "",
   })
 
   const [lines, setLines] = useState<LineItem[]>([])
   const [productSearch, setProductSearch] = useState("")
   const [saving, setSaving] = useState(false)
+  const [suggesting, setSuggesting] = useState(false)
+
+  const [customerMode, setCustomerMode] = useState<"existing" | "new">("existing")
+  const [newCustomer, setNewCustomer] = useState({
+    firstName: "", lastName: "", phone: "", email: "", city: "",
+  })
+
+  async function suggestDescription() {
+    const bike = componentMode === "new"
+      ? [newComponent.brand, newComponent.name].filter(Boolean).join(" ").trim()
+      : components.find((c) => c.id === componentId)?.name ?? ""
+    const service = services.find((s) => s.id === serviceId)?.name ?? ""
+    if (!bike && !service) {
+      toast.error("Pick a service or name the component first")
+      return
+    }
+    setSuggesting(true)
+    try {
+      const { suggestion } = await cadenceApi.suggestTicketDescription(bike, service)
+      setDescription(suggestion)
+    } catch (err) {
+      toast.error(String(err))
+    } finally {
+      setSuggesting(false)
+    }
+  }
 
   useEffect(() => {
     customersApi.list().then(setCustomers)
@@ -100,6 +130,14 @@ export default function TicketCreatePage() {
   const total = subtotal - discount
 
   async function save() {
+    if (customerMode === "existing" && !customerId) {
+      toast.error("Select a customer")
+      return
+    }
+    if (customerMode === "new" && (!newCustomer.firstName.trim() || !newCustomer.lastName.trim())) {
+      toast.error("First and last name are required")
+      return
+    }
     if (componentMode === "existing" && !componentId) {
       toast.error("Select a component")
       return
@@ -110,22 +148,37 @@ export default function TicketCreatePage() {
     }
     setSaving(true)
     try {
+      let finalCustomerId = customerId
+      if (customerMode === "new") {
+        const created = await customersApi.create({
+          firstName: newCustomer.firstName,
+          lastName: newCustomer.lastName,
+          phone: newCustomer.phone || null,
+          email: newCustomer.email || null,
+          street: null,
+          city: newCustomer.city || null,
+          state: null,
+          zipCode: null,
+          country: null,
+        })
+        finalCustomerId = created.id
+      }
       let finalComponentId = componentId
       if (componentMode === "new") {
         const created = await componentsApi.create({
           name: newComponent.name,
           componentType: newComponent.componentType,
-          customerId: customerId || null,
+          customerId: finalCustomerId || null,
           brand: newComponent.brand || null,
           color: newComponent.color || null,
           sku: newComponent.sku || null,
-          price: newComponent.price,
+          price: 0,
         })
         finalComponentId = created.id
       }
       const result = await createTicketApi.create({
         componentId: finalComponentId,
-        customerId: customerId || null,
+        customerId: finalCustomerId || null,
         mechanicId: mechanicId || null,
         baseServiceId: serviceId || null,
         baseServicePrice: servicePrice,
@@ -158,107 +211,227 @@ export default function TicketCreatePage() {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader><CardTitle>Customer & mechanic</CardTitle></CardHeader>
-            <CardContent className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Customer</Label>
-                <Select value={customerId} onValueChange={(v) => setCustomerId(v ?? "")}>
-                  <SelectTrigger><SelectValue placeholder="(walk-in)" /></SelectTrigger>
-                  <SelectContent>
-                    {customers.map((c) => <SelectItem key={c.id} value={c.id}>{c.fullName}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Mechanic</Label>
-                <Select value={mechanicId} onValueChange={(v) => setMechanicId(v ?? "")}>
-                  <SelectTrigger><SelectValue placeholder="(unassigned)" /></SelectTrigger>
-                  <SelectContent>
-                    {mechanics.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+            <CardContent>
+              <FieldGroup>
+              <Field>
+                <div className="flex items-end justify-between gap-2">
+                  <FieldLabel>Customer <span className="text-destructive">*</span></FieldLabel>
+                  <SegmentedToggle
+                    value={customerMode}
+                    onChange={setCustomerMode}
+                    options={[{ value: "existing", label: "Existing" }, { value: "new", label: "New" }]}
+                  />
+                </div>
+                {customerMode === "existing" ? (
+                  <EntityPicker
+                    value={customerId}
+                    onChange={setCustomerId}
+                    options={customers.map((c) => ({
+                      id: c.id,
+                      label: c.fullName,
+                      sublabel: [c.phone, c.email].filter(Boolean).join(" · ") || undefined,
+                      keywords: [c.phone, c.email].filter(Boolean) as string[],
+                    }))}
+                    placeholder="Select a customer"
+                    searchPlaceholder="Search customers by name, phone, email…"
+                    emptyText="No customers match."
+                    allowClear={false}
+                  />
+                ) : (
+                  <FieldGroup>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field>
+                        <FieldLabel>First name <span className="text-destructive">*</span></FieldLabel>
+                        <Input
+                          value={newCustomer.firstName}
+                          onChange={(e) => setNewCustomer({ ...newCustomer, firstName: e.target.value })}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel>Last name <span className="text-destructive">*</span></FieldLabel>
+                        <Input
+                          value={newCustomer.lastName}
+                          onChange={(e) => setNewCustomer({ ...newCustomer, lastName: e.target.value })}
+                        />
+                      </Field>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field>
+                        <FieldLabel>Phone</FieldLabel>
+                        <Input
+                          type="tel"
+                          value={newCustomer.phone}
+                          onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel>Email</FieldLabel>
+                        <Input
+                          type="email"
+                          value={newCustomer.email}
+                          onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
+                        />
+                      </Field>
+                    </div>
+                    <Field>
+                      <FieldLabel>City</FieldLabel>
+                      <Input
+                        value={newCustomer.city}
+                        onChange={(e) => setNewCustomer({ ...newCustomer, city: e.target.value })}
+                      />
+                    </Field>
+                  </FieldGroup>
+                )}
+              </Field>
+
+              <Field>
+                <FieldLabel>Mechanic</FieldLabel>
+                <EntityPicker
+                  value={mechanicId}
+                  onChange={setMechanicId}
+                  options={mechanics.map((m) => ({ id: m.id, label: m.name }))}
+                  placeholder="(unassigned)"
+                  searchPlaceholder="Search mechanics…"
+                  emptyText="No mechanics match."
+                  clearLabel="Unassigned"
+                />
+                <FieldDescription>Can be assigned later</FieldDescription>
+              </Field>
+              </FieldGroup>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader><CardTitle>Component</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <Button variant={componentMode === "new" ? "default" : "outline"} size="sm" onClick={() => setComponentMode("new")}>New</Button>
-                <Button variant={componentMode === "existing" ? "default" : "outline"} size="sm" onClick={() => setComponentMode("existing")} disabled={!customerId}>Existing</Button>
-              </div>
+            <CardContent>
+              <FieldGroup>
+              <SegmentedToggle
+                value={componentMode}
+                onChange={setComponentMode}
+                options={[{ value: "existing", label: "Existing" }, { value: "new", label: "New" }]}
+              />
+
               {componentMode === "existing" ? (
-                <div>
-                  <Label>Select component</Label>
-                  <Select value={componentId} onValueChange={(v) => setComponentId(v ?? "")}>
-                    <SelectTrigger><SelectValue placeholder="Pick one" /></SelectTrigger>
-                    <SelectContent>
-                      {components.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name ?? c.componentType} · {c.brand ?? "—"} · {c.sku}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Field>
+                  <FieldLabel>Select component</FieldLabel>
+                  <EntityPicker
+                    value={componentId}
+                    onChange={setComponentId}
+                    disabled={!customerId}
+                    options={components.map((c) => ({
+                      id: c.id,
+                      label: c.name ?? c.componentType,
+                      sublabel: [c.brand, c.sku].filter(Boolean).join(" · ") || undefined,
+                      keywords: [c.brand, c.sku, c.componentType].filter(Boolean) as string[],
+                    }))}
+                    placeholder={customerId ? "Pick a component" : "Select a customer first"}
+                    searchPlaceholder="Search by name, brand, SKU…"
+                    emptyText="This customer has no components on file."
+                    allowClear={false}
+                  />
+                  {!customerId && <FieldDescription>Pick a customer first, or switch to New.</FieldDescription>}
+                </Field>
               ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Name</Label>
-                    <Input value={newComponent.name} onChange={(e) => setNewComponent({ ...newComponent, name: e.target.value })} />
+                <FieldGroup>
+                  <div className="grid grid-cols-3 gap-4">
+                    <Field className="col-span-2">
+                      <FieldLabel>Name <span className="text-destructive">*</span></FieldLabel>
+                      <Input
+                        placeholder="e.g. Trek FX 3 Disc"
+                        value={newComponent.name}
+                        onChange={(e) => setNewComponent({ ...newComponent, name: e.target.value })}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel>Type</FieldLabel>
+                      <Select
+                        value={newComponent.componentType}
+                        onValueChange={(v) => setNewComponent({ ...newComponent, componentType: v ?? "Bike" })}
+                      >
+                        <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Bike">Bike</SelectItem>
+                          <SelectItem value="Rim">Rim</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
                   </div>
-                  <div>
-                    <Label>Type</Label>
-                    <Select value={newComponent.componentType} onValueChange={(v) => setNewComponent({ ...newComponent, componentType: v ?? "Bike" })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Bike">Bike</SelectItem>
-                        <SelectItem value="Rim">Rim</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field>
+                      <FieldLabel>Brand</FieldLabel>
+                      <Input
+                        placeholder="Trek, Specialized…"
+                        value={newComponent.brand}
+                        onChange={(e) => setNewComponent({ ...newComponent, brand: e.target.value })}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel>Color</FieldLabel>
+                      <Input
+                        value={newComponent.color}
+                        onChange={(e) => setNewComponent({ ...newComponent, color: e.target.value })}
+                      />
+                    </Field>
                   </div>
-                  <div>
-                    <Label>Brand</Label>
-                    <Input value={newComponent.brand} onChange={(e) => setNewComponent({ ...newComponent, brand: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Color</Label>
-                    <Input value={newComponent.color} onChange={(e) => setNewComponent({ ...newComponent, color: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>SKU</Label>
-                    <Input value={newComponent.sku} onChange={(e) => setNewComponent({ ...newComponent, sku: e.target.value })} placeholder="auto-generated" />
-                  </div>
-                  <div>
-                    <Label>Price</Label>
-                    <Input type="number" step="0.01" value={newComponent.price} onChange={(e) => setNewComponent({ ...newComponent, price: Number(e.target.value) })} />
-                  </div>
-                </div>
+                  <Field>
+                    <FieldLabel>SKU</FieldLabel>
+                    <Input
+                      placeholder="auto-generated"
+                      value={newComponent.sku}
+                      onChange={(e) => setNewComponent({ ...newComponent, sku: e.target.value })}
+                    />
+                    <FieldDescription>Auto-generated if blank</FieldDescription>
+                  </Field>
+                </FieldGroup>
               )}
+              </FieldGroup>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader><CardTitle>Service</CardTitle></CardHeader>
-            <CardContent className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Service</Label>
+            <CardContent>
+              <FieldGroup>
+              <Field>
+                <FieldLabel>Service</FieldLabel>
                 <Select value={serviceId} onValueChange={(v) => setServiceId(v ?? "")}>
-                  <SelectTrigger><SelectValue placeholder="(none)" /></SelectTrigger>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="(none)" />
+                  </SelectTrigger>
                   <SelectContent>
-                    {services.map((s) => <SelectItem key={s.id} value={s.id}>{s.name} — ${s.defaultPrice.toFixed(2)}</SelectItem>)}
+                    {services.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        <span className="flex-1">{s.name}</span>
+                        <span className="text-muted-foreground tabular-nums">${s.defaultPrice.toFixed(2)}</span>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div>
-                <Label>Price</Label>
-                <Input type="number" step="0.01" value={servicePrice} onChange={(e) => setServicePrice(Number(e.target.value))} />
-              </div>
-              <div className="col-span-2">
-                <Label>Description / notes</Label>
-                <Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
-              </div>
+                {!serviceId && <FieldDescription>Pick the base service — price comes from the catalog</FieldDescription>}
+              </Field>
+              <Field>
+                <div className="flex items-center justify-between gap-2">
+                  <FieldLabel>Description / notes</FieldLabel>
+                  <Button
+                    type="button" variant="ghost" size="sm"
+                    onClick={suggestDescription} disabled={suggesting}
+                    className="cadence-suggest-btn h-7 gap-1.5 text-xs"
+                  >
+                    {suggesting
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <Sparkles className="cadence-icon h-3.5 w-3.5" />}
+                    Suggest with Cadence
+                  </Button>
+                </div>
+                <Textarea
+                  rows={4}
+                  placeholder="What should the mechanic know? Describe the work, parts to check, customer requests…"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </Field>
+              </FieldGroup>
             </CardContent>
           </Card>
 
@@ -286,10 +459,26 @@ export default function TicketCreatePage() {
                   <TableBody>
                     {lines.map((l, i) => (
                       <TableRow key={l.productId}>
-                        <TableCell>{l.productName}</TableCell>
-                        <TableCell><Input type="number" min={1} value={l.quantity} onChange={(e) => updateLine(i, { quantity: Math.max(1, Number(e.target.value)) })} /></TableCell>
-                        <TableCell><Input type="number" step="0.01" value={l.unitPrice} onChange={(e) => updateLine(i, { unitPrice: Number(e.target.value) })} /></TableCell>
-                        <TableCell className="text-right tabular-nums">${(l.unitPrice * l.quantity).toFixed(2)}</TableCell>
+                        <TableCell className="font-medium">{l.productName}</TableCell>
+                        <TableCell>
+                          <Input
+                            type="number" min={1}
+                            className="h-8 w-20"
+                            value={l.quantity}
+                            onChange={(e) => updateLine(i, { quantity: Math.max(1, Number(e.target.value)) })}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <InputGroup className="h-8">
+                            <InputGroupAddon>$</InputGroupAddon>
+                            <InputGroupInput
+                              type="number" step="0.01" min={0}
+                              value={l.unitPrice}
+                              onChange={(e) => updateLine(i, { unitPrice: Number(e.target.value) })}
+                            />
+                          </InputGroup>
+                        </TableCell>
+                        <TableCell className="text-right font-medium tabular-nums">${(l.unitPrice * l.quantity).toFixed(2)}</TableCell>
                         <TableCell><Button variant="ghost" size="icon-sm" onClick={() => removeLine(i)}><Trash2 className="h-4 w-4" /></Button></TableCell>
                       </TableRow>
                     ))}
@@ -304,18 +493,32 @@ export default function TicketCreatePage() {
         </div>
 
         <div className="space-y-4">
-          <Card>
+          <Card className="sticky top-6">
             <CardHeader><CardTitle>Summary</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
               <Row label="Service"><span className="tabular-nums">${servicePrice.toFixed(2)}</span></Row>
               <Row label="Products"><span className="tabular-nums">${productsSubtotal.toFixed(2)}</span></Row>
               <Row label="Subtotal"><span className="tabular-nums">${subtotal.toFixed(2)}</span></Row>
-              <div className="flex items-center justify-between">
-                <Label className="text-muted-foreground">Discount %</Label>
-                <Input className="w-20 h-8" type="number" min={0} max={100} value={discountPercent} onChange={(e) => setDiscountPercent(Number(e.target.value))} />
+              <div className="flex items-center justify-between gap-3">
+                <Label className="text-muted-foreground m-0">Discount</Label>
+                <InputGroup className="h-8 w-24">
+                  <InputGroupInput
+                    type="number" min={0} max={100}
+                    value={discountPercent}
+                    onChange={(e) => setDiscountPercent(Number(e.target.value))}
+                  />
+                  <InputGroupAddon align="inline-end">%</InputGroupAddon>
+                </InputGroup>
               </div>
+              {discount > 0 && (
+                <Row label={<span className="text-muted-foreground">Discount applied</span>}>
+                  <span className="tabular-nums text-emerald-600">-${discount.toFixed(2)}</span>
+                </Row>
+              )}
               <Separator />
-              <Row label={<span className="font-semibold">Total</span>}><span className="font-semibold text-lg tabular-nums">${total.toFixed(2)}</span></Row>
+              <Row label={<span className="font-semibold">Total</span>}>
+                <span className="font-semibold text-lg tabular-nums">${total.toFixed(2)}</span>
+              </Row>
             </CardContent>
           </Card>
         </div>
@@ -327,3 +530,4 @@ export default function TicketCreatePage() {
 function Row({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return <div className="flex items-center justify-between"><span className="text-muted-foreground">{label}</span>{children}</div>
 }
+

@@ -14,8 +14,8 @@ import {
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet"
@@ -341,67 +341,72 @@ function OverviewEditor({
           {saving ? "Saving…" : ""}
         </span>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="grid gap-1.5">
-            <Label className="text-xs text-muted-foreground">Service</Label>
-            <Select value={serviceId} onValueChange={(v) => onServiceChange(v ?? "__none")}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="None" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none">None</SelectItem>
-                {services.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+      <CardContent className="space-y-6">
+        <FieldGroup>
+          <div className="grid grid-cols-2 gap-4">
+            <Field>
+              <FieldLabel>Service</FieldLabel>
+              <Select value={serviceId} onValueChange={(v) => onServiceChange(v ?? "__none")}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="None" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">None</SelectItem>
+                  {services.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field>
+              <FieldLabel>Mechanic</FieldLabel>
+              <Select
+                value={mechanicId}
+                onValueChange={(v) => savePatch({ mechanicId: (v ?? "__none") === "__none" ? null : (v as string) })}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">Unassigned</SelectItem>
+                  {mechanics.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="ticket-price">Service price</FieldLabel>
+              <Input
+                id="ticket-price"
+                type="number" step="0.01" min="0"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                onBlur={onPriceBlur}
+                className="tabular-nums"
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="ticket-discount">Discount %</FieldLabel>
+              <Input
+                id="ticket-discount"
+                type="number" step="1" min="0" max="100"
+                value={discount}
+                onChange={(e) => setDiscount(e.target.value)}
+                onBlur={onDiscountBlur}
+                className="tabular-nums"
+              />
+            </Field>
           </div>
-          <div className="grid gap-1.5">
-            <Label className="text-xs text-muted-foreground">Mechanic</Label>
-            <Select
-              value={mechanicId}
-              onValueChange={(v) => savePatch({ mechanicId: (v ?? "__none") === "__none" ? null : (v as string) })}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Unassigned" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none">Unassigned</SelectItem>
-                {mechanics.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-1.5">
-            <Label className="text-xs text-muted-foreground">Service price</Label>
-            <Input
-              type="number" step="0.01" min="0"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              onBlur={onPriceBlur}
-              className="tabular-nums"
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <Label className="text-xs text-muted-foreground">Discount %</Label>
-            <Input
-              type="number" step="1" min="0" max="100"
-              value={discount}
-              onChange={(e) => setDiscount(e.target.value)}
-              onBlur={onDiscountBlur}
-              className="tabular-nums"
-            />
-          </div>
-        </div>
 
-        <div className="grid gap-1.5">
-          <Label className="text-xs text-muted-foreground">Description</Label>
-          <Textarea
-            rows={3}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            onBlur={onDescriptionBlur}
-            placeholder="Notes, symptoms, requested work…"
-          />
-        </div>
+          <Field>
+            <FieldLabel htmlFor="ticket-description">Description</FieldLabel>
+            <Textarea
+              id="ticket-description"
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              onBlur={onDescriptionBlur}
+              placeholder="Notes, symptoms, requested work…"
+            />
+          </Field>
+        </FieldGroup>
 
         <Separator />
 
@@ -747,9 +752,9 @@ function PaymentCard({ ticket, onDone }: { ticket: TicketDetails; onDone: () => 
           </span>
         </div>
 
-        <div>
-          <Label className="text-xs">Method</Label>
-          <div className="grid grid-cols-4 gap-1.5 mt-1">
+        <Field>
+          <FieldLabel>Method</FieldLabel>
+          <div className="grid grid-cols-4 gap-1.5">
             {METHODS.map((m) => {
               const active = method === m.value
               return (
@@ -770,11 +775,11 @@ function PaymentCard({ ticket, onDone }: { ticket: TicketDetails; onDone: () => 
               )
             })}
           </div>
-        </div>
+        </Field>
 
         {mode === "charge" && method === "Card" && (
-          <div>
-            <Label className="text-xs">Terminal</Label>
+          <Field>
+            <FieldLabel>Terminal</FieldLabel>
             <Select value={terminalId} onValueChange={setTerminalId} disabled={cancelled || busy}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder={terminals.length ? "Select terminal" : "No terminals configured"} />
@@ -785,24 +790,25 @@ function PaymentCard({ ticket, onDone }: { ticket: TicketDetails; onDone: () => 
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </Field>
         )}
 
-        <div>
-          <Label className="text-xs">Amount</Label>
+        <Field>
+          <FieldLabel htmlFor="pay-amount">Amount</FieldLabel>
           <Input
+            id="pay-amount"
             type="number" step="0.01" min="0"
             value={amount}
             disabled={cancelled || busy}
             onChange={(e) => setAmount(e.target.value)}
             className="tabular-nums font-semibold"
           />
-        </div>
+        </Field>
 
-        <div>
-          <Label className="text-xs">Cashier (optional)</Label>
-          <Input value={cashier} disabled={cancelled || busy} onChange={(e) => setCashier(e.target.value)} placeholder="—" />
-        </div>
+        <Field>
+          <FieldLabel htmlFor="pay-cashier">Cashier (optional)</FieldLabel>
+          <Input id="pay-cashier" value={cashier} disabled={cancelled || busy} onChange={(e) => setCashier(e.target.value)} placeholder="—" />
+        </Field>
 
         <Button className="w-full" disabled={busy || cancelled || Number(amount) <= 0} onClick={submit}>
           {busy ? "Processing…" : mode === "charge"

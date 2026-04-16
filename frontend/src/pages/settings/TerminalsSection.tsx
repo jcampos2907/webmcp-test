@@ -19,9 +19,8 @@ import {
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from "@/components/ui/form"
+import { Form, FormField } from "@/components/ui/form"
+import { Field, FieldGroup, FieldLabel, FieldError } from "@/components/ui/field"
 import {
   terminalsApi, organizationApi,
   type AdminTerminal, type UpsertTerminal, type AdminStore,
@@ -157,99 +156,95 @@ export default function TerminalsSection() {
         <DialogContent>
           <DialogHeader><DialogTitle>{editingId ? "Edit terminal" : "New terminal"}</DialogTitle></DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl><Input placeholder="Front counter" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="storeId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Store</FormLabel>
-                    <Select value={field.value} onValueChange={(v) => field.onChange(v ?? "")}>
-                      <FormControl>
-                        <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {stores.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid grid-cols-3 gap-3">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FieldGroup>
                 <FormField
                   control={form.control}
-                  name="ipAddress"
-                  render={({ field }) => (
-                    <FormItem className="col-span-2">
-                      <FormLabel>IP address</FormLabel>
-                      <FormControl><Input placeholder="192.168.1.10" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
+                  name="name"
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid || undefined}>
+                      <FieldLabel htmlFor="terminal-name">Name</FieldLabel>
+                      <Input id="terminal-name" placeholder="Front counter" {...field} aria-invalid={fieldState.invalid} />
+                      <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                    </Field>
                   )}
                 />
                 <FormField
                   control={form.control}
-                  name="port"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Port</FormLabel>
-                      <FormControl>
+                  name="storeId"
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid || undefined}>
+                      <FieldLabel>Store</FieldLabel>
+                      <Select value={field.value} onValueChange={(v) => field.onChange(v ?? "")}>
+                        <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {stores.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                    </Field>
+                  )}
+                />
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="ipAddress"
+                    render={({ field, fieldState }) => (
+                      <Field className="col-span-2" data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel htmlFor="terminal-ipAddress">IP address</FieldLabel>
+                        <Input id="terminal-ipAddress" placeholder="192.168.1.10" {...field} aria-invalid={fieldState.invalid} />
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="port"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel htmlFor="terminal-port">Port</FieldLabel>
                         <Input
+                          id="terminal-port"
                           type="number"
                           value={field.value ?? 0}
                           onChange={(e) => field.onChange(e.target.value === "" ? 0 : Number(e.target.value))}
                           onBlur={field.onBlur}
                           name={field.name}
                           ref={field.ref}
+                          aria-invalid={fieldState.invalid}
                         />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="provider"
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid || undefined}>
+                      <FieldLabel>Provider</FieldLabel>
+                      <Select value={field.value} onValueChange={(v) => field.onChange(v ?? "Manual")}>
+                        <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {PROVIDERS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                    </Field>
                   )}
                 />
-              </div>
-              <FormField
-                control={form.control}
-                name="provider"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Provider</FormLabel>
-                    <Select value={field.value} onValueChange={(v) => field.onChange(v ?? "Manual")}>
-                      <FormControl>
-                        <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {PROVIDERS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="isActive"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                    <FormControl>
-                      <Checkbox checked={field.value} onCheckedChange={(c) => field.onChange(Boolean(c))} />
-                    </FormControl>
-                    <FormLabel className="mb-0">Active</FormLabel>
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <Field orientation="horizontal">
+                      <Checkbox id="terminal-isActive" checked={field.value} onCheckedChange={(c) => field.onChange(Boolean(c))} />
+                      <FieldLabel htmlFor="terminal-isActive" className="font-normal">Active</FieldLabel>
+                    </Field>
+                  )}
+                />
+              </FieldGroup>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => { setOpen(false); setEditingId(null) }}>Cancel</Button>
                 <Button type="submit" disabled={form.formState.isSubmitting}>Save</Button>

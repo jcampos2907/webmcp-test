@@ -8,14 +8,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
+  Field, FieldGroup, FieldLabel, FieldError,
+} from "@/components/ui/field"
+import { Form, FormField } from "@/components/ui/form"
 import { PageHeader } from "@/components/PageHeader"
 import { servicesApi, type ServiceInput } from "@/lib/api"
 
@@ -95,76 +92,79 @@ export default function ServiceFormPage() {
       <Card>
         <CardContent className="pt-6">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name *</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea {...field} value={field.value ?? ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FieldGroup>
                 <FormField
                   control={form.control}
-                  name="defaultPrice"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Default price *</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={field.value ?? 0}
-                          onChange={(e) => field.onChange(e.target.value === "" ? 0 : Number(e.target.value))}
-                          onBlur={field.onBlur}
-                          name={field.name}
-                          ref={field.ref}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                  name="name"
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid || undefined}>
+                      <FieldLabel htmlFor="name">Name <span className="text-destructive">*</span></FieldLabel>
+                      <Input id="name" {...field} aria-invalid={fieldState.invalid} />
+                      <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                    </Field>
                   )}
                 />
                 <FormField
                   control={form.control}
-                  name="estimatedMinutes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Estimated minutes</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          value={field.value ?? ""}
-                          onChange={(e) => field.onChange(e.target.value === "" ? null : Number(e.target.value))}
-                          onBlur={field.onBlur}
-                          name={field.name}
-                          ref={field.ref}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                  name="description"
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid || undefined}>
+                      <FieldLabel htmlFor="description">Description</FieldLabel>
+                      <Textarea id="description" {...field} value={field.value ?? ""} />
+                      <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                    </Field>
                   )}
                 />
-              </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="defaultPrice"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel htmlFor="defaultPrice">Default price <span className="text-destructive">*</span></FieldLabel>
+                        <InputGroup>
+                          <InputGroupAddon>$</InputGroupAddon>
+                          <InputGroupInput
+                            id="defaultPrice"
+                            type="number"
+                            step="0.01"
+                            value={field.value ?? 0}
+                            onChange={(e) => field.onChange(e.target.value === "" ? 0 : Number(e.target.value))}
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            ref={field.ref}
+                            aria-invalid={fieldState.invalid}
+                          />
+                        </InputGroup>
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="estimatedMinutes"
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid || undefined}>
+                        <FieldLabel htmlFor="estimatedMinutes">Estimated minutes</FieldLabel>
+                        <InputGroup>
+                          <InputGroupInput
+                            id="estimatedMinutes"
+                            type="number"
+                            value={field.value ?? ""}
+                            onChange={(e) => field.onChange(e.target.value === "" ? null : Number(e.target.value))}
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            ref={field.ref}
+                          />
+                          <InputGroupAddon align="inline-end">min</InputGroupAddon>
+                        </InputGroup>
+                        <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
+                      </Field>
+                    )}
+                  />
+                </div>
+              </FieldGroup>
               <div className="flex justify-between pt-2">
                 <div>
                   {isEdit && (
